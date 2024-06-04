@@ -20,7 +20,7 @@ NEUPRINT_CONNECTIONS_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neuron_Conn
 # --- Where to save the processed data sets --- #
 
 # --- Where to save the figures --- #
-PLOT_DIR = os.path.join(Path(__file__).absolute().parent.parent, "plots")
+PLOT_DIR = os.path.join(Path(__file__).absolute().parent.parent, "plots","tmp")
 
 # --- Parameters for the analysis --- #
 NT_WEIGHTS = {"acetylcholine": +1, "gaba": -1, "glutamate": -1, "unknown": 0, None: 0}
@@ -29,5 +29,21 @@ NT_WEIGHTS = {"acetylcholine": +1, "gaba": -1, "glutamate": -1, "unknown": 0, No
 SYNAPSE_CUTOFF = 5 # number of synapses to consider a connection
 
 # --- Parameters for the visualization --- #
+DARKBLUE = '#0173b2' # colors from the colorblind friendly palette sns
+LIGHTBLUE = '#56b4e9'
+GREEN = '#029e73'
+LIGHTORANGE = '#de8f05'
+DARKORANGE = '#d55e00'
 
+LIGHTGREY = "#c3c3c3"
+DARKGREY = '#949494'
+
+GLUT_COLOR = "#C20C6D"
+INHIB_COLOR = "#0f0b87"
+EXCIT_COLOR = "#9c0d0b"
+
+blue_colorscale = 'crest' # Perceptually uniform palettes, can be used in the categorical setting
+red_colorscale = 'flare'
+blue_heatmap = 'mako_r'
+red_heatmap = 'rocket_r'
 

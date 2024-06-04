@@ -9,20 +9,40 @@ from connections import Connections
 neurons_pre = get_neurons_from_class('sensory neuron')
 neurons_post = get_neurons_from_class('motor neuron')
 connections = Connections(neurons_pre, neurons_post)
-# connections.set_nt_weights({'ACH': +1, 'GABA': -1, 'GLUT': -1, 'SER': 0, 'DA': 0, 'OCT': 0})
+# connections.set_nt_weights({"acetylcholine": +1, "gaba": -1, "glutamate": -1, "unknown": 0, None: 0})
 connections.initialize()
 ``` 
 '''
 import pandas as pd
 import numpy as np
 import networkx as nx
+import matplotlib.pyplot as plt
+import os
+import seaborn as sns
+
 
 import params
 from get_nodes_data import load_data_neuron_set
+import utils.nx_design as nx_design
+
+## ---- Constants ---- ##
+FIGSIZE = (8, 8)
+DPI = 300
+
+## ---- Classes ---- ##
 
 class Connections:
-    def __init__(self, neurons_pre: list[int], neurons_post: list[int] = None):
-        self.neurons_pre = neurons_pre
+    def __init__(self, neurons_pre: list[int] = None, neurons_post: list[int] = None):
+        '''
+        Initialize the connections class with the pre- and post-synaptic neurons.
+        If no neurons_post are given, the class assumes the same neurons as pre-synaptic.
+        If no neurons_pre are given, the class considers all connections defined in the database.
+        '''
+        if neurons_pre is None:
+            neurons_ = pd.read_feather(params.NEUPRINT_NODES_FILE)
+            self.neurons_pre = neurons_[':ID(Body-ID)'].values()
+        else:
+            self.neurons_pre = neurons_pre
         self.neurons_post = neurons_post if neurons_post is not None else neurons_pre
         self.nt_weights = params.NT_WEIGHTS
 
@@ -90,7 +110,17 @@ class Connections:
                     ],
                     create_using=nx.DiGraph,
                 )
-        # TODO: add node and edge attributes as convenient (e.g. name, location etc.)
+        # add node attributes
+        node_names = load_data_neuron_set(
+            ids = list(graph_.nodes),
+            attributes = ["systematicType:string"],
+            )
+        names = {node_id: name 
+                for node_id, name in zip(node_names[":ID(Body-ID)"],
+                                        node_names["systematicType:string"]
+                                        )
+                }
+        nx.set_node_attributes(graph_, names, "node_label")
         return graph_
 
     def __build_adjacency_matrices(self, nodelist: list[int] = None):
@@ -125,9 +155,23 @@ class Connections:
             "mat_syncount": mat_syn_count,
             "lookup": lookup,
         }
-       
-        
-
+    
+    def __get_node_attributes(self, attribute: str):
+        '''
+        Get the node attributes for the graph. If the attribute is not present,
+        identify it in the nodes dataframe and add it to the graph.
+        '''
+        if attribute not in self.graph.nodes:
+            attr = load_data_neuron_set(
+                ids = self.graph.nodes,
+                attributes = [attribute],
+                )
+            attr_list = {node_id: value
+                        for node_id, value
+                        in zip(attr[":ID(Body-ID)"], attr[attribute])}
+            nx.set_node_attributes(self.graph, attr_list, attribute)
+        return nx.get_node_attributes(self.graph, attribute)
+    
 
     # public methods
     # --- getters
@@ -146,10 +190,13 @@ class Connections:
             case "syn_count":
                 return self.adjacency["mat_syncount"]
             case _:
-                raise ValueError(f"Class Connections::: > get_adjacency_matrix(): Unknown type {type_}")
+                raise ValueError(
+                    f"Class Connections::: > get_adjacency_matrix(): Unknown type {type_}"
+                    )
 
     def get_graph(self):
         return self.graph
+    
     
     # --- setters
     def reorder_neurons(self, by: str = "list", order: list[int] = None):
@@ -160,28 +207,95 @@ class Connections:
             case "list":
                 self.adjacency = self.__build_adjacency_matrices(nodelist=order)
             case _:
-                raise ValueError(f"Class Connections::: > reorder_neurons(): Unknown method {by}")
+                raise ValueError(
+                    f"Class Connections::: > reorder_neurons(): Unknown method {by}"
+                    )
         return
+
 
     # --- display
     def display_adjacency_matrix(self, type_: str = "syn_count", method:str = "spy", title:str = "test"):
         '''
         Display the adjacency matrix.
         '''
-        import matplotlib.pyplot as plt
-        import os
-        
-        plt.figure(figsize=(8, 8))
+        plt.figure(figsize=FIGSIZE, dpi=DPI)
         match method:
             case "spy":
                 plt.spy(self.get_adjacency_matrix(type_), markersize=0.1)
             case "heatmap":
-                import seaborn as sns
                 mat = self.get_adjacency_matrix(type_)
-                sns.heatmap(mat.toarray(), cmap="flare")
+                sns.heatmap(
+                    mat.toarray(),
+                    cmap=params.red_heatmap,
+                    mask=(mat.toarray() == 0),
+                    #xticklabels=False,
+                    #yticklabels=False,
+                )
             case _:
-                raise ValueError(f"Class Connections::: > display_adjacency_matrix(): Unknown method {method}")
+                raise ValueError(
+                    f"Class Connections::: > display_adjacency_matrix(): Unknown method {method}"
+                    )
 
-        plt.savefig(os.path.join(params.PLOT_DIR, title + ".pdf"))
+        plt.savefig(os.path.join(params.PLOT_DIR, title + "_matrix.png"))
+        return
     
+    def display_graph(self, method: str = "circular", title:str = "test"):
+        '''
+        Display the graph.
+        '''
+        _, ax = plt.subplots(figsize=FIGSIZE, dpi=DPI)
+        match method:
+            case "circular":
+                pos = nx.circular_layout(self.graph)
+            case "spring":
+                pos = nx.spring_layout(self.graph)
+            case _:
+                raise ValueError(
+                    f"Class Connections > display_graph(): Unknown method {method}"
+                    )
+        ax = nx_design.draw_graph(
+            self.graph, pos, ax=ax, return_pos=False
+        )
+        plt.savefig(os.path.join(params.PLOT_DIR, title + "_graph.png"))
+        return 
+    
+    def display_graph_per_attribute(
+            self,
+            attribute = 'exitNerve:string',
+            center = None ,
+            title:str = "test",
+            ):
+        '''
+        Display the graph per node attribute grouping (default neuropil). 
+        Neurons are aggregated by attribute in a circle layout.
+        The centers of the attribute circles form a larger circle in turn.
+        One specific neuron or attribute can be placed at the center.
+
+        Parameters
+        ----------
+        attribute: str
+            Node attribute to group by.
+        center: int or str
+            Node ID to place at the center.
+            or attribute to place at the center.
+        title: str
+            Title of the plot.
+
+        Returns
+        -------
+        None
+        '''
+        # ensures the attribute is present in the graph
+        _ = self.__get_node_attributes(attribute) 
+        #  use the nx library to plot the graph grouped by the attribute
+        ax = nx_design.draw_graph_grouped_by_attribute(
+            self.graph,
+            attribute,
+            center_instance=center,
+            )
+        plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.png"))
+
+
+
+
 

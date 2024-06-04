@@ -38,12 +38,23 @@ from connections import Connections
 #MDN_info = load_data_neuron(MDNs[0])
 #print(MDN_info)
 
-
-#neurons_pre = get_neurons_from_class('descending neuron')
-neurons_pre = get_neuron_ids({'type:string': 'MDN'})
+'''
+neurons_pre = get_neurons_from_class('descending neuron')
+#neurons_pre = get_neuron_ids({'type:string': 'MDN'})
 neurons_post = get_neurons_from_class('motor neuron')
 #neurons = list(set(neurons_pre).union(set(neurons_post)))
 connections = Connections(neurons_pre, neurons_post)
 connections.initialize()
 #connections.reorder_neurons(by = 'list', order = ordered_neurons)
-connections.display_adjacency_matrix(title = 'MDNs_to_MNs', method = "heatmap")
+#connections.display_adjacency_matrix(title = 'DNs_to_MNs', method = "heatmap")
+#connections.display_graph(title = 'DNs_to_MNs')
+#connections.display_graph_per_attribute(
+#    attribute = 'exitNerve:string',
+#    center = 'None',
+#    title = 'DNs_to_MNs_per_neuropil',
+#    )
+'''
+
+connections = Connections() # entire dataset
+connections.initialize()
+_ = connections.compute_n_hops(2)
