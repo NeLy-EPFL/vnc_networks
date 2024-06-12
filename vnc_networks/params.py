@@ -37,6 +37,7 @@ DARKORANGE = '#d55e00'
 
 LIGHTGREY = "#c3c3c3"
 DARKGREY = '#949494'
+WHITE = "#FFFFFF"
 
 GLUT_COLOR = "#C20C6D"
 INHIB_COLOR = "#0f0b87"
@@ -46,4 +47,36 @@ blue_colorscale = 'crest' # Perceptually uniform palettes, can be used in the ca
 red_colorscale = 'flare'
 blue_heatmap = 'mako_r'
 red_heatmap = 'rocket_r'
+
+# Figures
+MAX_EDGE_WIDTH = 5
+FIGSIZE = (8, 8)
+DPI = 300
+NODE_SIZE = 100
+FONT_SIZE = 5
+FONT_COLOR = "black"
+
+# --- Parameters for the network representation --- #
+NT_TYPES = { 
+    "gaba": {"color": INHIB_COLOR, "linestyle": "-"},  # ":"
+    "acetylcholine": {"color": EXCIT_COLOR, "linestyle": "-"},  # "--"
+    "glutamate": {"color": GLUT_COLOR, "linestyle": "-"},
+    "unknown": {"color": LIGHTGREY, "linestyle": "-"},
+    None: {"color": LIGHTGREY, "linestyle": "-"},
+}
+NEURON_CLASSES = {
+    'sensory neuron': {"color": LIGHTORANGE},
+    'sensory ascending': {"color": LIGHTORANGE},
+    'ascending neuron': {"color": DARKORANGE},
+    'Sensory TBD': {"color": LIGHTORANGE},
+    'motor neuron': {"color":LIGHTBLUE},
+    'descending neuron': {"color":DARKBLUE},
+    'efferent neuron': {"color": DARKGREY},
+    'efferent ascending': {"color": DARKGREY},
+    'intrinsic neuron': {"color": GREEN},
+    'Interneuron TBD': {"color": DARKGREY},
+    'Glia': {"color": LIGHTGREY},
+    'TBD': {"color": LIGHTGREY},
+}
+
 
