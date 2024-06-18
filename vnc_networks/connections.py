@@ -22,7 +22,7 @@ import seaborn as sns
 
 
 import params
-from get_nodes_data import load_data_neuron_set
+import get_nodes_data
 import utils.nx_design as nx_design
 import utils.matrix_utils as matrix_utils
 import utils.nx_utils as nx_utils
@@ -80,7 +80,9 @@ class Connections:
         # add relevant information for the processing steps
 
         ## add the neurotransmitter type to the connections
-        nttypes = load_data_neuron_set(self.neurons_pre,["predictedNt:string"])
+        nttypes = get_nodes_data.load_data_neuron_set(
+            self.neurons_pre,["predictedNt:string"]
+            )
         connections_ = pd.merge(
             connections_,
             nttypes,
@@ -130,7 +132,7 @@ class Connections:
             }
         )
         # add node attributes
-        node_names = load_data_neuron_set(
+        node_names = get_nodes_data.load_data_neuron_set(
             ids = list(graph_.nodes),
             attributes = ["systematicType:string","class:string"],
             )
@@ -188,7 +190,7 @@ class Connections:
         identify it in the nodes dataframe and add it to the graph.
         '''
         if attribute not in self.graph.nodes:
-            attr = load_data_neuron_set(
+            attr = get_nodes_data.load_data_neuron_set(
                 ids = self.graph.nodes,
                 attributes = [attribute],
                 )
@@ -205,7 +207,7 @@ class Connections:
 
     # public methods
     # --- copy
-    def subgraph(self, nodes: list[int] = None):
+    def subgraph(self, nodes: list[int] = None, edges: list[tuple[int]] = None):
         '''
         Copy operator of the Connections class that returns a new object
         generated from the subgraph of the current object. 
@@ -216,6 +218,11 @@ class Connections:
         nodes: list[int]
             List of nodes to consider in the subgraph.
             If None, the entire graph is considered.
+        edges: list[tuple[int]]
+            List of edges to consider in the subgraph.
+            If None, all existing connections between the nodes are considered.
+            nb: if both nodes and edges exist, the intersection of the two is
+            considered.
 
         Returns
         -------
@@ -232,14 +239,28 @@ class Connections:
             connections_[":START_ID(Body-ID)"].isin(nodes)
             & connections_[":END_ID(Body-ID)"].isin(nodes)
             ]
+        if not edges is None:
+            rows_to_drop = []
+            for index, row in connections_.iterrows():
+                if (row[":START_ID(Body-ID)"],
+                    row[":END_ID(Body-ID)"]) not in edges:
+                    rows_to_drop.append(index)
+            connections_ = connections_.drop(rows_to_drop)
         subgraph_.set_connections(connections_)
         # Initialize the graph
-        subgraph_.set_graph(self.get_nx_graph(hops=1, nodes=nodes))
+        subgraph_.set_graph()
         # Initialize the adjacency matrices
         subgraph_.set_adjacency_matrices()
         return subgraph_
 
     # --- getters
+    def get_neuron_ids(self, selection_dict: dict = None) -> list[int]:
+        '''
+        Get the neuron IDs from the nodes dataframe based on a selection dictionary.
+        '''
+        nodes = self.get_nodes()
+        return get_nodes_data.get_neuron_ids(selection_dict, nodes)
+
     def get_neurons_pre(self):
         return self.neurons_pre
     
@@ -301,7 +322,45 @@ class Connections:
         graph_ = nx_utils.get_subgraph(graph_,nodes)
         return graph_
     
+    def get_nodes(self):
+        return self.get_graph().nodes()
+    
     # --- setters
+    def merge_nodes(self, nodes: list[int]):
+        '''
+        Merge a list of nodes into a single node.
+        The first node in the list is kept as reference.
+        '''
+        ref_node = nodes[0]
+        nodes = np.delete(nodes,0)
+        for other_node in nodes:
+            # merge the nodes in the graph
+            self.graph = nx.contracted_nodes(
+                self.graph,
+                ref_node,
+                other_node,
+                )
+            # merge the nodes in the connections dataframe
+            self.connections = self.connections.replace(
+                to_replace = other_node,
+                value = ref_node,
+                )
+        # clear the connections table from duplicates: 
+        # if a connection is present in both nodes, the weight is summed
+        self.connections = self.connections.groupby(
+            [":START_ID(Body-ID)",":END_ID(Body-ID)","predictedNt:string"]
+            ).agg(
+                syn_count = ("syn_count","sum"),
+                eff_weight = ("eff_weight","sum"),
+                syn_count_norm = ("syn_count_norm","sum"),
+                eff_weight_norm = ("eff_weight_norm","sum"),
+                ).reset_index()
+        
+        # update the adjacency matrices
+        self.adjacency = self.__build_adjacency_matrices()
+
+        return
+
     def reorder_neurons(
             self,
             by: str = "list",
@@ -345,7 +404,9 @@ class Connections:
         self.connections = connections
         return
     
-    def set_graph(self, graph: nx.DiGraph):
+    def set_graph(self, graph: nx.DiGraph = None):
+        if graph is None:
+            graph = self.__build_graph()
         self.graph = graph
         return
     
@@ -411,17 +472,16 @@ class Connections:
             source = [source]
         if isinstance(target, int):
             target = [target]
-        nodes_ = list(source)
+        edges_ = []
         for s in source:
-            subgraph_ = nx.all_simple_paths(
+            subedges_ = nx.all_simple_edge_paths(
                 self.graph,
                 source=s,
                 target=target,
                 cutoff=n
                 )
-            nodes_.extend([node for path in subgraph_ for node in path])       
-        nodes_ = list(set(nodes_))
-        return nx_utils.get_subgraph(self.graph, nodes_)
+            _ = [edges_.extend(path) for path in subedges_]
+        return nx_utils.get_subgraph_from_edges(self.graph, edges_)
         
     def cluster_hierarchical(self, reference: str = "syn_count"):
         '''
@@ -476,7 +536,7 @@ class Connections:
                     f"Class Connections::: > display_adjacency_matrix(): Unknown method {method}"
                     )
 
-        plt.savefig(os.path.join(params.PLOT_DIR, title + "_matrix.png"))
+        plt.savefig(os.path.join(params.PLOT_DIR, title + "_matrix.pdf"))
         return
     
     def display_graph(self, method: str = "circular", title:str = "test"):
@@ -496,7 +556,7 @@ class Connections:
         ax = nx_design.draw_graph(
             self.graph, pos, ax=ax, return_pos=False
         )
-        plt.savefig(os.path.join(params.PLOT_DIR, title + "_graph.png"))
+        plt.savefig(os.path.join(params.PLOT_DIR, title + "_graph.pdf"))
         return 
     
     def display_graph_per_attribute(
@@ -551,7 +611,7 @@ class Connections:
                     center_nodes=center,
                     )
         
-        plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.png"))
+        plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.pdf"))
 
     def plot_xyz(
             self,
@@ -608,7 +668,7 @@ class Connections:
             # draw the plot
             _ = nx_design.plot_xyz(graph_,x,y,sorting=sorting)
         # save the plot
-        plt.savefig(os.path.join(params.PLOT_DIR, title + "3d_plot.png"))
+        plt.savefig(os.path.join(params.PLOT_DIR, title + "3d_plot.pdf"))
         return
 
     def draw_3d_custom_axis(
@@ -616,8 +676,8 @@ class Connections:
         x: list[int],
         y: list[int],
         x_sorting: str = 'degree',
-        y_sorting: str = 'exitNerve:string',
-        z_sorting: str = 'output_clustering',
+        y_sorting: str = 'exitNerve:string', 
+        z_sorting: str = 'input_clustering',
         title: str = "test",
         ):
         '''
@@ -642,5 +702,5 @@ class Connections:
             y,
             sorting=[x_sorting, y_sorting, z_sorting],
             )
-        plt.savefig(os.path.join(params.PLOT_DIR, title + "3dx_plot.png"))
+        plt.savefig(os.path.join(params.PLOT_DIR, title + "3dx_plot.pdf"))
 

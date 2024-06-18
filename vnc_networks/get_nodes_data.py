@@ -5,7 +5,10 @@ This module provides functions to get the data of the neurons from the dataset.
 import pandas as pd
 import params
 
-def get_neuron_ids(selection_dict:dict=None) -> list[int]:
+def get_neuron_ids(
+        selection_dict:dict=None,
+        nodes:list = None
+    ) -> list[int]:
     """
     Get the Ids of the neurons in the dataset.
     Select (keep) according to the selection_dict.
@@ -15,6 +18,8 @@ def get_neuron_ids(selection_dict:dict=None) -> list[int]:
     if selection_dict is not None:
         for key in selection_dict:
             neurons = neurons[neurons[key] == selection_dict[key]]
+    if nodes is not None:
+        neurons = neurons[neurons['bodyId:long'].isin(nodes)]
     return neurons['bodyId:long'].values
 
 def get_neurons_from_class(class_:str) -> list[int]:

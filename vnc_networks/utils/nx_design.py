@@ -592,9 +592,10 @@ def plot_xyz(
         # sort the nodes
         axis = [x,y,z]
         # sort the nodes
-        for index, sort_ in enumerate(sorting):
+        for index in [0,2,1]: # sort x, then z, then y
+            sort_ = sorting[index]
             if sort_ == 'input_clustering':
-                refs = [y,x,z]
+                refs = [axis[1],axis[2],axis[0]] # will be modified, different from [x,y,z]
                 axis[index] = nx_utils.sort_nodes(
                     graph,
                     axis[index],
@@ -602,7 +603,7 @@ def plot_xyz(
                     ref = refs[index]
                     )
             elif sort_ == 'output_clustering':
-                refs = [z,x,y]
+                refs = [axis[2],axis[0],axis[1]]
                 axis[index] = nx_utils.sort_nodes(
                     graph,
                     axis[index],

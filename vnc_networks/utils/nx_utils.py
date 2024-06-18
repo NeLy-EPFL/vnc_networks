@@ -34,6 +34,13 @@ def get_subgraph(graph: nx.DiGraph, nodes: list):
     graph_ = graph.copy()
     return graph_.subgraph(nodes)
 
+def get_subgraph_from_edges(graph: nx.DiGraph, edges: list):
+    """
+    Get the subgraph of the graph containing only the nodes in the list.
+    """
+    graph_ = graph.edge_subgraph(edges).copy()
+    return graph_
+
 def sort_nodes(
         graph: nx.DiGraph,
         nodes: list, 
@@ -52,7 +59,10 @@ def sort_nodes(
         case 'alphabetical':
             nodes = sorted(nodes)
         case 'degree':
-            nodes = sorted(nodes, key=lambda nodes: graph.degree()[nodes])
+            nodes = sorted(
+                nodes, key=lambda nodes: graph.degree()[nodes]
+                )
+            nodes = nodes[::-1]
         case 'betweenness':
             nodes = sorted(
                 nodes,
