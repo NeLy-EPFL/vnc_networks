@@ -2,6 +2,7 @@
 Initializes the connections class.
 Possible use cases are processing the adjacency matrix from a set of neurons,
 or displaying the connections between neurons in a graph.
+Useful class when juggeling between different representations of the connectome.
 
 Use the following code to initialize the class:
 ```
@@ -26,6 +27,7 @@ import get_nodes_data
 import utils.nx_design as nx_design
 import utils.matrix_utils as matrix_utils
 import utils.nx_utils as nx_utils
+import cmatrix
 
 ## ---- Constants ---- ##
 FIGSIZE = (8, 8)
@@ -56,13 +58,6 @@ class Connections:
           
 
     # private methods
-    def initialize(self):
-        self.connections = self.__get_connections()
-        self.graph = self.__build_graph()
-        self.adjacency = self.__build_adjacency_matrices()
-        print("Connections initialized.")
-        return
-
     def __get_connections(self):
         connections_ = pd.read_feather(params.NEUPRINT_CONNECTIONS_FILE)
         # filter out only the connections relevant here
@@ -206,6 +201,14 @@ class Connections:
     
 
     # public methods
+    # --- initialize
+    def initialize(self):
+        self.connections = self.__get_connections()
+        self.graph = self.__build_graph()
+        self.adjacency = self.__build_adjacency_matrices()
+        print("Connections initialized.")
+        return
+    
     # --- copy
     def subgraph(self, nodes: list[int] = None, edges: list[tuple[int]] = None):
         '''
@@ -276,18 +279,39 @@ class Connections:
     def get_nt_weights(self):
         return self.nt_weights
     
-    def get_adjacency_matrix(self, type_: str = "syn_count"):
+    def get_adjacency_matrix(
+            self,
+            type_: str = "syn_count",
+            hops: int = 1,
+            intermediates: bool = True
+        ):
         match type_:
             case "norm":
-                return self.adjacency["mat_norm"]
+                mat_ = self.adjacency["mat_norm"]
             case "unnorm":
-                return self.adjacency["mat_unnorm"]
+                mat_ = self.adjacency["mat_unnorm"]
             case "syn_count":
-                return self.adjacency["mat_syncount"]
+                mat_ = self.adjacency["mat_syncount"]
             case _:
                 raise ValueError(
                     f"Class Connections::: > get_adjacency_matrix(): Unknown type {type_}"
                     )
+        if intermediates:
+            return matrix_utils.connections_up_to_n_hops(mat_, hops)
+        return matrix_utils.connections_at_n_hops(mat_, hops)
+
+    def get_cmatrix(self, type: str = 'norm'): # cmatrix object
+        '''
+        Returns the cmatrix object of the connections.
+        By default, the normalized adjacency matrix is used.
+        '''
+        return cmatrix.Cmatrix(
+            self.get_adjacency_matrix(type_=type),
+            self.get_lookup()
+            ) 
+
+    def get_lookup(self):
+        return self.adjacency['lookup']
 
     def get_nx_graph(
             self,

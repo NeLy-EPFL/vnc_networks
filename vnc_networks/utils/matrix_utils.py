@@ -18,10 +18,27 @@ def connections_up_to_n_hops(matrix, n):
     connectivity
     """
     return_mat = matrix
-    for i in range(2, n + 1):
+    for _ in range(n - 1):
         return_mat += return_mat @ matrix
     return return_mat
 
+def connections_at_n_hops(matrix, n):
+    """
+    input: (sparse) matrix
+
+    computes: recursively computes all the connections possible in less than
+    n hops.
+
+    output: (sparse) matrix
+    From an input (sparse) matrix compute the matrix representing the
+    connectivity
+    """
+    if n == 1:
+        return matrix
+    elif n%2 == 0:
+        return connections_at_n_hops(matrix @ matrix, n // 2)
+    else:
+        return matrix @ connections_at_n_hops(matrix @ matrix, n // 2)
 
 def generate_random(matrix):
     """
@@ -36,7 +53,6 @@ def generate_random(matrix):
     arr = arr.reshape((n, m))
     return sc.sparse.csr_matrix(arr)
 
-
 def density(matrix):
     """
     input: sparse matrix
@@ -47,7 +63,6 @@ def density(matrix):
     den = mat.nnz / np.prod(mat.shape)
     return den
 
-
 def select_subset_matrix(matrix, sub_indices):
     """
     Extract a submatrix from a sparse matrix given by specific indices
@@ -55,7 +70,6 @@ def select_subset_matrix(matrix, sub_indices):
     mat_tmp = matrix[sub_indices, :]
     mat = mat_tmp[:, sub_indices]
     return mat
-
 
 def connection_degree_n_hops(matrix, n, dn_indices=[]):
     """
@@ -76,7 +90,6 @@ def connection_degree_n_hops(matrix, n, dn_indices=[]):
             dn_mat = select_subset_matrix(mat, dn_indices)
             degree.append(density(dn_mat))
     return degree
-
 
 def cluster_matrix_hierarchical(matrix):
     """
@@ -99,3 +112,45 @@ def cluster_matrix_hierarchical(matrix):
     clustered = matrix[order, :]
     clustered = clustered[:, order]
     return clustered, order
+
+def convert_index_to_bodyid(index, lookup):
+    """
+    input: index, lookup
+    output: bodyid
+
+    if index is an integer, return the bodyid as an integer
+    """
+    if isinstance(index, int):
+        return_as_int = True
+        index = [index]
+    else:
+        return_as_int = False
+    bodyids = [
+        lookup.loc[lookup["index"] == id].body_id.values[0]
+        for id in index
+        ]
+    if return_as_int:
+        return bodyids[0]
+    return bodyids
+
+def convert_bodyid_to_index(bodyid, lookup):
+    """
+    input: bodyid, lookup
+    output: index
+    """
+    if isinstance(bodyid, int):
+        return_as_int = True
+        bodyid = [bodyid]
+    else:
+        return_as_int = False
+    indices = [
+        lookup.loc[lookup["body_id"] == id].index.values[0]
+        for id in bodyid
+        ]
+    if return_as_int:
+        return indices[0]
+    return indices
+
+
+
+    
