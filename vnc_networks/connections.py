@@ -305,7 +305,7 @@ class Connections:
         Returns the cmatrix object of the connections.
         By default, the normalized adjacency matrix is used.
         '''
-        return cmatrix.Cmatrix(
+        return cmatrix.CMatrix(
             self.get_adjacency_matrix(type_=type),
             self.get_lookup()
             ) 

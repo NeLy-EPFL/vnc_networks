@@ -133,20 +133,36 @@ def convert_index_to_bodyid(index, lookup):
         return bodyids[0]
     return bodyids
 
-def convert_bodyid_to_index(bodyid, lookup):
+def convert_bodyid_to_index(bodyid, lookup, allow_empty=True):
     """
     input: bodyid, lookup
     output: index
+
+    if bodyid is an integer, return the index as an integer.
+    if allow_empty is False, raise an error if the bodyid is not found.
     """
+    # format inputs
+    if bodyid is None or bodyid == []:
+        raise ValueError("bodyid is None or empty.")
     if isinstance(bodyid, int):
         return_as_int = True
         bodyid = [bodyid]
     else:
         return_as_int = False
-    indices = [
-        lookup.loc[lookup["body_id"] == id].index.values[0]
-        for id in bodyid
-        ]
+    # find indices
+    empty_matches = []
+    indices = []
+    for id in bodyid:
+        if not lookup["body_id"].isin([id]).any():
+            empty_matches.append(id)
+        else:
+            indices.append(lookup.loc[lookup["body_id"] == id].index.values[0])
+    # return results
+    if not allow_empty and len(empty_matches) > 0:
+        raise ValueError(f"bodyid(s) not found: {empty_matches}")
+    else:
+        if len(empty_matches) > 0:
+            print(f"Warning: {len(empty_matches)} bodyid(s) not found.")
     if return_as_int:
         return indices[0]
     return indices
