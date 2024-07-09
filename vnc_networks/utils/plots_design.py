@@ -54,7 +54,15 @@ def set_ticks(ax, n_ticks:int = 5):
     ax.set_yticks(yticks)
     return ax
 
-def scatter_xyz_2d(X,Y,Z, ax, cmap=params.red_heatmap, marker='o'):
+def scatter_xyz_2d(
+        X,
+        Y,
+        Z,
+        ax,
+        cmap=params.red_heatmap,
+        marker='o',
+        z_label='Z',
+        ):
     """
     Scatter plot in 2D with Z as the color.
     """
@@ -65,7 +73,7 @@ def scatter_xyz_2d(X,Y,Z, ax, cmap=params.red_heatmap, marker='o'):
         ax.collections[0],
         ax=ax,
         orientation='vertical',
-        label='Z',
+        label=z_label,
         )
     cbar = make_nice_cbar(cbar)
     ax = make_nice_spines(ax)

@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pickle
 import os
+import numpy as np
+from sklearn.cluster import KMeans
+
 
 import params
 from  get_nodes_data import load_data_neuron
@@ -124,15 +127,45 @@ class Neuron:
         del data
         return
         
+    def __explicit_synapse_positions(self):
+        """
+        convert the synapse locations deifned in thte text version of a dict
+        to explicit position columns in the synapse df.
+        """
+        if 'X' in self.synapse_df.columns: # already done
+            return
+        
+        locations = self.synapse_df['location:point{srid:9157}'].values
+        X, Y, Z = [], [], []
+        x,y,z = 0,1,2  # needed for dict parsing as the positions are samed as text
+        for loc in locations:
+            pos = eval(loc)  # read loc as a dict, use of x,y,z under the hood
+            if not isinstance(pos, dict):
+                pos = {0: np.nan, 1: np.nan, 2: np.nan}
+            X.append(pos[0])
+            Y.append(pos[1])
+            Z.append(pos[2])
+        self.synapse_df['X'] = X
+        self.synapse_df['Y'] = Y
+        self.synapse_df['Z'] = Z
+        return
 
     # public methods
     # --- getters 
     def get_data(self):
         return self.data
     
+    def get_synapse_table(self):
+        '''
+        Get the synapse table of the connections.
+        '''
+        synapses = self.synapse_df
+        return synapses
+
     def get_synapse_distribution(self, pre_or_post: str = None):
         """
         Get the synapse distribution for the neuron.
+
 
         Parameters
         ----------
@@ -149,18 +182,19 @@ class Neuron:
             self.__load_synapse_locations()
             print("... Synapse data loaded.")
 
-        synapses = self.synapse_df.loc[
-            self.synapse_df['position'] == pre_or_post
-            ]
-
-        locations = synapses['location:point{srid:9157}'].values
-        X, Y, Z = [], [], []
-        x,y,z = 0,1,2 # needed for dict parsing as the posiitons are samed as text
-        for loc in locations:
-            pos = eval(loc) # read loc as a dict
-            X.append(pos[0])
-            Y.append(pos[1])
-            Z.append(pos[2])
+        # define synapse positions
+        self.__explicit_synapse_positions()
+        # get the synapse positions
+        if not pre_or_post is None:
+            synapses = self.synapse_df.loc[
+                self.synapse_df['position'] == pre_or_post
+                ]
+        else:
+            synapses = self.synapse_df
+        X = synapses['X'].values
+        Y = synapses['Y'].values
+        Z = synapses['Z'].values
+        # save the positions in a convenient format in the neuron object
         return X, Y, Z
         
     # --- setters
@@ -169,9 +203,48 @@ class Neuron:
         # be interfaced with the connections class
 
     # --- computations
+    def cluster_synapses_spatially(
+            self,
+            n_clusters: int = 3,
+            pre_or_post: str = None,
+            ):
+        """
+        Cluster the synapses spatially using K-Means clustering.
+        """
+        # get the synapse positions
+        X, Y, Z = self.get_synapse_distribution(pre_or_post=pre_or_post)
+        
+        # cluster the synapses
+        kmeans = KMeans(n_clusters=n_clusters)
+        kmeans.fit(np.array([X, Y, Z]).T)
+        self.synapse_df['KMeans_cluster'] = kmeans.predict(
+            np.array([
+                self.synapse_df['X'],  # keep the order of the synapses
+                self.synapse_df['Y'],
+                self.synapse_df['Z']]
+                ).T  
+        )
+        if pre_or_post == 'pre':
+            # set the cluster number to nan for the post synapses
+            self.synapse_df.loc[
+                self.synapse_df['position'] == 'post',
+                'KMeans_cluster'
+                ] = np.nan
+        elif pre_or_post == 'post':
+            # set the cluster number to nan for the pre synapses
+            self.synapse_df.loc[
+                self.synapse_df['position'] == 'pre',
+                'KMeans_cluster'
+                ] = np.nan
+        return
+        
 
     # --- visualisation
-    def plot_synapse_distribution(self, pre_or_post: str = None):
+    def plot_synapse_distribution(
+            self,
+            pre_or_post: str = None,
+            color_by: str = None,  
+            ):
         """
         Plot the synapse distribution for the neuron.
 
@@ -182,11 +255,23 @@ class Neuron:
             The default is None, which plots both.
         """
         X, Y, Z = self.get_synapse_distribution(pre_or_post)
-        _, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
-        # 3d plot
-        ax = plot_design.scatter_xyz_2d(X, Y, Z, ax)
+        fig, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
+        if color_by is None:
+            plot_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax)
+        else:
+            if color_by not in self.synapse_df.columns:
+                raise (f"Attribute {color_by} not in synapse dataframe.")
+            plot_design.scatter_xyz_2d(
+                X,
+                Y,
+                Z=self.synapse_df[color_by].values,
+                z_label=color_by,
+                ax=ax,
+                cmap=params.blue_colorscale,
+            )
         plt.savefig(
-            f"{params.PLOT_DIR}/synapse_distribution_{self.bodyId}_{pre_or_post}.pdf"
+            f"{params.PLOT_DIR}/synapse_distribution\
+                _{self.bodyId}_{pre_or_post}_{color_by}.pdf"
             )
         return ax
     

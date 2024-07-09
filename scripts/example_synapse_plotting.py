@@ -6,7 +6,7 @@ Script to load the MANC dataset and save it in a usable format.
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from get_nodes_data import get_neuron_ids
+from get_nodes_data import get_neuron_bodyids
 from neuron import Neuron
 import utils.plots_design as plots_design
 
@@ -14,7 +14,7 @@ import params
 
 synapses = []
 for i in range(4):
-    neurons_pre = get_neuron_ids({'type:string': 'MDN'})
+    neurons_pre = get_neuron_bodyids({'type:string': 'MDN'})
     MDN = Neuron(neurons_pre[i])
     MDN.get_synapse_distribution('post')
     MDN.save(name='MDN'+str(i))
