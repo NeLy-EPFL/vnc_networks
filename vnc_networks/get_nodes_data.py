@@ -5,9 +5,10 @@ This module provides functions to get the data of the neurons from the dataset.
 import pandas as pd
 import params
 
-def get_neuron_ids(
-        selection_dict:dict=None,
-        nodes:list = None
+
+def get_neuron_bodyids(
+        selection_dict: dict = None,
+        nodes: list = None
     ) -> list[int]:
     """
     Get the Ids of the neurons in the dataset.
@@ -19,12 +20,13 @@ def get_neuron_ids(
         for key in selection_dict:
             neurons = neurons[neurons[key] == selection_dict[key]]
     if nodes is not None:
-        neurons = neurons[neurons['bodyId:long'].isin(nodes)]
-    return neurons['bodyId:long'].values
+        neurons = neurons[neurons[':ID(Body-ID)'].isin(nodes)]
+    return neurons[':ID(Body-ID)'].values
 
-def get_neurons_from_class(class_:str) -> list[int]:
+
+def get_neurons_from_class(class_: str) -> list[int]:
     """
-    Get the neurons of a certain class.
+    Get the bodyids of neurons of a certain class.
     Existing classes are: 
     'sensory neuron', 'motor neuron', 'efferent neuron',
     'sensory ascending', 'TBD', 'intrinsic neuron', 'ascending neuron',
@@ -32,9 +34,10 @@ def get_neurons_from_class(class_:str) -> list[int]:
     'efferent ascending'
     """
     selection_dict = {'class:string': class_}
-    return get_neuron_ids(selection_dict)
+    return get_neuron_bodyids(selection_dict)
 
-def load_data_neuron(id:int, attributes:list=None) -> pd.DataFrame:
+
+def load_data_neuron(id_: int, attributes: list = None) -> pd.DataFrame:
     """
     Load the data of a neuron with a certain id.
     includes (not exhaustive): [predictedNt:string, predictedNtProb:float, 
@@ -56,13 +59,17 @@ def load_data_neuron(id:int, attributes:list=None) -> pd.DataFrame:
     """
     neurons = pd.read_feather(params.NEUPRINT_NODES_FILE)
     if attributes is not None:
-        if not attributes in neurons.columns:
-            raise ValueError(f'The attribute {attributes} is not in the dataset.')
+        if attributes not in neurons.columns:
+            raise ValueError(
+                f'The attribute {attributes} is not in the dataset.'
+                )
         attributes.append(':ID(Body-ID)')
-        return neurons[neurons[':ID(Body-ID)'] == id][attributes]
-    return neurons[neurons[':ID(Body-ID)'] == id]
+        return neurons[neurons[':ID(Body-ID)'] == id_][attributes]
+    else:
+        return neurons[neurons[':ID(Body-ID)'] == id_]
 
-def load_data_neuron_set(ids:list, attributes:list=None) -> pd.DataFrame:
+
+def load_data_neuron_set(ids: list, attributes: list = None) -> pd.DataFrame:
     """
     Load the data of a set of neurons with certain ids.
     includes (not exhaustive): [predictedNt:string, predictedNtProb:float, 
@@ -74,7 +81,7 @@ def load_data_neuron_set(ids:list, attributes:list=None) -> pd.DataFrame:
     Parameters
     ----------
     ids : list
-        The ids of the neurons.
+        The bodyids of the neurons.
 
     Returns
     -------
@@ -85,11 +92,12 @@ def load_data_neuron_set(ids:list, attributes:list=None) -> pd.DataFrame:
     if attributes is not None:
         # verify if all elements of 'attributes' are columns in the dataset
         for att in attributes:
-            if not att in neurons.columns:
+            if att not in neurons.columns:
                 raise ValueError(f'The attribute {att} is not in the dataset.')
         attributes.append(':ID(Body-ID)')
         if len(ids) == 1:
             return neurons[neurons[':ID(Body-ID)'] == ids[0]][attributes]
         return neurons[neurons[':ID(Body-ID)'].isin(ids)][attributes]
-    return neurons[neurons[':ID(Body-ID)'].isin(ids)]
+    else:
+        return neurons[neurons[':ID(Body-ID)'].isin(ids)]
 

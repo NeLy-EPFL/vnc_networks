@@ -5,6 +5,7 @@ File containing parameters for the project.
 """
 import os
 from pathlib import Path
+import numpy as np
 
 # --- Where to find the raw data sets --- #
 # MANC traced
@@ -16,14 +17,22 @@ CONNECTIONS_FILE = os.path.join(MANC_RAW_DIR, "traced-connections-per-roi.csv")
 NEUPRINT_RAW_DIR = os.path.join(RAW_DATA_DIR, "manc", "v1.0", "neuprint_manc_v1.0", "neuprint_manc_v1.0_ftr")
 NEUPRINT_NODES_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neurons_manc_v1.ftr")
 NEUPRINT_CONNECTIONS_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neuron_Connections_manc_v1.ftr")
+NEUPRINT_NEURON_SYNAPSESSET_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neuron_to_SynapseSet_manc_v1.ftr")
+NEUPRINT_SYNAPSSET_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_SynapseSet_to_Synapses_manc_v1.ftr")
+NEUPRINT_SYNAPSE_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Synapses_manc_v1.ftr")
 
 # --- Where to save the processed data sets --- #
+PROCESSED_DATA_DIR = os.path.join(Path(__file__).absolute().parent.parent, "data")
+
+# --- Where to save the preprocessed data sets --- #
+PREPROCESSING_DIR = os.path.join(Path(__file__).absolute().parent.parent, "preprocessing")
+NEURON_DIR = os.path.join(PREPROCESSING_DIR, "neurons")
 
 # --- Where to save the figures --- #
 PLOT_DIR = os.path.join(Path(__file__).absolute().parent.parent, "plots","tmp")
 
 # --- Parameters for the analysis --- #
-NT_WEIGHTS = {"acetylcholine": +1, "gaba": -1, "glutamate": -1, "unknown": 0, None: 0}
+NT_WEIGHTS = {"acetylcholine": +1, "gaba": -1, "glutamate": -1, "unknown": 0, None: 0, np.nan: 0}
 # nb: GLUT being inhibitory is still unclear, you can change it here before
 # running the data preparation
 SYNAPSE_CUTOFF = 5 # number of synapses to consider a connection
@@ -47,6 +56,7 @@ blue_colorscale = 'crest' # Perceptually uniform palettes, can be used in the ca
 red_colorscale = 'flare'
 blue_heatmap = 'mako_r'
 red_heatmap = 'rocket_r'
+diverging_heatmap = 'vlag'
 
 # Figures
 MAX_EDGE_WIDTH = 5
@@ -55,6 +65,9 @@ DPI = 300
 NODE_SIZE = 100
 FONT_SIZE = 5
 FONT_COLOR = "black"
+LABEL_SIZE = 16
+AXIS_OFFSET = 2
+LINEWIDTH = 2
 
 # --- Parameters for the network representation --- #
 NT_TYPES = { 
@@ -63,6 +76,7 @@ NT_TYPES = {
     "glutamate": {"color": GLUT_COLOR, "linestyle": "-"},
     "unknown": {"color": LIGHTGREY, "linestyle": "-"},
     None: {"color": LIGHTGREY, "linestyle": "-"},
+    np.nan: {"color": LIGHTGREY, "linestyle": "-"},
 }
 NEURON_CLASSES = {
     'sensory neuron': {"color": LIGHTORANGE},

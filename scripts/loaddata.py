@@ -1,19 +1,22 @@
-from get_nodes_data import get_neurons_from_class, get_neuron_ids
-from connections import Connections
+"""
+author: femke.hurtak@epfl.ch
 
-# Load neurons
-neurons_pre = get_neuron_ids({'type:string': 'MDN'})
-neuropil = 'T1' 
-neurons_post = get_neurons_from_class('motor neuron')
+Script to load the MANC dataset and save it in a usable format.
+"""
+import pandas as pd
+import matplotlib.pyplot as plt
 
-# Load dataset
-neurons = list(set(neurons_pre).union(set(neurons_post)))
-connections = Connections(neurons) # entire dataset
-connections.initialize()
+from get_nodes_data import get_neuron_ids
+from neuron import Neuron
+import utils.plots_design as plots_design
 
-# Compute second order connections
-neurons = list(set(neurons_pre).union(set(neurons_post)))
-cmatrix = connections.get_cmatrix()
-cmatrix.power_n(2)
-cmatrix.restrict_nodes(neurons)
-cmatrix.spy(title='second_order_connections_MDN_MNs')
+import params
+
+
+MDN = Neuron(from_file='MDN0')
+syn = MDN.get_synapse_distribution('post')
+
+# TODO
+# - color as a function of the neuropil
+# - implement spatial clustering
+# - interface the synapse data with the larger connectivity graph to see specific patterns

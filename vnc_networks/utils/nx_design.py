@@ -22,7 +22,7 @@ import params
 def draw_graph(
     G: nx.Graph,
     pos: dict = None,
-    pos_nx_method = nx.circular_layout,
+    pos_nx_method=nx.circular_layout,
     ax: plt.Axes = None,
     node_size: int = params.NODE_SIZE,
     return_pos: bool = False,
@@ -57,13 +57,15 @@ def draw_graph(
     if pos is None:
         if pos_nx_method == nx.kamada_kawai_layout:
             # method not defined on negative edge weights
-            pos = nx.kamada_kawai_layout(G,weight = 'syn_count')
+            pos = nx.kamada_kawai_layout(G, weight='syn_count')
         else:
             pos = pos_nx_method(G)
 
     # Normalize the edge width of the network
     weights = list(nx.get_edge_attributes(G, "weight").values())
-    normalized_weights = (weights / np.abs(weights).max()) * params.MAX_EDGE_WIDTH
+    normalized_weights = (
+        weights / np.abs(weights).max()
+        ) * params.MAX_EDGE_WIDTH
 
     # Color nodes and edges
     node_colors = define_node_colors(G)
