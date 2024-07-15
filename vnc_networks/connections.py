@@ -25,6 +25,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import os
 import seaborn as sns
+import pickle
 
 
 import params
@@ -46,6 +47,7 @@ class Connections:
             self,
             neurons_pre: list[int] = None,
             neurons_post: list[int] = None,
+            from_file: str = None,
         ):
         '''
         If no neurons_post are given, the class assumes the same neurons as pre-synaptic.
@@ -53,33 +55,44 @@ class Connections:
 
         If not used as a standalone class, the initialize() method should be called after instantiation.
         '''
-        if neurons_pre is None:
-            neurons_ = pd.read_feather(params.NEUPRINT_NODES_FILE)
-            neurons_pre_ = list(zip(
-                neurons_[':ID(Body-ID)'].to_list(),
-                np.zeros_like(neurons_[':ID(Body-ID)'].to_list())
-            ))  # the subdivision is set to 0
+        if from_file is not None:
+            self.__load(from_file)
         else:
-            neurons_pre_ = list(zip(neurons_pre, np.zeros_like(neurons_pre)))
-        self.neurons_pre = pd.MultiIndex.from_tuples(
-            neurons_pre_,
-            names=["body_id", "subdivision"],
-            )
-        if neurons_post is None:
-            self.neurons_post = self.neurons_pre
-        else:
-            self.neurons_post = pd.MultiIndex.from_tuples(
-                zip(list(
-                    neurons_post,
-                    np.zeros_like(neurons_post)
-                    )),
+            if neurons_pre is None:
+                neurons_ = pd.read_feather(params.NEUPRINT_NODES_FILE)
+                neurons_pre_ = list(zip(
+                    neurons_[':ID(Body-ID)'].to_list(),
+                    np.zeros_like(neurons_[':ID(Body-ID)'].to_list())
+                ))  # the subdivision is set to 0
+            else:
+                neurons_pre_ = list(zip(neurons_pre, np.zeros_like(neurons_pre)))
+            self.neurons_pre = pd.MultiIndex.from_tuples(
+                neurons_pre_,
                 names=["body_id", "subdivision"],
                 )
-        self.nt_weights = params.NT_WEIGHTS
-        self.subgraphs = {}
-          
-
+            if neurons_post is None:
+                self.neurons_post = self.neurons_pre
+            else:
+                self.neurons_post = pd.MultiIndex.from_tuples(
+                    zip(list(
+                        neurons_post,
+                        np.zeros_like(neurons_post)
+                        )),
+                    names=["body_id", "subdivision"],
+                    )
+            self.nt_weights = params.NT_WEIGHTS
+            self.subgraphs = {}
+         
     # private methods
+    def __load(self, name: str):
+        """
+        Import the object from a pickle file.
+        """
+        filename = os.path.join(params.CONNECTION_DIR, name+'.txt')
+        with open(filename, 'rb') as file:
+            neuron = pickle.load(file)
+        self.__dict__.update(neuron)
+
     def __get_connections(self):
         connections_ = pd.read_feather(params.NEUPRINT_CONNECTIONS_FILE)
         # filter out only the connections relevant here
@@ -93,7 +106,7 @@ class Connections:
             ]
         
         # rename synapse count column explicitly and filter
-        connections_["syn_count"] = connections_["weight:int"]
+        connections_["syn_count"] = connections_["weightHR:int"]
         connections_ = connections_[
             connections_["syn_count"] >= params.SYNAPSE_CUTOFF
             ]
@@ -138,17 +151,163 @@ class Connections:
         connections_["subdivision_end"] = 0
         self.connections = connections_
         return
+    
+    def __split_neuron(self, neuron: Neuron):
+        '''
+        Split a single neuron into multiple nodes.
+        '''
+        # verify that there is a subdivision defined
+        subdivisions = neuron.get_subdivisions()  # table with connections split by subdivision
+        split_body_id = neuron.get_body_id()
+
+        split_neuron_subdivision_ids = subdivisions[
+            'subdivision_start'
+            ].unique()
+                
+        # --- Manage the splitting as pre-synaptic neuron
+        target_neurons = subdivisions['end_id'].unique()  # body ids
+        for end_body_id in target_neurons:
+            # get the connections to split
+            subdivisions_ = subdivisions[
+                (subdivisions['start_id'] == split_body_id)
+                & (subdivisions['end_id'] == end_body_id)
+                ]
+            n_rows_in_target = len(subdivisions_)
+            # sanity check on the total synapse count
+            n_syn_in_connections_table = self.get_nb_synapses(
+                start_id=split_body_id,
+                end_id=end_body_id,
+                input_type='body_id'
+                )
+            n_syn_in_neuron = neuron.get_synapse_count(to=end_body_id)
+            if not n_syn_in_connections_table == n_syn_in_neuron:
+                raise ValueError(
+                    f"The total synapse count from {split_body_id} \
+                    to {end_body_id} is not consistent: \
+                    {n_syn_in_connections_table} in the connections table,\
+                    {n_syn_in_neuron} in the neuron model."
+                    )
+            # get the data for the neuron pair before splitting
+            template = self.connections[
+                (self.connections[':START_ID(Body-ID)'] == split_body_id)
+                & (self.connections[':END_ID(Body-ID)'] == end_body_id)
+                ].copy()
+            # duplicate the template len(subdivisions_) times
+            new_connections_ = pd.concat(
+                [template]*len(subdivisions_),
+                ignore_index=True
+                )  # these can be multiple rows if the target is subdivided
+            subdivisions_ = pd.concat(
+                [subdivisions_]*len(template),
+                ignore_index=True
+                )  # will duplicate the operations to apply to each end subdivision
+            # add the subdivisions to the new connections
+            new_connections_['subdivision_start'] = subdivisions_[
+                'subdivision_start'
+                ]  # of the form [0,1,2,0,1,2,...]
+            # compute the synaptic ratios for each subdivision
+            ratios = np.array(
+                subdivisions_['syn_count'] / n_syn_in_neuron
+                )[0:n_rows_in_target]  # original synapse distribution
+            # update the synapse count in the new connections
+            new_connections_['syn_count'] = [
+                int(x * y)
+                for x in template['syn_count']
+                for y in ratios
+                ]  # ! not permutable
+            new_connections_['eff_weight'] = [
+                x * y
+                for x in template['eff_weight']
+                for y in ratios
+                ]
+            new_connections_['syn_count_norm'] = [
+                x * y
+                for x in template['syn_count_norm']
+                for y in ratios
+                ]
+            new_connections_['eff_weight_norm'] = [
+                x * y
+                for x in template['eff_weight_norm']
+                for y in ratios
+                ]
+            # replace the template line with the new connections
+            self.connections = pd.concat([
+                self.connections[  # remove the initial entry
+                    ~(
+                        (self.connections[
+                            ':START_ID(Body-ID)'
+                            ] == split_body_id)
+                        & (self.connections[
+                            ':END_ID(Body-ID)'
+                            ] == end_body_id)
+                    )],
+                new_connections_  # add the new entries
+                ],
+                ignore_index=True
+                )
+            
+        # --- Manage the splitting as post-synaptic neuron
+        relevant_inputs = self.connections[
+            self.connections[':END_ID(Body-ID)'] == split_body_id
+            ][':START_ID(Body-ID)'].unique()
+        for start_body_id in relevant_inputs:
+            template = self.connections[
+                (self.connections[':START_ID(Body-ID)'] == start_body_id)
+                & (self.connections[':END_ID(Body-ID)'] == split_body_id)
+                ].copy()
+            # duplicate the template for each existing subdivision
+            new_connections_ = pd.concat(
+                [template]*len(split_neuron_subdivision_ids),
+                ignore_index=True
+                )
+            # add the subdivisions to the new connections
+            new_connections_['subdivision_end'] = [
+                    i
+                    for i in split_neuron_subdivision_ids
+                    for _ in range(len(template))  # ! not permutable
+                    ]  # of the form [0,0,..1,1,..2,2,..]
+            # The other values are kept the same
+            # (dendrites converge in our model)
+            self.connections = pd.concat([
+                self.connections[
+                    ~((self.connections[
+                        ':START_ID(Body-ID)'
+                        ] == start_body_id)
+                    & (self.connections[
+                        ':END_ID(Body-ID)'
+                        ] == split_body_id))
+                ],
+                new_connections_
+                ],
+                ignore_index=True
+                )
+
 
     def __split_neurons_in_connections(self, split_neurons: list[Neuron] = None):
         """
         Divide the neurons that have more than one subdivision into multiple nodes.
         Each subdivision is considered as a separate node, based on the list of
         synapses within.
+
+        *Import design choice*:
+        We consider a neuron model where the dendrites integrate information
+        across branches, and then the axon branches out to multiple targets.
+        This means that when a neuron is subdivided, the splitting is different
+        depending on whether the neuron is pre- or post-synaptic.
+        - If the split neuron is pre-synaptic, the axon is split into multiple
+        branches, each targeting a different post-synaptic neuron. The syanptic
+        weights are divided accordingly.
+        - If the split neuron is post-synaptic, the dendrites converge, and the
+        split neurons receive the same input from the pre-synaptic neuron. In
+        practice this means that the inputs get duplicated.
         """
-        pass
-        # TODO: implement the split_neurons method
-        # it should go in the Neurons, see which synapses are grouped, 
-        # and split the neurons accordingly
+        if split_neurons is None:
+            return
+
+        for N_ in split_neurons:
+            self.__split_neuron(N_)
+            
+        return
 
     def __map_uid(self):
         """
@@ -158,24 +317,37 @@ class Connections:
         # reference all unique tuples in (":START_ID(Body-ID)", "subdivision_start")
         # and (":END_ID(Body-ID)", "subdivision_end") from the self.connections dataframe
         unique_objects = list(set(
-            zip(self.connections[':START_ID(Body-ID)'], self.connections["subdivision_start"])
+            zip(
+                self.connections[':START_ID(Body-ID)'],
+                self.connections["subdivision_start"]
+                )
             ).union(set(
-                zip(self.connections[":END_ID(Body-ID)"], self.connections[ "subdivision_end"])
+                zip(
+                    self.connections[":END_ID(Body-ID)"],
+                    self.connections["subdivision_end"]
+                    )
             )))
         # create a new df mapping elements in the set to integers
         uids = list(range(len(unique_objects)))
-        self.uid = pd.DataFrame({'uid':uids, 'neuron_ids':unique_objects})
+        self.uid = pd.DataFrame({
+            'uid': uids,
+            'neuron_ids': unique_objects,
+            'body_id': [x[0] for x in unique_objects],
+            'subdivision': [x[1] for x in unique_objects],
+            })
         # add uids to the connections table
         self.connections['start_uid'] = self.__convert_neuron_ids_to_uid(
-            self.connections[[':START_ID(Body-ID)','subdivision_start']].values,
-            input_type = 'table',
+            self.connections[
+                [':START_ID(Body-ID)', 'subdivision_start']
+                ].values,
+            input_type='table',
         )
         self.connections['end_uid'] = self.__convert_neuron_ids_to_uid(
-            self.connections[[':END_ID(Body-ID)','subdivision_end']].values,
-            input_type = 'table',
+            self.connections[[':END_ID(Body-ID)', 'subdivision_end']].values,
+            input_type='table',
         )
         return
-    
+   
     def __convert_neuron_ids_to_uid(
         self,
         neuron_ids,
@@ -227,34 +399,30 @@ class Connections:
         '''
         if not isinstance(uids, list):
             uids = [uids]
-        if not output_type in ['tuple','table','body_id','subdivision']:
+        if output_type not in ['tuple', 'table', 'body_id', 'subdivision']:
             raise ValueError(
                 f"Class Connections \
-                ::: > convert_uid_to_neuron_ids(): Unknown output type {output_type}"
+                ::: > convert_uid_to_neuron_ids():\
+                Unknown output type {output_type}"
                 )
         
-        tuple_of_ids = []
-        for uid in uids:
-            neuron_id = self.uid.loc[
-                (self.uid['uid'] == uid)
-                ]['neuron_ids'].values[0]
-            tuple_of_ids.append(neuron_id)
+        to_return = self.uid.loc[self.uid['uid'].isin(uids)]
         if output_type == 'tuple':
-            return tuple_of_ids
+            return to_return['neuron_ids'].values
         elif output_type == 'table':
-            return pd.DataFrame(tuple_of_ids, columns = ['id','subdivision'])
+            return to_return
         elif output_type == 'body_id':
-            return [neuron_id[0] for neuron_id in tuple_of_ids]
+            return to_return['body_id'].values
         elif output_type == 'subdivision':
-            return [neuron_id[1] for neuron_id in tuple_of_ids]
-    
+            return to_return['subdivision'].values
+   
     def __get_uids_from_bodyids(self, body_ids: list[int]):
         '''
         Get the unique identifiers from a list of body ids.
         '''
         return self.uid.loc[self.uid['body_id'].isin(body_ids)]['uid'].to_list()
     
-    def __build_graph(self): # networkx graph
+    def __build_graph(self):  # networkx graph
         self.graph = nx.from_pandas_edgelist(
                     self.connections,
                     source="start_uid",
@@ -279,7 +447,7 @@ class Connections:
         # add node attributes
         body_ids = self.__convert_uid_to_neuron_ids(
             self.graph.nodes,
-            output_type = 'body_id'
+            output_type='body_id'
             )
         nx.set_node_attributes(
             self.graph,
@@ -365,7 +533,6 @@ class Connections:
                 }
             nx.set_node_attributes(self.graph, attr_list, attribute)
         return nx.get_node_attributes(self.graph, attribute)
-    
 
     # public methods
     # --- initialize
@@ -536,7 +703,45 @@ class Connections:
                 f"Class Connections \
                 ::: > get_nodes(): Unknown type {type}"
                 )
+
+    def get_nb_synapses(
+            self,
+            start_id: int,
+            end_id: int,
+            input_type: str = 'uid'
+            ):
+        '''
+        Get the number of synapses between two neurons.
+        '''
+        if input_type == 'body_id':
+            table = self.connections[
+                (self.connections[':START_ID(Body-ID)'] == start_id)
+                & (self.connections[':END_ID(Body-ID)'] == end_id)
+                ]
+            # drop subdivion duplicates in the post synaptic neuron
+            # (from duplucation policy in neuron splitting)
+            table = table.drop_duplicates(
+                subset=[
+                    ':START_ID(Body-ID)','subdivision_start',':END_ID(Body-ID)'
+                    ]
+                )
+            nb_synapses = table['syn_count'].sum()
+        elif input_type == 'uid':
+            table = self.connections[
+                (self.connections['start_uid'] == start_id)
+                & (self.connections['end_uid'] == end_id)
+                ]
+            nb_synapses = table['syn_count'].sum()
+
             
+        else:
+            raise ValueError(
+                f"Class Connections \
+                ::: > get_nb_synapses(): Unknown input type {input_type}"
+                )
+        return nb_synapses
+            
+
     # --- setters
     def merge_nodes(self, nodes: list[int]):
         '''
@@ -916,3 +1121,13 @@ class Connections:
             )
         plt.savefig(os.path.join(params.PLOT_DIR, title + "3dx_plot.pdf"))
 
+    # --- saving
+    def save(self, name: str):
+        '''
+        Save the connections object to a pickle file.
+        '''
+        if not os.path.exists(params.CONNECTION_DIR):
+            os.makedirs(params.CONNECTION_DIR)
+        filename = os.path.join(params.CONNECTION_DIR, name+'.txt')
+        with open(filename, 'wb') as f:
+            pickle.dump(self.__dict__, f)

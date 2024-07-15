@@ -60,16 +60,7 @@ class Neuron:
         synset_list = neuron_to_synapse.loc[
             neuron_to_synapse[':START_ID(Body-ID)'] == self.bodyId
             ][':END_ID(SynSet-ID)'].values
-        synset_list_pre = []
-        synset_list_post = []
-        for syn in synset_list:
-            if syn[-3:] == 'pre':
-                synset_list_pre.append(syn)
-            elif syn[-4:] == 'post':
-                synset_list_post.append(syn)
-            else:
-                continue
- 
+         
         # synapse set to synapse
         synapses = pd.read_feather(
             params.NEUPRINT_SYNAPSSET_FILE
@@ -79,7 +70,7 @@ class Neuron:
             ]
         synapses.reset_index(drop=True, inplace=True)
         
-        # build a datframe with columns 'syn_id', 'synset_id'
+        # build a dataframe with columns 'syn_id', 'synset_id'
         synapse_df = pd.DataFrame(
             {
                 'syn_id': synapses[':END_ID(Syn-ID)'],
@@ -87,14 +78,18 @@ class Neuron:
             }
         )
         synapse_df['start_id'] = synapse_df['synset_id'].apply(
-            lambda x: x.split('_')[0]
-            ) # body id of the presynaptic neuron
+            lambda x: int(x.split('_')[0])
+            )  # body id of the presynaptic neuron
         synapse_df['end_id'] = synapse_df['synset_id'].apply(
-            lambda x: x.split('_')[1]
-            ) # body id of the postsynaptic neuron
+            lambda x: int(x.split('_')[1])
+            )  # body id of the postsynaptic neuron
         synapse_df['position'] = synapse_df['synset_id'].apply(
             lambda x: x.split('_')[2]
-            ) # pre or post
+            )  # pre or post
+        
+        # remove the synapses that belong to partner neurons
+        synapse_df = synapse_df[synapse_df['position'] == 'pre']
+        synapse_df.drop(columns=['position'], inplace=True)
 
         # set the synapse ids
         self.synapse_df = synapse_df
@@ -162,16 +157,9 @@ class Neuron:
         synapses = self.synapse_df
         return synapses
 
-    def get_synapse_distribution(self, pre_or_post: str = None):
+    def get_synapse_distribution(self):
         """
         Get the synapse distribution for the neuron.
-
-
-        Parameters
-        ----------
-        pre_or_post : str, optional
-            Whether to get the pre or post synapse distribution.
-            The default is None, which returns both.
         """
         # check if the synapse df is loaded
         try:
@@ -185,34 +173,95 @@ class Neuron:
         # define synapse positions
         self.__explicit_synapse_positions()
         # get the synapse positions
-        if not pre_or_post is None:
-            synapses = self.synapse_df.loc[
-                self.synapse_df['position'] == pre_or_post
-                ]
-        else:
-            synapses = self.synapse_df
-        X = synapses['X'].values
-        Y = synapses['Y'].values
-        Z = synapses['Z'].values
+        X = self.synapse_df['X'].values
+        Y = self.synapse_df['Y'].values
+        Z = self.synapse_df['Z'].values
         # save the positions in a convenient format in the neuron object
         return X, Y, Z
         
+    def get_subdivisions(self):
+        """
+        Get the subdivisions of the synapses.
+        """
+        return self.subdivisions
+    
+    def get_body_id(self):
+        """
+        Get the body id of the neuron.
+        """
+        return self.bodyId
+
+    def get_synapse_count(self, to=None):
+        """
+        Get the number of synapses for the neuron.
+
+        Parameters
+        ----------
+        to : int, optional
+            The body id of the postsynaptic neuron.
+            If None, the total number of synapses is returned.
+            The default is None.
+        """
+        if to is None:
+            return len(self.synapse_df)
+        else:
+            return len(self.synapse_df[self.synapse_df['end_id'] == to])
+        
     # --- setters
-    def create_synapse_groups(self):
-        pass # TODO: save the synapse groups to an attribute that can
-        # be interfaced with the connections class
+    def create_synapse_groups(self, attribute: str):
+        """
+        Create synapse groups based on an attribute.
+        This will be used to split neurons in the Connections class.
+        The table is filtered such that connections form a neuron
+        to another are removed if the total number of synapses is below 
+        the threshold in the params file.
+        """
+        if attribute not in self.synapse_df.columns:
+            raise (f"Attribute {attribute} not in synapse dataframe.")
+        # create a connections_df table involving the Neuron.
+        # It has two columns 'id_pre' and 'id_post' with the bodyId of the pre and post neurons
+        # and a columns 'subdivision_pre'  with the index associated to the attribute split on.
+        # Unclassified synapses have a -1 index.
+        # Finally, it has a 'synapse_ids' column with a list of the synapse ids.
+        synapses = self.synapse_df[[
+            attribute, 'syn_id', 'start_id', 'end_id'
+            ]
+        ]
+        # find end_id for which the number of synapses is below the threshold
+        syn_count = synapses.groupby('end_id').size().reset_index()
+        syn_count.columns = ['end_id', 'syn_count']
+        syn_count = syn_count[syn_count['syn_count'] < params.SYNAPSE_CUTOFF]
+        to_discard = syn_count['end_id'].values
+        synapses = synapses[~synapses['end_id'].isin(to_discard)]
+
+        # complete the table
+        synapses.fillna({attribute: -1}, inplace=True)  # unclassified synapses get together
+        # define the subdivision a synapse belongs to by mapping the attribute to an index
+        mapping = {
+            val: i for i, val in enumerate(
+                synapses[attribute].dropna().unique()
+                )
+            }
+        mapping[np.nan] = -1
+        synapses['subdivision_start'] = synapses[attribute].map(mapping)
+        synapses.drop(columns=[attribute], inplace=True)
+        synapses = synapses.groupby(
+            ['start_id', 'subdivision_start', 'end_id']
+            ).agg(list).reset_index()
+        synapses['syn_count'] = synapses['syn_id'].apply(len)
+
+        self.subdivisions = synapses
 
     # --- computations
     def cluster_synapses_spatially(
             self,
             n_clusters: int = 3,
-            pre_or_post: str = None,
             ):
         """
         Cluster the synapses spatially using K-Means clustering.
         """
         # get the synapse positions
-        X, Y, Z = self.get_synapse_distribution(pre_or_post=pre_or_post)
+        X, Y, Z = self.get_synapse_distribution()
         
         # cluster the synapses
         kmeans = KMeans(n_clusters=n_clusters)
@@ -222,56 +271,40 @@ class Neuron:
                 self.synapse_df['X'],  # keep the order of the synapses
                 self.synapse_df['Y'],
                 self.synapse_df['Z']]
-                ).T  
+                ).T 
         )
-        if pre_or_post == 'pre':
-            # set the cluster number to nan for the post synapses
-            self.synapse_df.loc[
-                self.synapse_df['position'] == 'post',
-                'KMeans_cluster'
-                ] = np.nan
-        elif pre_or_post == 'post':
-            # set the cluster number to nan for the pre synapses
-            self.synapse_df.loc[
-                self.synapse_df['position'] == 'pre',
-                'KMeans_cluster'
-                ] = np.nan
         return
         
-
     # --- visualisation
     def plot_synapse_distribution(
             self,
-            pre_or_post: str = None,
             color_by: str = None,  
             ):
         """
         Plot the synapse distribution for the neuron.
-
-        Parameters
-        ----------
-        pre_or_post : str, optional
-            Whether to plot the pre or post synapse distribution.
-            The default is None, which plots both.
         """
-        X, Y, Z = self.get_synapse_distribution(pre_or_post)
+        X, Y, Z = self.get_synapse_distribution()
         fig, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
         if color_by is None:
-            plot_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax)
+            plot_design.scatter_xyz_2d(X, -1*Y, Z=Z, ax=ax)
         else:
             if color_by not in self.synapse_df.columns:
                 raise (f"Attribute {color_by} not in synapse dataframe.")
+            # map self.synapse_df[color_by] categorical values to integers
+            color_scale = {val: i for i, val in enumerate(
+                self.synapse_df[color_by].unique()
+                )}
+            Z = self.synapse_df[color_by].map(color_scale).values
             plot_design.scatter_xyz_2d(
                 X,
-                Y,
-                Z=self.synapse_df[color_by].values,
+                -1*Y,  # flip the Y axis to have the head size on top
+                Z=Z,
                 z_label=color_by,
                 ax=ax,
                 cmap=params.blue_colorscale,
             )
         plt.savefig(
-            f"{params.PLOT_DIR}/synapse_distribution\
-                _{self.bodyId}_{pre_or_post}_{color_by}.pdf"
+            f"{params.PLOT_DIR}/synapse_distribution_{self.bodyId}_{color_by}.pdf"
             )
         return ax
     
@@ -285,7 +318,9 @@ class Neuron:
         name : str
             The name of the file to save to.
         """
-        with open(os.path.join(params.NEURON_DIR,name+'.txt'), 'wb') as file:
+        if not os.path.exists(params.NEURON_DIR):
+            os.makedirs(params.NEURON_DIR)
+        with open(os.path.join(params.NEURON_DIR, name+'.txt'), 'wb') as file:
             pickle.dump(self.__dict__, file)
 
     
