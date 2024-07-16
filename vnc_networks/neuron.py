@@ -111,7 +111,7 @@ class Neuron:
             params.NEUPRINT_SYNAPSE_FILE
             )
         data = data.loc[data[':ID(Syn-ID)'].isin(self.synapse_df['syn_id'])]
-
+              
         # merge with existing synapse df
         self.synapse_df = self.synapse_df.merge(
             data,
@@ -286,7 +286,7 @@ class Neuron:
         X, Y, Z = self.get_synapse_distribution()
         fig, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
         if color_by is None:
-            plot_design.scatter_xyz_2d(X, -1*Y, Z=Z, ax=ax)
+            plot_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax)
         else:
             if color_by not in self.synapse_df.columns:
                 raise (f"Attribute {color_by} not in synapse dataframe.")
@@ -297,7 +297,7 @@ class Neuron:
             Z = self.synapse_df[color_by].map(color_scale).values
             plot_design.scatter_xyz_2d(
                 X,
-                -1*Y,  # flip the Y axis to have the head size on top
+                Y,
                 Z=Z,
                 z_label=color_by,
                 ax=ax,

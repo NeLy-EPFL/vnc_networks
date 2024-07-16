@@ -2,8 +2,10 @@
 Helper functions for making plots look nice.
 '''
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import params
+import seaborn as sns
 
 def make_nice_spines(ax, linewidth=params.LINEWIDTH):
     ax.spines["top"].set_visible(False)
@@ -66,7 +68,11 @@ def scatter_xyz_2d(
     """
     Scatter plot in 2D with Z as the color.
     """
-    ax.scatter(X, Y, c=Z, cmap=cmap, marker=marker)
+    n_c = len(np.unique(Z))
+    #colors = sns.color_palette(palette = cmap, n_colors = n_c)
+    colors = params.custom_palette[:n_c]
+    cmap = mpl.colors.ListedColormap(colors)
+    ax.scatter(X, Y, c=Z, cmap=cmap, marker=marker,alpha=0.8)
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     cbar = plt.colorbar(
@@ -75,6 +81,7 @@ def scatter_xyz_2d(
         orientation='vertical',
         label=z_label,
         )
+    cbar.ax.locator_params(nbins=n_c)
     cbar = make_nice_cbar(cbar)
     ax = make_nice_spines(ax)
     plt.tight_layout()

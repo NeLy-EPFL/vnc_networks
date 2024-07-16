@@ -53,6 +53,7 @@ GLUT_COLOR = "#C20C6D"
 INHIB_COLOR = "#0f0b87"
 EXCIT_COLOR = "#9c0d0b"
 
+custom_palette = [DARKBLUE, GREEN,LIGHTORANGE,LIGHTBLUE,DARKGREY,DARKORANGE,LIGHTGREY]
 blue_colorscale = 'crest' # Perceptually uniform palettes, can be used in the categorical setting
 red_colorscale = 'flare'
 blue_heatmap = 'mako_r'

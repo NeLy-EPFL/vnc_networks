@@ -7,22 +7,16 @@ from neuron import Neuron
 from connections import Connections
 from get_nodes_data import get_neuron_bodyids
 
-MDNs = []
+
 neurons_pre = get_neuron_bodyids({'type:string': 'MDN'})
 
-for i in range(4):
-    MDN = Neuron(neurons_pre[i])
-    #MDN = Neuron(from_file='MDN'+str(i))  # if already defined
-    MDN.cluster_synapses_spatially(n_clusters=5)
-    MDN.create_synapse_groups(attribute='KMeans_cluster')
-    #MDN.save(name='MDN'+str(i))  # if you want to save the neuron
-    MDNs.append(MDN)
-
-VNC = Connections()  # full VNC
-VNC.initialize(split_neurons=MDNs)  # split MDNs according to the synapse data
-VNC.save(name='VNC_split_MDN')  # if you want to reuse it later
+VNC = Connections(from_file='VNC_split_MDN')  # full VNC
 connections = VNC.get_connections()
-print(connections.head())
+MDN_outputs = connections[
+    (connections[':START_ID(Body-ID)'].isin(neurons_pre))
+    ]
+print(MDN_outputs)
+
 
 # TODO
 # - color as a function of the neuropil
