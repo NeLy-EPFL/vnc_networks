@@ -2,6 +2,10 @@
 Initialises the Neuron class.
 Meant to be used to load data for a single neuron.
 Possible use cases are visualisation, or looking at synapse distributions.
+
+Possible upgrade: possible to match synapses on the pre and post neurons
+by using the dataset "Neuprint_Synapse_Connections_manc_v1.ftr" which
+has two columns: ':START_ID(Syn-ID)' and ':END_ID(Syn-ID)'.
 '''
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -18,6 +22,22 @@ import utils.plots_design as plot_design
 
 class Neuron:
     def __init__(self, bodyId: int = None, from_file: str = None):
+        """
+        Initialise the neuron.
+        Loading possible either from scratch using only the bodyId, or
+        from a file. Loading from a file is useful if the neuron has already
+        been processed and saved. Loading from scratch is useful if the neuron
+        is new, but is computationally expensive and time-consuming.
+
+        Parameters
+        ----------
+        bodyId : int, optional
+            The body id of the neuron.
+            The default is None.
+        from_file : str, optional
+            The name of the file to load the neuron from.
+            The default is None.
+        """
         if from_file is not None:
             self.__load(from_file)
         else:
@@ -61,6 +81,7 @@ class Neuron:
             neuron_to_synapse[':START_ID(Body-ID)'] == self.bodyId
             ][':END_ID(SynSet-ID)'].values
          
+
         # synapse set to synapse
         synapses = pd.read_feather(
             params.NEUPRINT_SYNAPSSET_FILE
@@ -121,6 +142,35 @@ class Neuron:
             )
         del data
         return
+    
+    def __categorical_neuropil_information(self):
+        """
+        Add a column 'neuropil' to the synapse df that contains the neuropil
+        in which the synapse is located. This is done by finding the roi column 
+        that has a bool value of True.
+        """
+        if 'neuropil' in self.synapse_df.columns:  # already done
+            return
+        
+        roi_file = os.path.join(
+            params.NEUPRINT_RAW_DIR,
+            'all_ROIs.txt'
+        )
+        rois = list(pd.read_csv(roi_file, sep='\t').values.flatten())
+        potential_column_names = [roi + ':boolean' for roi in rois]
+        # for each row, find the column in potential_column_names that has a True value
+        # and add the corresponding roi to the 'neuropil' column
+        # Function to find the column name with the True value
+        def find_true_value(row):
+            true_columns = row[row == True].index
+            if len(true_columns) > 0:
+                return true_columns[0].replace(':boolean', '')
+            else:
+                return 'None'
+
+        self.synapse_df['neuropil'] = self.synapse_df[
+            potential_column_names
+            ].apply(find_true_value, axis=1)
         
     def __explicit_synapse_positions(self):
         """
@@ -157,9 +207,15 @@ class Neuron:
         synapses = self.synapse_df
         return synapses
 
-    def get_synapse_distribution(self):
+    def get_synapse_distribution(self, threshold: bool = False):
         """
         Get the synapse distribution for the neuron.
+
+        Parameters
+        ----------
+        threshold : bool, optional
+            Whether to apply a threshold to the synapse distribution.
+            The default is False.
         """
         # check if the synapse df is loaded
         try:
@@ -172,10 +228,23 @@ class Neuron:
 
         # define synapse positions
         self.__explicit_synapse_positions()
+        # threshold if for a given neuron, the number of synapses is below the threshold
+        if threshold:
+            syn_count = self.synapse_df.groupby('end_id').size().reset_index()
+            syn_count.columns = ['end_id', 'syn_count']
+            syn_count = syn_count[
+                syn_count['syn_count'] >= params.SYNAPSE_CUTOFF
+                ]
+            to_keep = syn_count['end_id'].values
+            synapses = self.synapse_df[
+                self.synapse_df['end_id'].isin(to_keep)
+                ]
+        else:
+            synapses = self.synapse_df
         # get the synapse positions
-        X = self.synapse_df['X'].values
-        Y = self.synapse_df['Y'].values
-        Z = self.synapse_df['Z'].values
+        X = synapses['X'].values
+        Y = synapses['Y'].values
+        Z = synapses['Z'].values
         # save the positions in a convenient format in the neuron object
         return X, Y, Z
         
@@ -216,6 +285,8 @@ class Neuron:
         to another are removed if the total number of synapses is below 
         the threshold in the params file.
         """
+        if attribute == 'neuropil':
+            self.__categorical_neuropil_information()
         if attribute not in self.synapse_df.columns:
             raise (f"Attribute {attribute} not in synapse dataframe.")
         # create a connections_df table involving the Neuron.
@@ -244,9 +315,10 @@ class Neuron:
             }
         mapping[np.nan] = -1
         synapses['subdivision_start'] = synapses[attribute].map(mapping)
+        synapses['subdivision_start_name'] = synapses[attribute]
         synapses.drop(columns=[attribute], inplace=True)
         synapses = synapses.groupby(
-            ['start_id', 'subdivision_start', 'end_id']
+            ['start_id', 'subdivision_start','subdivision_start_name', 'end_id']
             ).agg(list).reset_index()
         synapses['syn_count'] = synapses['syn_id'].apply(len)
 
@@ -279,11 +351,14 @@ class Neuron:
     def plot_synapse_distribution(
             self,
             color_by: str = None,  
+            discrete_coloring: bool = True,
+            threshold: bool = False,
+            cmap: str = params.blue_colorscale,
             ):
         """
         Plot the synapse distribution for the neuron.
         """
-        X, Y, Z = self.get_synapse_distribution()
+        X, Y, Z = self.get_synapse_distribution(threshold=threshold)
         fig, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
         if color_by is None:
             plot_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax)
@@ -291,17 +366,26 @@ class Neuron:
             if color_by not in self.synapse_df.columns:
                 raise (f"Attribute {color_by} not in synapse dataframe.")
             # map self.synapse_df[color_by] categorical values to integers
-            color_scale = {val: i for i, val in enumerate(
-                self.synapse_df[color_by].unique()
-                )}
-            Z = self.synapse_df[color_by].map(color_scale).values
+            if threshold:
+                syn_count = self.synapse_df.groupby('end_id').size().reset_index()
+                syn_count.columns = ['end_id', 'syn_count']
+                syn_count = syn_count[syn_count['syn_count'] >= params.SYNAPSE_CUTOFF]
+                to_keep = syn_count['end_id'].values
+                synapses = self.synapse_df[
+                    self.synapse_df['end_id'].isin(to_keep)
+                    ]
+            else:
+                synapses = self.synapse_df
+
+            Z = synapses[color_by].dropna().values
             plot_design.scatter_xyz_2d(
                 X,
                 Y,
                 Z=Z,
                 z_label=color_by,
                 ax=ax,
-                cmap=params.blue_colorscale,
+                cmap=cmap,
+                discrete_coloring=discrete_coloring,
             )
         plt.savefig(
             f"{params.PLOT_DIR}/synapse_distribution_{self.bodyId}_{color_by}.pdf"

@@ -6,6 +6,9 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import params
 import seaborn as sns
+import pandas as pd
+import warnings
+
 
 def make_nice_spines(ax, linewidth=params.LINEWIDTH):
     ax.spines["top"].set_visible(False)
@@ -64,25 +67,51 @@ def scatter_xyz_2d(
         cmap=params.red_heatmap,
         marker='o',
         z_label='Z',
+        discrete_coloring: bool=False,
         ):
     """
     Scatter plot in 2D with Z as the color.
     """
-    n_c = len(np.unique(Z))
-    #colors = sns.color_palette(palette = cmap, n_colors = n_c)
-    colors = params.custom_palette[:n_c]
-    cmap = mpl.colors.ListedColormap(colors)
-    ax.scatter(X, Y, c=Z, cmap=cmap, marker=marker,alpha=0.8)
+    if discrete_coloring:
+        unique_z = np.unique(Z)
+        n_c = len(unique_z)
+        colors = sns.color_palette(palette = cmap, n_colors = n_c)
+        #cmap = mpl.colors.ListedColormap(colors)
+        color_map = dict(zip(unique_z, colors))
+        df = pd.DataFrame({'X': X, 'Y': Y, 'Z': Z})
+        plt.scatter(
+            df['X'],
+            df['Y'],
+            c=df['Z'].map(color_map),
+            #cmap=cmap,
+            marker=marker,
+            alpha=0.8,
+            )
+        
+        with warnings.catch_warnings():
+            # suppress warnings from matplotlib, as plotting empty lists with
+            # a label will raise a user warning
+            warnings.simplefilter("ignore")
+            for z in unique_z:
+                ax.scatter([], [], c=color_map[z], label=z)
+                ax.legend(
+                    fontsize=params.LABEL_SIZE,
+                    title=z_label,
+                    title_fontsize=params.LABEL_SIZE
+                    )
+            
+    else:
+        ax.scatter(X, Y, c=Z, cmap=cmap, marker=marker,alpha=0.8)
+        cbar = plt.colorbar(
+            ax.collections[0],
+            ax=ax,
+            orientation='vertical',
+            label=z_label,
+            )
+        cbar = make_nice_cbar(cbar)
+
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
-    cbar = plt.colorbar(
-        ax.collections[0],
-        ax=ax,
-        orientation='vertical',
-        label=z_label,
-        )
-    cbar.ax.locator_params(nbins=n_c)
-    cbar = make_nice_cbar(cbar)
     ax = make_nice_spines(ax)
     plt.tight_layout()
     return ax

@@ -74,7 +74,7 @@ class Connections:
                 self.neurons_post = self.neurons_pre
             else:
                 self.neurons_post = pd.MultiIndex.from_tuples(
-                    zip(list(
+                    list(zip(
                         neurons_post,
                         np.zeros_like(neurons_post)
                         )),
@@ -282,7 +282,6 @@ class Connections:
                 ignore_index=True
                 )
 
-
     def __split_neurons_in_connections(self, split_neurons: list[Neuron] = None):
         """
         Divide the neurons that have more than one subdivision into multiple nodes.
@@ -405,7 +404,6 @@ class Connections:
                 ::: > convert_uid_to_neuron_ids():\
                 Unknown output type {output_type}"
                 )
-        
         to_return = self.uid.loc[self.uid['uid'].isin(uids)]
         if output_type == 'tuple':
             return to_return['neuron_ids'].values
@@ -445,29 +443,63 @@ class Connections:
             }
         )
         # add node attributes
-        body_ids = self.__convert_uid_to_neuron_ids(
-            self.graph.nodes,
-            output_type='body_id'
+        nx.set_node_attributes(
+            self.graph,
+            {node: body_id for node, body_id in zip(
+                self.uid['uid'], self.uid['body_id']
+                )},
+            "body_id"
             )
         nx.set_node_attributes(
             self.graph,
-            {node: body_id for node, body_id in zip(self.graph.nodes, body_ids)},
-            "body_id"
+            {node: label for node, label in zip(
+                self.uid['uid'], self.uid['node_label']
+                )},
+            "node_label"
             )
-        _ = self.__get_node_attributes("systematicType:string")
         _ = self.__get_node_attributes("class:string")
         nx.set_node_attributes(
             self.graph,
             nx.get_node_attributes(self.graph, "class:string"),
             "node_class"
             )
-        nx.set_node_attributes(
-            self.graph,
-            nx.get_node_attributes(self.graph, "systematicType:string"),
-            "node_label"
-            )
-        return
+        
+    def __name_neurons(self, split_neurons: list[Neuron] = None):
+        """
+        For the neurons that are split, append the subdivision label
+        to the neuron name in the graph.
+        For instance, if neuron A is split in A1 and A2, with A1 corresponding
+        to synapses in the neuropil T1 and A2 to synapses in T2, the graph
+        will have nodes A1_T1 and A2_T2.
+        """
+        names = get_nodes_data.load_data_neuron_set( # retrieve data
+                ids = self.uid['body_id'].values,
+                attributes = ["systematicType:string"],
+                )
+        self.uid = pd.merge(
+            self.uid,
+            names,
+            left_on='body_id',
+            right_on=':ID(Body-ID)',
+            how='left',
+        )
+        self.uid = self.uid.drop(columns=':ID(Body-ID)')
+        self.uid = self.uid.rename(columns={'systematicType:string':'node_label'})
 
+        if split_neurons is None:
+            return
+        for neuron in split_neurons:
+            subdivisions = neuron.get_subdivisions()
+            unique_starts = subdivisions[
+                ['start_id','subdivision_start','subdivision_start_name']
+                ].drop_duplicates()
+            for _, row in unique_starts.iterrows():
+                id_tuple = (row['start_id'], row['subdivision_start'])
+                self.uid.loc[
+                    self.uid['neuron_ids'] == id_tuple,
+                    'node_label'
+                    ] += row['subdivision_start_name']
+            
     def __build_adjacency_matrices(self, nodelist: list[int] = None):
         '''
         Create a dictionary with relevant connectivity matrices
@@ -540,13 +572,18 @@ class Connections:
         self.__get_connections()
         self.__split_neurons_in_connections(split_neurons)
         self.__map_uid()
+        self.__name_neurons(split_neurons)
         self.__build_graph()
         self.__build_adjacency_matrices()
         print("Connections initialized.")
         return
     
     # --- copy
-    def subgraph(self, nodes: list[int] = None, edges: list[tuple[int]] = None):
+    def subgraph(
+            self,
+            nodes: list[int] = None,
+            edges: list[tuple[int]] = None
+            ):
         '''
         Copy operator of the Connections class that returns a new object
         generated from the subgraph of the current object. 
@@ -569,8 +606,12 @@ class Connections:
             New Connections object with the subgraph.
         '''
         # Initialize the new object
-        neurons_pre_ = list(set(self.neurons_pre).intersection(set(nodes)))
-        neurons_post_ = list(set(self.neurons_post).intersection(set(nodes)))
+        neurons_pre_ = list(set(
+            self.neurons_pre.get_level_values('body_id')
+            ).intersection(set(nodes)))
+        neurons_post_ = list(set(
+            self.neurons_post.get_level_values('body_id')
+            ).intersection(set(nodes)))
         subgraph_  = Connections(neurons_pre_, neurons_post_)
         # Set the connections
         connections_ = self.get_connections()
@@ -586,6 +627,8 @@ class Connections:
                     rows_to_drop.append(index)
             connections_ = connections_.drop(rows_to_drop)
         subgraph_.set_connections(connections_)
+        # Subset the uids, keeps the names
+        subgraph_.uid = self.uid.loc[self.uid['body_id'].isin(nodes)].copy()
         # Initialize the graph
         subgraph_.set_graph()
         # Initialize the adjacency matrices
@@ -823,9 +866,9 @@ class Connections:
     
     def set_graph(self, graph: nx.DiGraph = None):
         if graph is None:
-            graph = self.__build_graph()
-        self.graph = graph
-        return
+            self.__build_graph()
+        else:
+            self.graph = graph
     
     def set_nt_weights(self, nt_weights: dict[str, int]):
         self.nt_weights = nt_weights
@@ -956,7 +999,12 @@ class Connections:
         plt.savefig(os.path.join(params.PLOT_DIR, title + "_matrix.pdf"))
         return
     
-    def display_graph(self, method: str = "circular", title: str = "test"):
+    def display_graph(
+            self,
+            method: str = "circular",
+            title: str = "test",
+            label_nodes: bool = False,
+        ):
         '''
         Display the graph.
         '''
@@ -971,7 +1019,7 @@ class Connections:
                     f"Class Connections > display_graph(): Unknown method {method}"
                     )
         ax = nx_design.draw_graph(
-            self.graph, pos, ax=ax, return_pos=False
+            self.graph, pos, ax=ax, return_pos=False, label_nodes=label_nodes
         )
         plt.savefig(os.path.join(params.PLOT_DIR, title + "_graph.pdf"))
         return 

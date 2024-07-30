@@ -26,6 +26,7 @@ def draw_graph(
     ax: plt.Axes = None,
     node_size: int = params.NODE_SIZE,
     return_pos: bool = False,
+    label_nodes: bool = False,
 ) -> dict:
     """Plots the network using the network specs and
     returns the positions of the nodes.
@@ -75,8 +76,8 @@ def draw_graph(
     nx.draw(
         G,
         pos,
-        with_labels=False,
-        labels="",
+        with_labels=label_nodes,
+        labels=nx.get_node_attributes(G, "node_label"),
         width=normalized_weights,
         alpha=0.75,
         node_size=node_size,
