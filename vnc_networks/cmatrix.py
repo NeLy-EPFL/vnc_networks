@@ -17,6 +17,7 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+import copy
 
 import params
 import utils.matrix_utils as matrix_utils
@@ -222,7 +223,7 @@ class CMatrix:
         Parameters
         ----------
         index : int or list[int]
-            The index or list of indices to convert to body ids.
+            The index or list of indices to convert to uids.
         axis : str, optional
             The axis of the index. The default is 'row'.
 
@@ -332,18 +333,18 @@ class CMatrix:
         
     def get_uids(self, sub_indices: list = None, axis: str = 'row') -> list:
         """
-        Returns the body ids of the nodes of the adjacency matrix.
+        Returns the uids of the nodes of the adjacency matrix.
 
         Parameters
         ----------
         sub_indices : list, optional
-            The indices of the nodes for which the body ids are returned.
-            If None, the body ids of all nodes are returned. The default is None.
+            The indices of the nodes for which the uids are returned.
+            If None, the uids of all nodes are returned. The default is None.
 
         Returns
         -------
         list
-            The body ids of the nodes of the adjacency matrix.
+            The uids of the nodes of the adjacency matrix.
         """
         if sub_indices is None:
             return self.lookup['uid'].tolist()
@@ -364,15 +365,14 @@ class CMatrix:
         Parameters
         ----------
         sub_uid : list, optional
-            The body_ids of the nodes for which the indices are returned.
+            The ids of the nodes for which the indices are returned.
             If None, the indices of all nodes are returned. The default is None.
         allow_empty : bool, optional
-            If False, raises an error if the body ids are not found in the lookup.
+            If False, raises an error if the ids are not found in the lookup.
             The default is True.
         input_type : str, optional
-            The type of the input uids. The default is 'body_id'. It will cover all uids 
-            that have the matching 'body_id' in the lookup.
-            Otherwise, the input is 'uid'.
+            The type of the input uids. The default is 'uid'.
+            Otherwise, the input is 'body_id'.
 
         Returns
         -------
@@ -404,17 +404,16 @@ class CMatrix:
         Parameters
         ----------
         sub_uid : list, optional
-            The body_ids of the nodes for which the indices are returned.
+            The ids of the nodes for which the indices are returned.
             If None, the indices of all nodes are returned.
             The default is None.
         allow_empty : bool, optional
-            If False, raises an error if the body ids are not found in
+            If False, raises an error if the ids are not found in
             the lookup.
             The default is True.
         input_type : str, optional
-            The type of the input uids. The default is 'body_id'.
-            It will cover all uids that have the matching 'body_id' in
-            the lookup. Otherwise, the input is 'uid'.
+            The type of the input uids. The default is 'uid'.
+            Otherwise, the input is 'body_id'.
 
         Returns
         -------
@@ -498,9 +497,14 @@ class CMatrix:
         self.restrict_from_to(r_i, c_i, allow_empty=allow_empty)
         return
 
-    def restrict_rows(self, rows: list, allow_empty: bool = True):
+    def restrict_rows(
+            self,
+            rows: list,
+            allow_empty: bool = True,
+            input_type: str = 'uid',
+            ):
         '''
-        Restricts the adjacency matrix to a subset of rows (body_ids).
+        Restricts the adjacency matrix to a subset of rows.
 
         Parameters
         ----------
@@ -509,14 +513,26 @@ class CMatrix:
         allow_empty : bool, optional
             If False, raises an error if the rows are not found in the lookup.
             The default is True.
+        input_type : str, optional
+            The type of the input uids. The default is 'uid'.
+            Otherwise, the input is 'body_id'.
         '''
-        # convert the rows to indices
-        r_i, _ = self.get_indices(rows)
+        # convert the rows to matrix indices
+        r_i = self.get_row_indices(
+            rows,
+            allow_empty=allow_empty,
+            input_type=input_type
+            )
         # restrict the matrix amd lookup to the indices
         self.__restrict_row_indices(r_i, allow_empty=allow_empty)
         return
     
-    def restrict_columns(self, columns: list, allow_empty: bool = True):
+    def restrict_columns(
+            self,
+            columns: list,
+            allow_empty: bool = True,
+            input_type: str = 'uid',
+            ):
         '''
         Restricts the adjacency matrix to a subset of columns (body_ids).
 
@@ -529,11 +545,14 @@ class CMatrix:
             The default is True.
         '''
         # convert the columns to indices
-        _, c_i = self.get_indices(columns)
+        c_i = self.get_column_indices(
+            columns,
+            allow_empty=allow_empty,
+            input_type=input_type
+            )
         # restrict the matrix amd lookup to the indices
         self.__restrict_column_indices(c_i, allow_empty=allow_empty)
         return
-
 
     # --- processing
     def power_n(self, n:int):
@@ -587,6 +606,21 @@ class CMatrix:
             self.__reorder_column_indexing(order=order)
         return
 
+    # --- computations
+    def list_downstream_neurons(self, uids: list[int]):
+        """
+        Get the downstream neurons of the input neurons.
+        """
+        cmatrix_copy = copy.deepcopy(self)
+        cmatrix_copy.restrict_rows(uids)
+        matrix = cmatrix_copy.get_matrix()
+        non_zero_columns = matrix.nonzero()[1] # columns with non-zero values
+        downstream_uids = cmatrix_copy.get_uids(
+            sub_indices=non_zero_columns,
+            axis='column'
+            )
+        return downstream_uids
+    
     # --- visualisation
     def spy(self, title:str=None):
         '''

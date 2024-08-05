@@ -30,7 +30,8 @@ NEURON_DIR = os.path.join(PREPROCESSING_DIR, "neurons")
 CONNECTION_DIR = os.path.join(PREPROCESSING_DIR, "connections")
 
 # --- Where to save the figures --- #
-PLOT_DIR = os.path.join(Path(__file__).absolute().parent.parent, "plots","tmp")
+FIG_DIR = os.path.join(Path(__file__).absolute().parent.parent, "plots")
+PLOT_DIR = os.path.join(FIG_DIR,"tmp")
 
 # --- Parameters for the analysis --- #
 NT_WEIGHTS = {"acetylcholine": +1, "gaba": -1, "glutamate": -1, "unknown": 0, None: 0, np.nan: 0}

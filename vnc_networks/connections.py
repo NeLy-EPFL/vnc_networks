@@ -470,7 +470,7 @@ class Connections:
         to the neuron name in the graph.
         For instance, if neuron A is split in A1 and A2, with A1 corresponding
         to synapses in the neuropil T1 and A2 to synapses in T2, the graph
-        will have nodes A1_T1 and A2_T2.
+        will have nodes A1 = 'A_T1' and A2 = 'A_T2'.
         """
         names = get_nodes_data.load_data_neuron_set( # retrieve data
                 ids = self.uid['body_id'].values,
@@ -524,8 +524,14 @@ class Connections:
             data={
                 "index": np.arange(len(nodelist)),
                 "uid": nodelist,
-                "body_id": self.__convert_uid_to_neuron_ids(nodelist, output_type='body_id'),
-                "subdivision": self.__convert_uid_to_neuron_ids(nodelist, output_type='subdivision'),
+                "body_id": self.__convert_uid_to_neuron_ids(
+                    nodelist,
+                    output_type='body_id'
+                    ),
+                "subdivision": self.__convert_uid_to_neuron_ids(
+                    nodelist,
+                    output_type='subdivision'
+                    ),
                 }
         )
         lookup = lookup.sort_values("index")
@@ -645,7 +651,8 @@ class Connections:
     
     def get_neuron_ids(self, selection_dict: dict = None) -> list[int]:
         '''
-        Get the neuron IDs from the nodes dataframe based on a selection dictionary.
+        Get the neuron IDs from the nodes dataframe as loaded in the initial
+        dataset, based on a selection dictionary.
         '''
         nodes = self.get_nodes(type='body_id')
         body_ids = get_nodes_data.get_neuron_bodyids(selection_dict, nodes)
@@ -784,6 +791,19 @@ class Connections:
                 )
         return nb_synapses
             
+    def subset_uids_on_label(self, label_contains:str):
+        '''
+        Get the uids of the neurons that have a label containing the given string.
+        '''
+        return self.uid.loc[
+            self.uid['node_label'].str.contains(label_contains, na=False)
+            ]['uid'].values
+    
+    def get_node_label(self, uid: int):
+        '''
+        Get the label of a node.
+        '''
+        return self.uid.loc[self.uid['uid'] == uid]['node_label'].values[0]
 
     # --- setters
     def merge_nodes(self, nodes: list[int]):

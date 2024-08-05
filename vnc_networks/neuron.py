@@ -387,6 +387,8 @@ class Neuron:
                 cmap=cmap,
                 discrete_coloring=discrete_coloring,
             )
+        if not os.path.exists(params.PLOT_DIR):
+            os.makedirs(params.PLOT_DIR) 
         plt.savefig(
             f"{params.PLOT_DIR}/synapse_distribution_{self.bodyId}_{color_by}.pdf"
             )

@@ -15,37 +15,35 @@ import seaborn as sns
 MDNs = []
 neurons_pre = get_neuron_bodyids({'type:string': 'MDN'})
 
-#for i in range(4):
-    #MDN = Neuron(neurons_pre[i])
-    #_ = MDN.get_synapse_distribution(threshold=True)
+for i in range(4):
+    MDN = Neuron(neurons_pre[i])
+    _ = MDN.get_synapse_distribution(threshold=True)
     #MDN = Neuron(from_file='MDN_split-neuropil_'+str(i))  # if already defined
     #MDN.cluster_synapses_spatially(n_clusters=3)
     #MDN.create_synapse_groups(attribute='KMeans_cluster')
-    #MDN.create_synapse_groups(attribute='neuropil')
-    #MDN.plot_synapse_distribution(
-    #    color_by='neuropil',
-    #    discrete_coloring=True,
-    #    threshold=True,
-    #    cmap="Spectral")
-    #MDN.save(name='MDN_split-neuropil_'+str(i))  # if you want to save the neuron
-    #MDNs.append(MDN)
+    MDN.create_synapse_groups(attribute='neuropil')
+    MDN.plot_synapse_distribution(
+        color_by='neuropil',
+        discrete_coloring=True,
+        threshold=True,
+        cmap="Spectral")
+    MDN.save(name='MDN_split-neuropil_'+str(i))  # if you want to save the neuron
+    MDNs.append(MDN)
 
 
 
-#VNC = Connections()  # full VNC
-#VNC.initialize(split_neurons=MDNs)  # split MDNs according to the synapse data
-#VNC.save(name='VNC_split_MDNs_by_neuropil')  # if you want to reuse it later
+VNC = Connections()  # full VNC
+VNC.initialize(split_neurons=MDNs)  # split MDNs according to the synapse data
+VNC.save(name='VNC_split_MDNs_by_neuropil')  # if you want to reuse it later
 #connections = VNC.get_connections()
 
 
-VNC = Connections(from_file='VNC_split_MDNs_by_neuropil')  # load the split VNC
-MDNs = VNC.subgraph(nodes=neurons_pre)
-MDNs.display_graph(label_nodes=True)
+#VNC = Connections(from_file='VNC_split_MDNs_by_neuropil')  # load the split VNC
+mdn_connections = VNC.subgraph(nodes=neurons_pre)
+mdn_connections.display_graph(label_nodes=True, title='MDN-MDN-per-neuropil')
 
 '''
-# TODO
-# - color as a function of the neuropil
-
+# Plot the Venn diagram of the synapse groups
 fig,ax = plt.subplots(nrows = 1, ncols = 4, figsize = (20,5))
 
 # Plot the Venn diagram of the synapse groups

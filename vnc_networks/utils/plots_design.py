@@ -8,6 +8,7 @@ import params
 import seaborn as sns
 import pandas as pd
 import warnings
+from matplotlib_venn import venn3
 
 
 def make_nice_spines(ax, linewidth=params.LINEWIDTH):
@@ -114,4 +115,50 @@ def scatter_xyz_2d(
     ax.set_ylabel('Y')
     ax = make_nice_spines(ax)
     plt.tight_layout()
+    return ax
+
+def venn_3(
+        sets: list,
+        set_labels: list[str] = ['','',''],
+        ax: plt.Axes = None,
+        colors=params.custom_palette[:3],
+        alpha=0.8,
+        title: str = '',
+        ):
+    """
+    Plot a 3-way Venn diagram.
+
+    Parameters
+    ----------
+    sets : list
+        List of sets to compare. Must be a list of 3 sets/lists.
+    set_labels : list[str], optional
+        Labels for the sets, by default None
+    ax : plt.Axes, optional
+        Axis to plot on, by default None
+    colors : list, optional
+        List of colors to use for the sets, by default params.custom_palette[:3]
+    alpha : float, optional
+        Transparency of the sets, by default 0.8
+    title : str, optional
+        Title for the plot, by default None
+
+    Returns
+    -------
+    plt.Axes
+        Axis with the Venn diagram.    
+    """
+    if len(sets) != 3:
+        raise ValueError('Must provide 3 sets to compare')
+    if ax is None:
+        _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
+
+    v = venn3(
+        sets,
+        set_labels,
+        ax=ax,
+        set_colors=colors,
+        alpha=alpha,
+        )
+    ax.set_title(title)
     return ax
