@@ -4,6 +4,9 @@ motor neurons are located (neuropil T1-T3). Connection within 2 hops.
 
 Fig 1b: Venn diagram of motor neurons downstream of MDN split by where MDN
 synapses are (neuropil T1-T3). Connection within 2 hops.
+
+Fig 1c: Venn diagram of neurons directly downstream of MDNs, split by where
+the MDN synapses are (neuropil T1-T3).
 '''
 import os
 import matplotlib.pyplot as plt
@@ -33,16 +36,7 @@ def split_neuron_by_neuropil(neuron_id):
         neuron.save(name=name)
     return name
 
-# ----- Figure functions -----
-def fig1a():
-    pass
-
-def fig1b(n_hops: int = 2):
-    """
-    Venn diagram of motor neurons downstream of MDN split by where MDN
-    synapses are (neuropil T1-T3). Connection within n hops.
-    """
-    # Loading the connectivity data
+def get_vnc_split_MDNs_by_neuropil():
     try:
         VNC = Connections(from_file='VNC_split_MDNs_by_neuropil')
     except:
@@ -54,29 +48,53 @@ def fig1b(n_hops: int = 2):
         VNC = Connections()  # full VNC
         VNC.initialize(split_neurons=MDNs)  # split MDNs according to the synapse data
         VNC.save(name='VNC_split_MDNs_by_neuropil')
+    return VNC
+
+def get_leg_motor_neurons(data: Connections, leg: str = None):
+    match leg:
+        case 'f':
+            target = ['fl']
+        case 'm':
+            target = ['ml']
+        case 'h':
+            target = ['hl']
+        case None:
+            target = ['fl', 'ml', 'hl']
+    leg_motor_neurons = []
+    for t in target:
+        selection_dict = {
+            'subclass:string': t,
+            'class:string': 'motor neuron'
+            }
+        neurons_post = data.get_neuron_ids(selection_dict) # uids
+        leg_motor_neurons.extend(neurons_post)
+    return set(leg_motor_neurons)
+
+            
+
+# ----- Figure functions -----
+def fig1a():
+    pass
+
+def fig1b(n_hops: int = 2):
+    """
+    Venn diagram of motor neurons downstream of MDN split by where MDN
+    synapses are (neuropil T1-T3). Connection within n hops.
+    """
+    # Loading the connectivity data
+    VNC = get_vnc_split_MDNs_by_neuropil()
 
     # Working with matrix representation, get n-th order connections
     cmatrix = VNC.get_cmatrix(type_='norm')
     cmatrix.power_n(n_hops)
 
     # Get the postsynaptics neurons: leg motor neurons
-    leg_motor_neurons = []
-    for i in range(3):
-        neuropil = 'T'+str(i+1)
-        selection_dict = {
-            'somaNeuromere:string': neuropil,
-            'class:string': 'motor neuron'
-            }
-        neurons_post = VNC.get_neuron_ids(selection_dict) # uids
-        leg_motor_neurons.extend(neurons_post)
-    leg_motor_neurons = set(leg_motor_neurons)
-    print('Number of leg motor neurons:', len(leg_motor_neurons))
-
+    leg_motor_neurons = get_leg_motor_neurons(VNC)
     # Get the uids of motor neurons split by MDN synapses in leg neuropils
     mdn_uids = VNC.get_neuron_ids({'type:string': 'MDN'})
     list_down_mns = [] # will become a list with 3 lists
     for i in range(3):
-        neuropil = 'LegNp(T'+str(i+1)+')'
+        neuropil = 'LegNp(T'+str(i+1)+')' # synapses of MDNs in T1/T2/T3
         mdn_neuropil = [
             uid for uid in mdn_uids if neuropil in VNC.get_node_label(uid)
             ]
@@ -96,6 +114,9 @@ def fig1b(n_hops: int = 2):
     if not os.path.exists(folder):
         os.makedirs(folder)
     plt.savefig(os.path.join(folder, f'Fig1b_{n_hops}_hops.pdf'))
+
+    def fig1c():
+        
     
     
 
