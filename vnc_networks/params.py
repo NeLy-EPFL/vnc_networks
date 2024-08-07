@@ -63,7 +63,9 @@ diverging_heatmap = 'vlag'
 
 # Figures
 MAX_EDGE_WIDTH = 5
-FIGSIZE = (8, 8)
+FIG_WIDTH = 8
+FIG_HEIGHT = 8
+FIGSIZE = (FIG_WIDTH, FIG_HEIGHT)
 DPI = 300
 NODE_SIZE = 100
 FONT_SIZE = 5

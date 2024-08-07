@@ -132,26 +132,50 @@ class Connections:
             [self.nt_weights[x] for x in connections_["predictedNt:string"]]
             )
         connections_["eff_weight"] = connections_["syn_count"] * weight_vec
+        self.connections = connections_
+
+    def __compute_effective_weights_in_connections(self):
+        '''
+        Compute the effective weights of the connections.
+        '''
         ## Calculate effective weights normalized by total incoming synapses
-        in_total = connections_.groupby(":END_ID(Body-ID)")["syn_count"].sum()
+        in_total = self.connections.groupby(":END_ID(Body-ID)")["syn_count"].sum()
         in_total = in_total.to_frame(name="in_total")
-        connections_ = connections_.merge(
+        self.connections = self.connections.merge(
             in_total, left_on=":END_ID(Body-ID)", right_index=True
             )
-        connections_["syn_count_norm"] = connections_[
+        self.connections["syn_count_norm"] = self.connections[
             "syn_count"
-            ] / connections_["in_total"]
-        connections_["eff_weight_norm"] = connections_[
+            ] / self.connections["in_total"]
+        self.connections["eff_weight_norm"] = self.connections[
             "eff_weight"
-            ] / connections_["in_total"]
-        connections_ = connections_.drop(columns=["in_total"])
+            ] / self.connections["in_total"]
+        self.connections = self.connections.drop(columns=["in_total"])
 
         # add a column with 'subdivision_start' and 'subdivision_end' with zeros as values
-        connections_["subdivision_start"] = 0
-        connections_["subdivision_end"] = 0
-        self.connections = connections_
+        self.connections["subdivision_start"] = 0
+        self.connections["subdivision_end"] = 0
+        self.connections = self.connections
         return
     
+    def __remove_connections_between(self, not_connected: list[int] = None):
+        '''
+        Remove connections between neurons in the not_connected list.
+
+        Parameters
+        ----------
+        not_connected: list[int]
+            List of body ids that should not be connected.
+        '''
+        if not_connected is None:
+            return
+        self.connections = self.connections[
+            ~(
+                (self.connections[':START_ID(Body-ID)'].isin(not_connected))
+                & (self.connections[':END_ID(Body-ID)'].isin(not_connected))
+                )
+            ]
+        
     def __split_neuron(self, neuron: Neuron):
         '''
         Split a single neuron into multiple nodes.
@@ -574,8 +598,16 @@ class Connections:
 
     # public methods
     # --- initialize
-    def initialize(self, split_neurons: list[Neuron] = None):
+    def initialize(
+            self,
+            split_neurons: list[Neuron] = None,
+            not_connected: list[int] = None, # body ids
+            ):
+        for neuron in split_neurons:
+            neuron.clear_not_connected(not_connected)
         self.__get_connections()
+        self.__remove_connections_between(not_connected=not_connected)
+        self.__compute_effective_weights_in_connections()
         self.__split_neurons_in_connections(split_neurons)
         self.__map_uid()
         self.__name_neurons(split_neurons)

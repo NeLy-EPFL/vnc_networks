@@ -3,21 +3,35 @@ import os
 import params
 import numpy as np
 import scipy as sc
+import matplotlib.pyplot as plt
 
 from neuron import Neuron
 from connections import Connections
 
-VNC = Connections(from_file='VNC_split_MDNs_by_neuropil')
-neuropil = 'T1'
-selection_dict = {
-    #'somaNeuromere:string': neuropil,
-    'class:string': 'motor neuron',
-    'subclass:string': 'fl'
-    }
-neurons_post = VNC.get_neuron_ids(selection_dict)
-print(neurons_post)
-print(len(neurons_post))
-labels = [VNC.get_node_label(uid) for uid in neurons_post]
-print(labels)
-print(len(labels))
-print(len(set(labels)))
+class Test:
+    def __init__(self):
+        self.attribute = [0,1,2,3,4,5,6,7,8,9]
+
+    def pop(self):
+        self.attribute.pop()
+
+class Test2:
+    def __init__(self, list):
+        self.own_list = list
+
+    def update(self):
+        for t_ in self.own_list:
+            t_.pop()
+
+    def display(self):
+        for t_ in self.own_list:
+            print(t_.attribute)
+        
+
+t1 = Test()
+t2 = Test()
+t_list = [t1, t2]
+t3 = Test2(t_list)
+t3.update()
+t3.display()
+

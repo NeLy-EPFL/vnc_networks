@@ -324,6 +324,18 @@ class Neuron:
 
         self.subdivisions = synapses
 
+    def clear_not_connected(self, not_connected: list[int]):
+        """
+        Clear the subdivions table from neurons that have their bodyid in 
+        the not_connected list.
+        """
+        self.subdivisions = self.subdivisions[
+            ~self.subdivisions['end_id'].isin(not_connected)
+        ]
+        self.synapse_df = self.synapse_df[
+            ~self.synapse_df['end_id'].isin(not_connected)
+        ]
+        
     # --- computations
     def cluster_synapses_spatially(
             self,
