@@ -22,6 +22,7 @@ import os
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import pandas as pd
+import networkx as nx
 
 from connections import Connections
 from neuron import Neuron
@@ -370,7 +371,53 @@ def fig1e(attribute: str = 'class:string'):
     plt.close()
 
 def fig1f():
-    
+    print('> Fig 1f')
+
+    # Loading the connectivity data
+    VNC = get_vnc_split_MDNs_by_neuropil(not_connected=get_mdn_bodyids())
+    mdns = VNC.get_neuron_ids({'type:string': 'MDN'})
+
+    # figure template
+    _, axs = plt.subplots(
+        2,
+        3,
+        figsize=(3 * params.FIG_WIDTH, 2 * params.FIG_HEIGHT),
+        dpi=params.DPI,
+        )
+
+    # Analyse each neuropil separately
+    for row, side in enumerate(['L' ,'R']):
+        for i in range(3):
+            neuropil = 'LegNp(T'+str(i+1)+')' # synapses of MDNs in T1/T2/T3
+            source_neurons = [
+                mdn for mdn in mdns if (
+                    (neuropil in VNC.get_node_label(mdn))
+                    & (side in VNC.get_node_label(mdn))
+                    ) # soma side not given for MDNs, but exists in the name
+                ]
+            target_neurons = VNC.get_neuron_ids({
+                'somaNeuromere:string': f'T{i+1}',
+                'somaSide:string': side + 'HS',
+                'class:string': 'motor neuron'
+                })
+            l2_graph = VNC.paths_length_n(2, source_neurons, target_neurons)
+            subconnections = VNC.subgraph(
+                l2_graph.nodes,
+                edges=l2_graph.edges(), # only the edges directly involved in the paths
+                )  # new Connections object
+            _ = subconnections.display_graph(
+                title=f'MDNs|{side}_{neuropil}_to_MNs_2_hops',
+                ax=axs[row,i],
+                )
+            del subconnections, l2_graph
+    plt.tight_layout()
+    folder = os.path.join(params.FIG_DIR, 'Fig1')
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    plt.savefig(os.path.join(folder, 'Fig1f.pdf'))
+    plt.close()
+            
+        
 
 if __name__ == '__main__':
     #fig1a(n_hops=2)
@@ -383,6 +430,6 @@ if __name__ == '__main__':
     #fig1e(attribute='subclass:string')
     #fig1e(attribute='somaNeuromere:string')
     #fig1e(attribute='target:string')
+    #fig1e(attribute='somaSide:string')
     fig1f()
-
     pass

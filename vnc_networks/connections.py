@@ -60,26 +60,15 @@ class Connections:
         else:
             if neurons_pre is None:
                 neurons_ = pd.read_feather(params.NEUPRINT_NODES_FILE)
-                neurons_pre_ = list(zip(
-                    neurons_[':ID(Body-ID)'].to_list(),
-                    np.zeros_like(neurons_[':ID(Body-ID)'].to_list())
-                ))  # the subdivision is set to 0
+                neurons_pre_ = neurons_[':ID(Body-ID)'].to_list()
+
             else:
-                neurons_pre_ = list(zip(neurons_pre, np.zeros_like(neurons_pre)))
-            self.neurons_pre = pd.MultiIndex.from_tuples(
-                neurons_pre_,
-                names=["body_id", "subdivision"],
-                )
+                neurons_pre_ = neurons_pre
+            self.neurons_pre = neurons_pre_
             if neurons_post is None:
                 self.neurons_post = self.neurons_pre
             else:
-                self.neurons_post = pd.MultiIndex.from_tuples(
-                    list(zip(
-                        neurons_post,
-                        np.zeros_like(neurons_post)
-                        )),
-                    names=["body_id", "subdivision"],
-                    )
+                self.neurons_post = neurons_post,
             self.nt_weights = params.NT_WEIGHTS
             self.subgraphs = {}
          
@@ -98,10 +87,10 @@ class Connections:
         # filter out only the connections relevant here
         connections_ = connections_[
             connections_[":START_ID(Body-ID)"].isin(
-                self.neurons_pre.get_level_values('body_id')
+                self.neurons_pre
                 )
             & connections_[":END_ID(Body-ID)"].isin(
-                self.neurons_post.get_level_values('body_id')
+                self.neurons_post
                 )
             ]
         
@@ -115,7 +104,7 @@ class Connections:
 
         ## add the neurotransmitter type to the connections
         nttypes = get_nodes_data.load_data_neuron_set(
-            self.neurons_pre.get_level_values('body_id'),
+            self.neurons_pre,
             ["predictedNt:string"],
             )
         connections_ = pd.merge(
@@ -132,6 +121,11 @@ class Connections:
             [self.nt_weights[x] for x in connections_["predictedNt:string"]]
             )
         connections_["eff_weight"] = connections_["syn_count"] * weight_vec
+
+        # add a column with 'subdivision_start' and 'subdivision_end' with zeros as values
+        connections_["subdivision_start"] = 0
+        connections_["subdivision_end"] = 0
+
         self.connections = connections_
 
     def __compute_effective_weights_in_connections(self):
@@ -151,11 +145,6 @@ class Connections:
             "eff_weight"
             ] / self.connections["in_total"]
         self.connections = self.connections.drop(columns=["in_total"])
-
-        # add a column with 'subdivision_start' and 'subdivision_end' with zeros as values
-        self.connections["subdivision_start"] = 0
-        self.connections["subdivision_end"] = 0
-        self.connections = self.connections
         return
     
     def __remove_connections_between(self, not_connected: list[int] = None):
@@ -638,7 +627,7 @@ class Connections:
         Parameters
         ----------
         nodes: list[int]
-            List of nodes to consider in the subgraph.
+            List of nodes to consider in the subgraph. These are uids.
             If None, the entire graph is considered.
         edges: list[tuple[int]]
             List of edges to consider in the subgraph.
@@ -651,30 +640,35 @@ class Connections:
         Connections
             New Connections object with the subgraph.
         '''
-        # Initialize the new object
-        neurons_pre_ = list(set(
-            self.neurons_pre.get_level_values('body_id')
-            ).intersection(set(nodes)))
-        neurons_post_ = list(set(
-            self.neurons_post.get_level_values('body_id')
-            ).intersection(set(nodes)))
-        subgraph_  = Connections(neurons_pre_, neurons_post_)
-        # Set the connections
+        # Get the connections
         connections_ = self.get_connections()
         connections_ = connections_[
-            connections_[":START_ID(Body-ID)"].isin(nodes)
-            & connections_[":END_ID(Body-ID)"].isin(nodes)
+            connections_["start_uid"].isin(nodes)
+            & connections_["end_uid"].isin(nodes)
             ]
         if not edges is None:
             rows_to_drop = []
             for index, row in connections_.iterrows():
-                if (row[":START_ID(Body-ID)"],
-                    row[":END_ID(Body-ID)"]) not in edges:
+                if (row["start_uid"],
+                    row["end_uid"]) not in edges:
                     rows_to_drop.append(index)
             connections_ = connections_.drop(rows_to_drop)
+
+        # Initialize the new object
+        neurons_pre_ = connections_["start_uid"].to_list()
+        neurons_post_ = connections_["end_uid"].to_list()
+        subgraph_  = Connections(neurons_pre_, neurons_post_)
+
+        # update the effective weights
+        connections_ = connections_.drop(columns=[
+            "syn_count_norm",
+            "eff_weight_norm",
+            ])
         subgraph_.set_connections(connections_)
+        subgraph_.__compute_effective_weights_in_connections()
+
         # Subset the uids, keeps the names
-        subgraph_.uid = self.uid.loc[self.uid['body_id'].isin(nodes)].copy()
+        subgraph_.uid = self.uid.loc[self.uid['uid'].isin(nodes)].copy()
         # Initialize the graph
         subgraph_.set_graph()
         # Initialize the adjacency matrices
@@ -1077,11 +1071,14 @@ class Connections:
             method: str = "circular",
             title: str = "test",
             label_nodes: bool = False,
+            ax: plt.Axes = None,
+            save: bool = True
         ):
         '''
         Display the graph.
         '''
-        _, ax = plt.subplots(figsize=FIGSIZE, dpi=DPI)
+        if ax is None:
+            _, ax = plt.subplots(figsize=FIGSIZE, dpi=DPI)
         match method:
             case "circular":
                 pos = nx.circular_layout(self.graph)
@@ -1094,8 +1091,9 @@ class Connections:
         ax = nx_design.draw_graph(
             self.graph, pos, ax=ax, return_pos=False, label_nodes=label_nodes
         )
-        plt.savefig(os.path.join(params.PLOT_DIR, title + "_graph.pdf"))
-        return 
+        if save:
+            plt.savefig(os.path.join(params.PLOT_DIR, title + "_graph.pdf"))
+        return ax     
     
     def display_graph_per_attribute(
             self,
