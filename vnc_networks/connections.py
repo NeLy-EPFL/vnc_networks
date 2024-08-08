@@ -481,12 +481,17 @@ class Connections:
                 )},
             "node_label"
             )
+        self.__defined_attributes_in_graph = [
+            "body_id",
+            "node_label",
+            ]
         _ = self.__get_node_attributes("class:string")
         nx.set_node_attributes(
             self.graph,
             nx.get_node_attributes(self.graph, "class:string"),
             "node_class"
             )
+        self.__defined_attributes_in_graph.append("node_class")
         
     def __name_neurons(self, split_neurons: list[Neuron] = None):
         """
@@ -567,7 +572,7 @@ class Connections:
             "lookup": lookup,
         }
         return
-    
+
     def __get_node_attributes(self, attribute: str, default='None'):
         '''
         Get the node attributes for the graph.
@@ -576,7 +581,8 @@ class Connections:
         For instance if a neuron A is subdivided in A1 and A2, the neurotransmitter type 
         of (A,1) and (A,2) will be the same as A.
         '''
-        if attribute not in self.graph.nodes:
+        if attribute not in self.__defined_attributes_in_graph:
+            print(f"Attribute {attribute} not found in the graph. Adding it.")
             nodes = self.get_nodes(type='uid') # uids
             body_ids = self.get_nodes(type='body_id')
             attr = get_nodes_data.load_data_neuron_set( # retrieve data
@@ -594,6 +600,7 @@ class Connections:
                 k: default if v is None else v for k, v in attr_list.items()
                 }
             nx.set_node_attributes(self.graph, attr_list, attribute)
+            self.__defined_attributes_in_graph.append(attribute)
         return nx.get_node_attributes(self.graph, attribute)
 
     # public methods
@@ -603,8 +610,9 @@ class Connections:
             split_neurons: list[Neuron] = None,
             not_connected: list[int] = None, # body ids
             ):
-        for neuron in split_neurons:
-            neuron.clear_not_connected(not_connected)
+        if split_neurons is not None:
+            for neuron in split_neurons:
+                neuron.clear_not_connected(not_connected)
         self.__get_connections()
         self.__remove_connections_between(not_connected=not_connected)
         self.__compute_effective_weights_in_connections()
@@ -836,6 +844,19 @@ class Connections:
         Get the label of a node.
         '''
         return self.uid.loc[self.uid['uid'] == uid]['node_label'].values[0]
+
+    def get_node_attribute(self, uid, attribute: str):
+        '''
+        Get the attribute of a node.
+
+        uid: int or list[int]
+        '''
+        self.__get_node_attributes(attribute) # defines it if not present
+        all = nx.get_node_attributes(self.graph, attribute)
+        if isinstance(uid, list):
+            return [all[u] for u in uid]
+        else:
+            return all[uid]
 
     # --- setters
     def merge_nodes(self, nodes: list[int]):
@@ -1220,6 +1241,16 @@ class Connections:
             sorting=[x_sorting, y_sorting, z_sorting],
             )
         plt.savefig(os.path.join(params.PLOT_DIR, title + "3dx_plot.pdf"))
+
+    def list_possible_attributes(self):
+        '''
+        List the attributes present in the nodes dataframe.
+        '''
+        all_attributes = self.__defined_attributes_in_graph
+        from_dataset = get_nodes_data.get_possible_columns()
+        all_attributes.extend(from_dataset)
+        all_attributes = np.unique(all_attributes)
+        return all_attributes
 
     # --- saving
     def save(self, name: str):

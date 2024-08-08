@@ -564,6 +564,8 @@ class CMatrix:
         n : int
             The power to which the adjacency matrix is raised.
         '''
+        # check if the matrix is still sparse
+        assert isinstance(self.matrix, sc.sparse.csr_matrix)
         matrix_ = self.get_matrix()
         self.matrix = matrix_utils.connections_at_n_hops(matrix_, n)
 

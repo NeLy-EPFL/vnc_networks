@@ -100,4 +100,11 @@ def load_data_neuron_set(ids: list, attributes: list = None) -> pd.DataFrame:
         return neurons[neurons[':ID(Body-ID)'].isin(ids)][attributes]
     else:
         return neurons[neurons[':ID(Body-ID)'].isin(ids)]
+    
+def get_possible_columns() -> list:
+    """
+    Get the possible columns of the dataset.
+    """
+    neurons = pd.read_feather(params.NEUPRINT_NODES_FILE)
+    return neurons.columns
 
