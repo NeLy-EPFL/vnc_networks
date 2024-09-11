@@ -17,21 +17,26 @@ mdns = VNC.get_neuron_ids({
         'type:string': 'MDN'
         })
 
-neuropil = 'LegNp(T1)' # synapses of MDNs in T1/T2/T3
+neuropil = 'LegNp(T3)' # synapses of MDNs in T1/T2/T3
 source_neurons = [
     mdn for mdn in mdns if (
         (neuropil in VNC.get_node_label(mdn))
         & ('R' in VNC.get_node_label(mdn))
         )
     ]
+leg_motor_neurons = fig1.get_leg_motor_neurons(VNC,leg='h') # uids
 target_neurons = VNC.get_neuron_ids({
-    'somaNeuromere:string': f'T1',
-    'somaSide:string': 'RHS',
-    'class:string': 'motor neuron'
+    'somaSide:string':'RHS',
     })
+target_neurons = list(
+    set(target_neurons).intersection(leg_motor_neurons)
+)
 l2_graph = VNC.paths_length_n(2, source_neurons, target_neurons)
 sub = VNC.subgraph(l2_graph.nodes, l2_graph.edges())
-ax = sub.display_graph(
-    title='test'
+ax = sub.draw_graph_concentric_by_attribute(
+    title='test',
+    attribute='target:string',
+    center_nodes=source_neurons,
+    target_nodes=target_neurons,
+    syn_threshold=5,
 )
-plt.savefig('test.png')

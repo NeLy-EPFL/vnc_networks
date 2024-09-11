@@ -3,7 +3,7 @@ Module containing utility functions for processing nx graphs.
 '''
 import networkx as nx
 
-def remove_inhbitory_connections(graph: nx.DiGraph):
+def remove_inhibitory_connections(graph: nx.DiGraph):
     """
     Remove inhibitory connections from the graph.
     """
@@ -39,6 +39,18 @@ def get_subgraph_from_edges(graph: nx.DiGraph, edges: list):
     Get the subgraph of the graph containing only the nodes in the list.
     """
     graph_ = graph.edge_subgraph(edges).copy()
+    # remove edges that have a weight of 0
+    edges_to_remove = []
+    for edge in graph_.edges():
+        if abs(graph_.edges[edge]["weight"]) < 1:
+            edges_to_remove.append(edge)
+    graph_.remove_edges_from(edges_to_remove)
+    # nodes that are not connected to any other node are removed
+    nodes_to_remove = []
+    for node in graph_.nodes():
+        if graph_.degree(node) == 0:
+            nodes_to_remove.append(node)
+    graph_.remove_nodes_from(nodes_to_remove)
     return graph_
 
 def sort_nodes(
@@ -135,3 +147,23 @@ def sort_nodes(
 
     return nodes
     
+def threshold_graph(graph: nx.DiGraph, threshold: int = None):
+    """
+    Threshold the graph by removing edges with a weight below the threshold.
+    """
+    graph_ = graph.copy()
+    if threshold is None:
+        return graph_
+    else:
+        edges_to_remove = []
+        for edge in graph_.edges():
+            if abs(graph_.edges[edge]["weight"]) < threshold:
+                edges_to_remove.append(edge)
+        graph_.remove_edges_from(edges_to_remove)
+        # clean up nodes that are not connected to any other node
+        nodes_to_remove = []
+        for node in graph_.nodes():
+            if graph_.degree(node) == 0:
+                nodes_to_remove.append(node)
+        graph_.remove_nodes_from(nodes_to_remove)
+        return graph_

@@ -421,4 +421,23 @@ class Neuron:
         with open(os.path.join(params.NEURON_DIR, name+'.txt'), 'wb') as file:
             pickle.dump(self.__dict__, file)
 
-    
+
+# --- helper functions
+
+def split_neuron_by_neuropil(neuron_id):
+    '''
+    Define neuron subdivisions based on synapse distribution.
+    Saves the subdivisions in a new neuron to file, which can be loaded by its
+    name.
+    '''
+    name = 'neuron-'+str(neuron_id)+'_neuropil-split'
+    # check there are files starting with name
+    files = [f for f in os.listdir(params.NEURON_DIR) if f.startswith(name)]
+    if files:
+        return name
+    else:
+        neuron = Neuron(neuron_id)
+        _ = neuron.get_synapse_distribution(threshold=True)
+        neuron.create_synapse_groups(attribute='neuropil')
+        neuron.save(name=name)
+    return name

@@ -65,7 +65,7 @@ def draw_graph(
     # Normalize the edge width of the network
     weights = list(nx.get_edge_attributes(G, "weight").values())
     normalized_weights = (
-        weights / np.abs(weights).max()
+        np.abs(weights) / np.abs(weights).max()
         ) * params.MAX_EDGE_WIDTH
 
     # Color nodes and edges
@@ -438,9 +438,9 @@ def draw_graph_grouped_by_attribute(
             )
         # use the network with specific connectivity to define the positions of the neurons
         if position_reference == 'inhibitory': 
-            subgraph = remove_excitatory_connections(subgraph)
+            subgraph = nx_utils.remove_excitatory_connections(subgraph)
         elif position_reference == 'excitatory':
-            subgraph = remove_inhbitory_connections(subgraph)
+            subgraph = nx_utils.remove_inhbitory_connections(subgraph)
 
         # draw the graph
         pos = draw_graph_concentric_circles(
@@ -461,9 +461,9 @@ def draw_graph_grouped_by_attribute(
             ]
     subgraph = graph.subgraph(additional_nodes)
     if position_reference == 'inhibitory': 
-        subgraph = remove_excitatory_connections(subgraph)
+        subgraph = nx_utils.remove_excitatory_connections(subgraph)
     elif position_reference == 'excitatory':
-        subgraph = remove_inhbitory_connections(subgraph)
+        subgraph = nx_utils.remove_inhbitory_connections(subgraph)
     pos = draw_graph_concentric_circles(
         subgraph,
         center=(0,0),
@@ -477,9 +477,9 @@ def draw_graph_grouped_by_attribute(
     fig, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
 
     if restricted_connections == 'inhibitory': 
-        graph = remove_excitatory_connections(graph)
+        graph = nx_utils.remove_excitatory_connections(graph)
     elif restricted_connections == 'excitatory':
-        graph = remove_inhbitory_connections(graph)
+        graph = nx_utils.remove_inhbitory_connections(graph)
 
     edge_norm = max([np.abs(graph.edges[e]["weight"]) for e in graph.edges]) / 5
     widths = [np.abs(graph.edges[e]["weight"]) / edge_norm for e in graph.edges]
@@ -532,6 +532,159 @@ def draw_graph_grouped_by_attribute(
             color='k',
         )
     return ax
+
+def draw_graph_concentric_by_attribute(
+    graph: nx.DiGraph,
+    attribute: str,
+    center_nodes: list[int],
+    target_nodes: list[int],
+    ax: plt.Axes = None,
+    return_pos: bool = False,
+    label_nodes: bool = False,
+    ):
+    '''
+    Represent the graph with 3 concentric circles.
+    center_nodes are on a center circle, typically input neurons.
+    On the outer circle are target_nodes grouped by attribute.
+    On the intermediate circle are the rest of the nodes in the graph,
+    with their angle minimising distance to the nodes they're connected to
+    for readability.
+    '''
+    # --- positions of the nodes ---
+    positions = {}
+
+    # === outer ring: target neurons, grouped by attribute
+    outer_radius = 0.85
+    # count the number of clusters defined
+    cluster_list = [
+        graph.nodes[node][attribute]
+        for node in target_nodes if node in graph.nodes
+        ]
+    clusters = list(set(cluster_list))
+    clusters.sort()
+    if clusters == []:
+        raise ValueError(f'No clustering defined by {attribute} in the graph')
+    nb_clusters = len(clusters)
+    cluster_centers = [
+        ((outer_radius*params.FIGSIZE[0])*np.cos(2*np.pi*cluster_nb/nb_clusters),
+        (outer_radius*params.FIGSIZE[1])*np.sin(2*np.pi*cluster_nb/nb_clusters))
+        for cluster_nb in range(nb_clusters)
+        ]
+    leaf_scaling = 1 / nb_clusters * params.FIGSIZE[0]
+     
+    for cluster_idx, cluster_nb in enumerate(clusters):
+        # get a subset of the graph known_graph, where the 'cluster' attribute is equal to cluster_of_interest
+        subgraph = graph.subgraph(
+            [
+                node
+                for node in target_nodes
+                if graph.nodes[node][attribute] == cluster_nb
+            ]
+            )
+        # define positions
+        pos = draw_graph_concentric_circles(
+            subgraph,
+            center=cluster_centers[cluster_idx],
+            output='pos',
+            radius_scaling=leaf_scaling,
+            )
+        positions = {**positions, **pos}
+
+    # === middle ring: nodes not in the target_nodes nor in the center_nodes
+    middle_radius = 0.4
+    # get the nodes that are not in the target_nodes
+    other_nodes = [
+        node for node in graph.nodes
+        if not node in target_nodes and not node in center_nodes
+        ]
+    # get access to the angles of connected nodes
+    def angle_node(node, positions):
+        if not node in positions.keys():
+            return np.random.rand()*2*np.pi
+        return np.arctan2(positions[node][1], positions[node][0])
+    # compute the weighted angle
+    def weighted_angle(graph, node_to_place, connected_nodes, positions):
+        if len(connected_nodes) == 0:
+            return np.random.rand()*2*np.pi
+        angles = [angle_node(n, positions) for n in connected_nodes]
+        weights = [
+            np.abs(graph.edges[(node_to_place,n)]['weight'])
+            for n in connected_nodes
+            ]
+        return np.dot(weights, angles) / sum(weights)
+    # define the positions
+    for node in other_nodes:
+        # get the connected nodes
+        connected_nodes = list(graph.successors(node))
+        # get the angles of the connected nodes
+        w_angle = weighted_angle(graph, node, connected_nodes, positions)
+        # get the position
+        pos = (
+            middle_radius*params.FIGSIZE[0]*np.cos(w_angle),
+            middle_radius*params.FIGSIZE[1]*np.sin(w_angle)
+            )
+        positions[node] = pos
+
+    # === inner ring: center nodes
+    inner_radius = 0.1
+    # define the positions
+    for node in center_nodes:
+        connected_nodes = list(graph.successors(node))
+        w_angle = weighted_angle(graph, node, connected_nodes, positions)
+        pos = (
+            inner_radius*params.FIGSIZE[0]*np.cos(w_angle),
+            inner_radius*params.FIGSIZE[1]*np.sin(w_angle)
+            )
+        positions[node] = pos
+
+    # --- draw the graph ---
+    if ax is None:
+        fig, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
+    edge_norm = max([np.abs(graph.edges[e]["weight"]) for e in graph.edges]) / 5
+    widths = [np.abs(graph.edges[e]["weight"]) / edge_norm for e in graph.edges]
+    edge_colors = define_edge_colors(graph)
+    node_colors = define_node_colors(graph)
+    node_labels = {
+            n: graph.nodes[n]["node_label"]
+            if "node_label" in graph.nodes[n].keys()
+            else ""
+            for n in graph.nodes
+    }
+    nx.draw(
+        graph,
+        pos=positions,
+        nodelist=graph.nodes,
+        with_labels=label_nodes,
+        labels=node_labels,
+        alpha=0.5,
+        node_size=params.NODE_SIZE,
+        node_color=node_colors,
+        edge_color=edge_colors,
+        width=widths,
+        connectionstyle="arc3,rad=0.1",
+        font_size=2,
+        font_color="black",
+        ax=ax,
+    )
+    add_edge_legend(ax,
+                    weights=widths,
+                    color_list=edge_colors,
+                    arrow_norm=1 / edge_norm,)
+    
+    # add labels to the clusters
+    for cluster_idx, cluster_nb in enumerate(clusters):
+        ax.text(
+            cluster_centers[cluster_idx][0],
+            cluster_centers[cluster_idx][1],
+            cluster_nb,
+            fontsize=10,
+            color='k',
+        )
+
+    if return_pos:
+        return ax, positions
+    return ax    
+
 
 def position_3d_nodes(x: list, y:list , z:list):
     """

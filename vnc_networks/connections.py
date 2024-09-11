@@ -701,8 +701,36 @@ class Connections:
     def get_connections(self):
         return self.connections
     
-    def get_graph(self):
-        return self.graph
+    def get_graph(
+            self,
+            weight_type: str = 'eff_weight',
+            syn_threshold: int = None
+            ):
+        '''
+        Get the graph of the connections.
+        '''
+        if not weight_type in [
+            "syn_count", "eff_weight","syn_count_norm", "eff_weight_norm"
+        ]:
+            raise ValueError(
+                f"Class Connections \
+                ::: > get_graph(): Unknown weight type {weight_type}"
+                )
+        graph_ = self.graph.copy()
+        nx.set_edge_attributes(
+            graph_,
+            {
+                (u, v): {"weight": d[weight_type]}
+                for u, v, d in graph_.edges(data=True)
+            }
+        )
+        if syn_threshold is not None:
+            edges_to_remove = [
+                (u, v) for u, v, d in graph_.edges(data=True)
+                if abs(d["weight"]) < syn_threshold
+                ]
+            graph_.remove_edges_from(edges_to_remove)
+        return graph_
     
     def get_nt_weights(self):
         return self.nt_weights
@@ -1068,38 +1096,56 @@ class Connections:
     
     def display_graph(
             self,
+            pos: dict = None,
             method: str = "circular",
             title: str = "test",
             label_nodes: bool = False,
+            syn_threshold: int = None,
             ax: plt.Axes = None,
-            save: bool = True
+            save: bool = True,
+            return_pos: bool = False,
         ):
         '''
         Display the graph.
         '''
         if ax is None:
             _, ax = plt.subplots(figsize=FIGSIZE, dpi=DPI)
-        match method:
-            case "circular":
-                pos = nx.circular_layout(self.graph)
-            case "spring":
-                pos = nx.spring_layout(self.graph)
-            case _:
-                raise ValueError(
-                    f"Class Connections > display_graph(): Unknown method {method}"
-                    )
+        # restict the number of edges visualised to the threshold weight
+        graph_ = nx_utils.threshold_graph(self.graph, syn_threshold)
+
+        if pos is None:
+            match method:
+                case "circular":
+                    pos = nx.circular_layout(graph_)
+                case "spring":
+                    pos = nx.spring_layout(graph_)
+                case "kamada_kawai":
+                    graph_ = self.get_graph(
+                        weight_type='syn_count',
+                        syn_threshold=syn_threshold,
+                        ) # no negative weights
+                    pos = nx.kamada_kawai_layout(graph_)
+                case _:
+                    raise ValueError(
+                        f"Class Connections > display_graph(): Unknown method {method}"
+                        )
         ax = nx_design.draw_graph(
-            self.graph, pos, ax=ax, return_pos=False, label_nodes=label_nodes
+            graph_, pos, ax=ax, return_pos=False, label_nodes=label_nodes
         )
+        ax.set_title(title)
         if save:
             plt.savefig(os.path.join(params.PLOT_DIR, title + "_graph.pdf"))
+        if return_pos:
+            return ax, pos
         return ax     
     
     def display_graph_per_attribute(
             self,
             attribute = 'exitNerve:string',
-            center = None ,
+            center = None,
+            syn_threshold: int = None,
             title:str = "test",
+            save: bool = True,
             ):
         '''
         Display the graph per node attribute grouping (default neuropil). 
@@ -1124,30 +1170,48 @@ class Connections:
         '''
         # ensures the attribute is present in the graph
         _ = self.__get_node_attributes(attribute) 
+        # restict the number of edges visualised to the threshold weight
+        graph_ = nx_utils.threshold_graph(self.graph, syn_threshold)
+
         #  use the nx library to plot the graph grouped by the attribute
         if center is not None:
             if isinstance(center, str):
-                _ = nx_design.draw_graph_grouped_by_attribute(
-                    self.graph,
+                ax = nx_design.draw_graph_grouped_by_attribute(
+                    graph_,
                     attribute,
                     center_instance=center,
                     )
             elif isinstance(center, int):
                 center = [center]
-                _ = nx_design.draw_graph_grouped_by_attribute(
-                    self.graph,
+                ax = nx_design.draw_graph_grouped_by_attribute(
+                    graph_,
+                    attribute,
+                    center_nodes=center,
+                    )
+            elif isinstance(center, list):
+                ax = nx_design.draw_graph_grouped_by_attribute(
+                    graph_,
                     attribute,
                     center_nodes=center,
                     )
             else:
                 center = list(center)
-                _ = nx_design.draw_graph_grouped_by_attribute(
-                    self.graph,
+                ax = nx_design.draw_graph_grouped_by_attribute(
+                    graph_,
                     attribute,
                     center_nodes=center,
                     )
-        
-        plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.pdf"))
+        else:
+            ax = nx_design.draw_graph_grouped_by_attribute(
+                graph_,
+                attribute,
+                )
+        if save:
+            plt.savefig(os.path.join(
+                params.PLOT_DIR,
+                title + "_sorted_graph.pdf")
+                )
+            return ax
 
     def plot_xyz(
             self,
@@ -1239,6 +1303,49 @@ class Connections:
             sorting=[x_sorting, y_sorting, z_sorting],
             )
         plt.savefig(os.path.join(params.PLOT_DIR, title + "3dx_plot.pdf"))
+
+    def draw_graph_concentric_by_attribute(
+            self,
+            center_nodes:list[int],
+            target_nodes:list[int],
+            attribute:str,
+            syn_threshold: int = None,
+            label_nodes: bool = False,
+            title:str = "test",
+            save: bool = True,
+            ax: plt.Axes = None,
+            return_pos: bool = False,
+        ):
+        '''
+        Represent the graph with 3 concentric circles.
+        center_nodes are on a center circle, typically input neurons.
+        On the outer circle are target_nodes grouped by attribute.
+        On the intermediate circle are the rest of the nodes in the graph,
+        with their angle minimising distance to the nodes they're connected to
+        for readability.
+        '''
+        # ensures the attribute is present in the graph
+        _ = self.__get_node_attributes(attribute)
+        # threshold synapses for visualisation
+        graph_ = nx_utils.threshold_graph(self.graph, syn_threshold)
+        center_nodes = [n for n in center_nodes if n in graph_.nodes]
+        target_nodes = [n for n in target_nodes if n in graph_.nodes]
+        # draw the graph
+        ax, pos = nx_design.draw_graph_concentric_by_attribute(
+            graph=graph_,
+            center_nodes=center_nodes,
+            target_nodes=target_nodes,
+            attribute=attribute,
+            ax=ax,
+            return_pos=True,
+            label_nodes=label_nodes,
+            )
+        ax.set_title(title)
+        if save:
+            plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.pdf"))
+        if return_pos:
+            return ax, pos
+        return ax
 
     def list_possible_attributes(self):
         '''

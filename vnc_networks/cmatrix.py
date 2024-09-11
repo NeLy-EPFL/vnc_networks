@@ -640,7 +640,7 @@ class CMatrix:
     
     def imshow(
             self,
-            title:str=None,
+            title:str='test',
             vmax:float=None,
             cmap=params.diverging_heatmap,
         ):

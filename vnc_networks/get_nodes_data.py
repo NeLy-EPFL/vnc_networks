@@ -94,7 +94,8 @@ def load_data_neuron_set(ids: list, attributes: list = None) -> pd.DataFrame:
         for att in attributes:
             if att not in neurons.columns:
                 raise ValueError(f'The attribute {att} is not in the dataset.')
-        attributes.append(':ID(Body-ID)')
+        if ':ID(Body-ID)' not in attributes:
+            attributes.append(':ID(Body-ID)')
         if len(ids) == 1:
             return neurons[neurons[':ID(Body-ID)'] == ids[0]][attributes]
         return neurons[neurons[':ID(Body-ID)'].isin(ids)][attributes]
