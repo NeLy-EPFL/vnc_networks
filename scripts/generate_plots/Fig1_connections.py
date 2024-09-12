@@ -1,4 +1,6 @@
 '''
+Plots for the connections between MDNs and motor neurons.
+
 For all figures, connections between MDNs are deleted.
 
 Fig 1a: Venn diagram of motor neurons downstream of MDN split by where the 
@@ -504,6 +506,7 @@ def fig1h(
     title = f'MDNs|{side}_{neuropil}_to_{target["target:string"]}_{n_hops}_hops'
     title = title.replace('/', '|')
     title = title.replace(' ', '-')
+    title = 'Fig1h_' + title
     if method is not None:
         title += f'_method={method}'
     folder = os.path.join(params.FIG_DIR, 'Fig1')
