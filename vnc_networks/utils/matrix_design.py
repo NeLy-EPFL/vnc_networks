@@ -31,6 +31,7 @@ def imshow(
     title: str = None,
     vmax: float = None,
     cmap=params.diverging_heatmap,
+    save: bool = True,
 ):
     """
     Plot a matrix with a colorbar.
@@ -63,6 +64,7 @@ def imshow(
     # design
 
     # title
-    if title is not None:
-        plt.savefig(title)
+    if save:
+        if title is not None:
+            plt.savefig(title)
     return ax

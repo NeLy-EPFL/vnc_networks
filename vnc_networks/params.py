@@ -14,7 +14,7 @@ MANC_RAW_DIR = os.path.join(RAW_DATA_DIR, "manc-traced-adjacencies-v1.0")
 NODES_FILE = os.path.join(MANC_RAW_DIR, "traced-neurons.csv")
 CONNECTIONS_FILE = os.path.join(MANC_RAW_DIR, "traced-connections-per-roi.csv")
 # MANC neuprint
-NEUPRINT_RAW_DIR = os.path.join(RAW_DATA_DIR, "manc", "v1.0", "neuprint_manc_v1.0", "neuprint_manc_v1.0_ftr")
+NEUPRINT_RAW_DIR = os.path.join(RAW_DATA_DIR, "neuprint_manc_v1.0", "neuprint_manc_v1.0_ftr")
 NEUPRINT_NODES_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neurons_manc_v1.ftr")
 NEUPRINT_CONNECTIONS_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neuron_Connections_manc_v1.ftr")
 NEUPRINT_NEURON_SYNAPSESSET_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neuron_to_SynapseSet_manc_v1.ftr")
