@@ -22,15 +22,15 @@ NEUPRINT_SYNAPSSET_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_SynapseSet_to
 NEUPRINT_SYNAPSE_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Synapses_manc_v1.ftr")
 
 # --- Where to save the processed data sets --- #
-PROCESSED_DATA_DIR = os.path.join(Path(__file__).absolute().parent.parent, "data")
+PROCESSED_DATA_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent, "data", "manc_processed")
 
 # --- Where to save the preprocessed data sets --- #
-PREPROCESSING_DIR = os.path.join(Path(__file__).absolute().parent.parent, "preprocessing")
+PREPROCESSING_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent, "preprocessing")
 NEURON_DIR = os.path.join(PREPROCESSING_DIR, "neurons")
 CONNECTION_DIR = os.path.join(PREPROCESSING_DIR, "connections")
 
 # --- Where to save the figures --- #
-FIG_DIR = os.path.join(Path(__file__).absolute().parent.parent, "plots")
+FIG_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent, "plots")
 PLOT_DIR = os.path.join(FIG_DIR,"tmp")
 
 # --- Parameters for the analysis --- #
