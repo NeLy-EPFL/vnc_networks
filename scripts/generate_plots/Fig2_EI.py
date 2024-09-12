@@ -29,6 +29,15 @@ def fig2a():
     E_matrix = np.zeros((6, 6)) # normalised by total connections
     I_matrix = np.zeros((6, 6)) # normalised by total connections
 
+    for i, source in enumerate(neurons_in_neuropils.keys()):
+        for j, target in enumerate(neurons_in_neuropils.keys()):
+            connections = VNC.get_connections_from_to(
+                source=neurons_in_neuropils[source], 
+                target=neurons_in_neuropils[target]
+                )
+            total_connections_matrix[i, j] = len(connections)
+            E_matrix[i, j] = np.sum(connections['type'] == 'excitatory')
+            I_matrix[i, j] = np.sum(connections['type'] == 'inhibitory')
 
 
 

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vnc_networks"
+version = "0.0.1"
+authors = [
+  { name="Femke Hurtak", email="femke.hurtak@epfl.ch" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+readme = "README.md"
+description = "Package to work with MANC for VNC networks modelling"
+
+[tool.setuptools.packages.find]
+where = ["vnc_networks"]
