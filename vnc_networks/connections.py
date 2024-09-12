@@ -880,6 +880,22 @@ class Connections:
         else:
             return all[uid]
 
+    def get_neurons_in_neuropil(self, neuropil: str, side: str = None):
+        '''
+        Get the uids of neurons in a given neuropil.
+        If a side is given, only the neurons on that side are considered.
+        '''
+        if side is not None:
+            neuropil_dict = {
+                'somaSide:string': side,
+                'somaNeuromere:string': neuropil,
+            }
+        else:
+            neuropil_dict = {
+                'somaNeuromere:string': neuropil,
+            }
+        return self.get_neuron_ids(neuropil_dict)
+
     # --- setters
     def merge_nodes(self, nodes: list[int]):
         '''

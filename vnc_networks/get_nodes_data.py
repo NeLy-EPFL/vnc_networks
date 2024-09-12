@@ -23,7 +23,6 @@ def get_neuron_bodyids(
         neurons = neurons[neurons[':ID(Body-ID)'].isin(nodes)]
     return neurons[':ID(Body-ID)'].values
 
-
 def get_neurons_from_class(class_: str) -> list[int]:
     """
     Get the bodyids of neurons of a certain class.
@@ -35,7 +34,6 @@ def get_neurons_from_class(class_: str) -> list[int]:
     """
     selection_dict = {'class:string': class_}
     return get_neuron_bodyids(selection_dict)
-
 
 def load_data_neuron(id_: int, attributes: list = None) -> pd.DataFrame:
     """
@@ -67,7 +65,6 @@ def load_data_neuron(id_: int, attributes: list = None) -> pd.DataFrame:
         return neurons[neurons[':ID(Body-ID)'] == id_][attributes]
     else:
         return neurons[neurons[':ID(Body-ID)'] == id_]
-
 
 def load_data_neuron_set(ids: list, attributes: list = None) -> pd.DataFrame:
     """
