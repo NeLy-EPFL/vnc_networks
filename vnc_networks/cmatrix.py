@@ -308,6 +308,7 @@ class CMatrix:
         
 
     # public methods
+    
     # --- getters
     def get_matrix(self) -> sc.sparse.csr_matrix:
         '''
@@ -624,7 +625,7 @@ class CMatrix:
         return downstream_uids
     
     # --- visualisation
-    def spy(self, title:str=None):
+    def spy(self, title:str='test'):
         '''
         Visualises the sparsity pattern of the adjacency matrix.
 

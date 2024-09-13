@@ -128,15 +128,25 @@ class Connections:
 
         self.connections = connections_
 
-    def __compute_effective_weights_in_connections(self):
+    def __compute_effective_weights_in_connections(self, ids: str = 'body_id'):
         '''
         Compute the effective weights of the connections.
         '''
+        if ids == 'body_id':
+            grouping_on = ":END_ID(Body-ID)"
+        elif ids == 'uid':
+            grouping_on = "end_uid"
+        else:
+            raise ValueError(
+                f"Class Connections \
+                ::: > compute_effective_weights_in_connections():\
+                Unknown id type {ids}"
+                )
         ## Calculate effective weights normalized by total incoming synapses
-        in_total = self.connections.groupby(":END_ID(Body-ID)")["syn_count"].sum()
+        in_total = self.connections.groupby(grouping_on)["syn_count"].sum()
         in_total = in_total.to_frame(name="in_total")
         self.connections = self.connections.merge(
-            in_total, left_on=":END_ID(Body-ID)", right_index=True
+            in_total, left_on=grouping_on, right_index=True
             )
         self.connections["syn_count_norm"] = self.connections[
             "syn_count"
@@ -657,7 +667,10 @@ class Connections:
         # Initialize the new object
         neurons_pre_ = connections_["start_uid"].to_list()
         neurons_post_ = connections_["end_uid"].to_list()
-        subgraph_  = Connections(neurons_pre_, neurons_post_)
+        subgraph_  = Connections(
+            neurons_pre_,
+            neurons_post_,
+            )
 
         # update the effective weights
         connections_ = connections_.drop(columns=[
@@ -665,7 +678,7 @@ class Connections:
             "eff_weight_norm",
             ])
         subgraph_.set_connections(connections_)
-        subgraph_.__compute_effective_weights_in_connections()
+        subgraph_.__compute_effective_weights_in_connections(ids='uid')
 
         # Subset the uids, keeps the names
         subgraph_.uid = self.uid.loc[self.uid['uid'].isin(nodes)].copy()

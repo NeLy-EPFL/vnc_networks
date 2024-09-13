@@ -32,7 +32,9 @@ if __name__ == '__main__':
         )  # new Connections object
     
     # Get the adjacency matrix only
-    adjacency_matrix = subconnections.get_adjacency_matrix()
+    #adjacency_matrix = subconnections.get_adjacency_matrix()
+    #plt.imshow(adjacency_matrix)
+    #plt.savefig('adjacency_matrix.png')
 
     # Get the adjacency matrix with tracking of the neurons names
     cmatrix = subconnections.get_cmatrix(type_ = "syn_count")
