@@ -31,3 +31,13 @@ providing an adjacency matrix and the ids of the neurons corresponding to the ro
 
 Note on neuron ids: the neuron `bodyids` are the same as the ones used in the connectome. Given that we can subset or split neurons, the neuron ids are 
 remapped to unique ids named `uid`. The `uid` is used to index the neurons in the `CMatrix` object.
+
+## Installation
+
+Make sure you have conda installed, then run the following from inside this directory to create a new environment
+
+```bash
+conda env create --file ./environment.yml
+conda activate vnc
+pip install -e .
+```

@@ -60,6 +60,7 @@ red_colorscale = 'flare'
 blue_heatmap = 'mako_r'
 red_heatmap = 'rocket_r'
 diverging_heatmap = 'vlag'
+grey_heatmap = 'Greys'
 
 # Figures
 MAX_EDGE_WIDTH = 5

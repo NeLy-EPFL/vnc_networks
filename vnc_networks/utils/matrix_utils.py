@@ -167,6 +167,23 @@ def convert_bodyid_to_index(bodyid, lookup, allow_empty=True):
         return indices[0]
     return indices
 
+def count_nonzero(matrix, sign=None):
+    """
+    input: sparse matrix
 
-
+    output: number of non-zero elements
+    sign: if None, count all non-zero elements. 
+    If 'positive', count only positive elements.
+    If 'negative', count only negative elements.
+    """
+    if sign is None:
+        return matrix.count_nonzero()
+    if sign == "positive":
+        pos_mat = matrix.copy()
+        pos_mat.data = pos_mat.data > 0
+        return pos_mat.count_nonzero()
+    if sign == "negative":
+        neg_mat = matrix.copy()
+        neg_mat.data = neg_mat.data < 0
+        return neg_mat.count_nonzero()
     
