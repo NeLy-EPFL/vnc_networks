@@ -186,4 +186,26 @@ def count_nonzero(matrix, sign=None):
         neg_mat = matrix.copy()
         neg_mat.data = neg_mat.data < 0
         return neg_mat.count_nonzero()
-    
+
+def sum_weights(matrix, sign=None):
+    """
+    input: sparse matrix
+
+    output: sum of all weights
+    sign: if None, sum all weights. 
+    If 'absolute', sum the absolute value of all weights.
+    If 'positive', sum only positive weights.
+    If 'negative', sum only negative weights.
+    """
+    if sign is None:
+        return matrix.sum()
+    if sign == "absolute":
+        return np.sum(np.abs(matrix.data))
+    if sign == "positive":
+        pos_mat = matrix.copy()
+        pos_mat.data = pos_mat.data * (pos_mat.data > 0)
+        return pos_mat.sum()
+    if sign == "negative":
+        neg_mat = matrix.copy()
+        neg_mat.data = neg_mat.data * (neg_mat.data < 0)
+        return neg_mat.sum()
