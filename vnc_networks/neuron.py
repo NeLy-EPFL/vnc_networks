@@ -20,6 +20,21 @@ import params
 from  get_nodes_data import load_data_neuron
 import utils.plots_design as plot_design
 
+NEURON_BASE_ATTRIBUTES = [
+    'systematicType:string', 
+    'hemilineage:string', 
+    'somaSide:string', 
+    'class:string', 
+    'subclass:string', 
+    'group:int', 
+    'cellBodyFiber:string', 
+    'size:long', 
+    'target:string', 
+    'predictedNtProb:float', 
+    'predictedNt:string', 
+    'tag:string',
+]
+
 class Neuron:
     def __init__(self, bodyId: int = None, from_file: str = None):
         """
@@ -42,7 +57,7 @@ class Neuron:
             self.__load(from_file)
         else:
             self.bodyId = bodyId
-            self.data = load_data_neuron(bodyId)
+            self.data = load_data_neuron(bodyId, NEURON_BASE_ATTRIBUTES)
             self.__initialise_base_attributes()
 
     # private methods
