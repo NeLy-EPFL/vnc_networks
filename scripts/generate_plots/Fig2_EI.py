@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import os
 import copy
 import multiprocessing as mp
+from tqdm import tqdm
 
 
 import specific_neurons.all_neurons_helper as all_neurons_helper
@@ -15,11 +16,31 @@ import utils.matrix_utils as matrix_utils
 import utils.matrix_design as matrix_design
 import params
 
+# -------------------------- Helper functions -------------------------- #
+def _nb_local_connections(args):
+    # private function for parallelization of 2a
+    i, j, neurons_in_neuropils, VNC_matrix = args
+    source = list(neurons_in_neuropils.keys())[i]
+    target = list(neurons_in_neuropils.keys())[j]
+    matrix = copy.deepcopy(VNC_matrix)
+    matrix.restrict_from_to(
+        row_ids=neurons_in_neuropils[source],
+        column_ids=neurons_in_neuropils[target],
+        input_type='uid'
+        )
+    mat = matrix.get_matrix()
+    tot = matrix_utils.count_nonzero(mat)
+    ex = matrix_utils.count_nonzero(mat, sign='positive')
+    inh = matrix_utils.count_nonzero(mat, sign='negative')
+    return [tot, ex, inh]
+
+# -------------------------- Main functions -------------------------- #
+
 def fig2a():
 
     # Load all connections
     VNC = all_neurons_helper.get_full_vnc()
-    VNC_matrix = VNC.get_cmatrix(type_='syn_count')
+    VNC_matrix = VNC.get_cmatrix(type_='unnorm')
 
     # List of neurons in relevant neuropils structured as a dictionary
     # {neuropil: [neuron_ids]}
@@ -31,35 +52,29 @@ def fig2a():
             neurons_in_neuropils[neuropil_] = VNC.get_neurons_in_neuropil(
                 neuropil=neuropil, side=side
                 )
+    nb_entries = len(neurons_in_neuropils.keys())
                 
     # For each possible combination of neuropils, compute the number of 
     # excititory and inhibitory connections between them
-    total_connections_matrix = np.zeros((6, 6))
-    E_matrix = np.zeros((6, 6)) # normalised by total connections
-    I_matrix = np.zeros((6, 6)) # normalised by total connections
+    total_connections_matrix = np.zeros((nb_entries, nb_entries))
+    E_matrix = np.zeros((nb_entries, nb_entries)) # normalised
+    I_matrix = np.zeros((nb_entries, nb_entries)) # normalised
 
-    def nb_local_connections(tuple_ij):
-        i = tuple_ij[0]
-        j = tuple_ij[1]
-        source = list(neurons_in_neuropils.keys())[i]
-        target = list(neurons_in_neuropils.keys())[j]
-        matrix = copy.deepcopy(VNC_matrix)
-        matrix.restrict_from_to(
-            row_ids=neurons_in_neuropils[source],
-            column_ids=neurons_in_neuropils[target],
-            input_type='uid'
-            )
-        mat = matrix.get_matrix()
-        total_connections_matrix[i, j] = matrix_utils.count_nonzero(mat)
-        E_matrix[i, j] = matrix_utils.count_nonzero(mat, sign='positive')
-        I_matrix[i, j] = matrix_utils.count_nonzero(mat, sign='negative')
-
-    # Parallelize the computation
-    with mp.Pool() as pool:
-        pool.map(
-            nb_local_connections,
-            [(i,j) for i in range(6) for j in range(6)]
-            )
+    # Parallelize the computation of an independent double for loop
+    args_list = []
+    result_indices = [
+        (i,j)
+        for i in range(nb_entries)
+        for j in range(nb_entries)
+        ]
+    for i,j in result_indices:
+        args_list.append([i,j,neurons_in_neuropils,VNC_matrix])
+    with mp.Pool(mp.cpu_count() - 1) as pool:
+        results = pool.map(_nb_local_connections, args_list) # functionalised
+    for k, (i, j) in enumerate(result_indices):
+            total_connections_matrix[i, j] = results[k][0]
+            E_matrix[i, j] = results[k][1]
+            I_matrix[i, j] = results[k][2]
                  
     # normalise by total connections
     E_matrix = E_matrix / total_connections_matrix
@@ -72,8 +87,8 @@ def fig2a():
         dpi=params.DPI,
         )
     for ax in axs:
-        ax.set_xticks(range(1,7), labels=neurons_in_neuropils.keys())
-        ax.set_yticks(range(1,7), labels=neurons_in_neuropils.keys())    
+        ax.set_xticks(range(nb_entries), labels=neurons_in_neuropils.keys())
+        ax.set_yticks(range(nb_entries), labels=neurons_in_neuropils.keys())    
     matrix_design.imshow(
         total_connections_matrix,
         title='total connections',
@@ -85,15 +100,17 @@ def fig2a():
         E_matrix,
         title='Excitatory connections',
         ax=axs[1],
-        cmap=params.red_heatmap,
+        cmap=params.grey_heatmap,
         vmin=0,
+        vmax=1,
         )
     matrix_design.imshow(
         I_matrix,
         title='Inhibitory connections',
         ax=axs[2],
-        cmap=params.blue_heatmap,
+        cmap=params.grey_heatmap,
         vmin=0,
+        vmax=1
         )
     
     # Save the figure
@@ -106,5 +123,5 @@ def fig2a():
 
 
 if __name__ == '__main__':
-    fig2a()
+    #fig2a()
     pass
