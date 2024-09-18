@@ -142,9 +142,17 @@ class Neuron:
             The subset of synapse ids to convert.
             The default is None, which converts all synapse ids.
         """
+        # we also need to load these columns because they get used in create_synapse_groups / __categorical_neuropil_information
+        roi_file = os.path.join(
+            params.NEUPRINT_RAW_DIR,
+            'all_ROIs.txt'
+        )
+        rois = list(pd.read_csv(roi_file, sep='\t').values.flatten())
+        potential_column_names = [roi + ':boolean' for roi in rois]
+
         # load the synapse data
         data = pd.read_feather(
-            params.NEUPRINT_SYNAPSE_FILE, columns=[':ID(Syn-ID)','location:point{srid:9157}']
+            params.NEUPRINT_SYNAPSE_FILE, columns=[':ID(Syn-ID)','location:point{srid:9157}']+potential_column_names
             )
         data = data.loc[data[':ID(Syn-ID)'].isin(self.synapse_df['syn_id'])]
               
