@@ -75,7 +75,7 @@ class Neuron:
         """
         # neuron to synapse set
         neuron_to_synapse = pd.read_feather(
-            params.NEUPRINT_NEURON_SYNAPSESSET_FILE
+            params.NEUPRINT_NEURON_SYNAPSESSET_FILE, columns=[':START_ID(Body-ID)']
             )
         synset_list = neuron_to_synapse.loc[
             neuron_to_synapse[':START_ID(Body-ID)'] == self.bodyId
@@ -129,7 +129,7 @@ class Neuron:
         """
         # load the synapse data
         data = pd.read_feather(
-            params.NEUPRINT_SYNAPSE_FILE
+            params.NEUPRINT_SYNAPSE_FILE, columns=[':ID(Syn-ID)','location:point{srid:9157}']
             )
         data = data.loc[data[':ID(Syn-ID)'].isin(self.synapse_df['syn_id'])]
               
