@@ -609,7 +609,7 @@ class Connections:
             split_neurons: list[Neuron] = None,
             not_connected: list[int] = None, # body ids
             ):
-        if split_neurons is not None:
+        if split_neurons is not None and not_connected is not None:
             for neuron in split_neurons:
                 neuron.clear_not_connected(not_connected)
         self.__get_connections()
