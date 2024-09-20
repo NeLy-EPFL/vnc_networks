@@ -466,12 +466,11 @@ def fig1h(
         edges=graph.edges(), # only the edges directly involved in the paths
         )  # new Connections object
     if method is None:
-        _, pos = subconnections.draw_graph_concentric_by_attribute(
+        _, pos = subconnections.draw_graph_in_out_center_circle(
                     title='direct',
                     ax=axs[0],
-                    attribute=':ID(Body-ID)', # no grouping of the target neurons
-                    center_nodes=mdns,
-                    target_nodes=target_neurons,
+                    input_nodes=mdns,
+                    output_nodes=target_neurons,
                     save=False,
                     label_nodes=label_nodes,
                     return_pos=True,
@@ -537,8 +536,8 @@ if __name__ == '__main__':
     target = { # right hind leg, posterior movement of the Coxa
         'class:string': 'motor neuron',
         'somaSide:string': 'RHS',
-        'subclass:string': 'hl',
-        'target:string': 'Tergopleural/Pleural promotor'
+        'subclass:string': 'fl',
+        'target:string': 'Fe reductor'
         }
-    fig1h(target, n_hops=2,label_nodes=True, method='kamada_kawai')
+    fig1h(target, n_hops=2, label_nodes=True)
     pass
