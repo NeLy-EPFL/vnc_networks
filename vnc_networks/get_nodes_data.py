@@ -15,7 +15,8 @@ def get_neuron_bodyids(
     Select (keep) according to the selection_dict.
     Different criteria are treated as 'and' conditions.
     """
-    neurons = pd.read_feather(params.NEUPRINT_NODES_FILE)
+    columns_to_read = {':ID(Body-ID)'}.union(selection_dict.keys()) if selection_dict is not None else {':ID(Body-ID)'}
+    neurons = pd.read_feather(params.NEUPRINT_NODES_FILE, columns=list(columns_to_read))
     if selection_dict is not None:
         for key in selection_dict:
             neurons = neurons[neurons[key] == selection_dict[key]]
@@ -55,12 +56,12 @@ def load_data_neuron(id_: int, attributes: list = None) -> pd.DataFrame:
     pandas.DataFrame
         The data of the neuron.
     """
-    neurons = pd.read_feather(params.NEUPRINT_NODES_FILE)
+    columns_to_read = {':ID(Body-ID)'}.union(attributes) if attributes is not None else {':ID(Body-ID)'}
+    neurons = pd.read_feather(params.NEUPRINT_NODES_FILE, columns=list(columns_to_read))
     if attributes is not None:
-        if attributes not in neurons.columns:
-            raise ValueError(
-                f'The attribute {attributes} is not in the dataset.'
-                )
+        for att in attributes:
+            if att not in neurons.columns:
+                raise ValueError(f'The attribute {att} is not in the dataset.')
         attributes.append(':ID(Body-ID)')
         return neurons[neurons[':ID(Body-ID)'] == id_][attributes]
     else:
@@ -85,7 +86,8 @@ def load_data_neuron_set(ids: list, attributes: list = None) -> pd.DataFrame:
     pandas.DataFrame
         The data of the neurons.
     """
-    neurons = pd.read_feather(params.NEUPRINT_NODES_FILE)
+    columns_to_read = {':ID(Body-ID)'}.union(attributes) if attributes is not None else {':ID(Body-ID)'}
+    neurons = pd.read_feather(params.NEUPRINT_NODES_FILE, columns=list(columns_to_read))
     if attributes is not None:
         # verify if all elements of 'attributes' are columns in the dataset
         for att in attributes:
