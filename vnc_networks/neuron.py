@@ -20,6 +20,21 @@ import params
 from  get_nodes_data import load_data_neuron
 import utils.plots_design as plot_design
 
+NEURON_BASE_ATTRIBUTES = [
+    'systematicType:string', 
+    'hemilineage:string', 
+    'somaSide:string', 
+    'class:string', 
+    'subclass:string', 
+    'group:int', 
+    'cellBodyFiber:string', 
+    'size:long', 
+    'target:string', 
+    'predictedNtProb:float', 
+    'predictedNt:string', 
+    'tag:string',
+]
+
 class Neuron:
     def __init__(self, bodyId: int = None, from_file: str = None):
         """
@@ -42,7 +57,7 @@ class Neuron:
             self.__load(from_file)
         else:
             self.bodyId = bodyId
-            self.data = load_data_neuron(bodyId)
+            self.data = load_data_neuron(bodyId, NEURON_BASE_ATTRIBUTES)
             self.__initialise_base_attributes()
 
     # private methods
@@ -127,9 +142,10 @@ class Neuron:
             The subset of synapse ids to convert.
             The default is None, which converts all synapse ids.
         """
+
         # load the synapse data
         data = pd.read_feather(
-            params.NEUPRINT_SYNAPSE_FILE
+            params.NEUPRINT_SYNAPSE_FILE, columns=[':ID(Syn-ID)','location:point{srid:9157}']
             )
         data = data.loc[data[':ID(Syn-ID)'].isin(self.synapse_df['syn_id'])]
               
@@ -157,20 +173,17 @@ class Neuron:
             'all_ROIs.txt'
         )
         rois = list(pd.read_csv(roi_file, sep='\t').values.flatten())
-        potential_column_names = [roi + ':boolean' for roi in rois]
-        # for each row, find the column in potential_column_names that has a True value
-        # and add the corresponding roi to the 'neuropil' column
-        # Function to find the column name with the True value
-        def find_true_value(row):
-            true_columns = row[row == True].index
-            if len(true_columns) > 0:
-                return true_columns[0].replace(':boolean', '')
-            else:
-                return 'None'
 
-        self.synapse_df['neuropil'] = self.synapse_df[
-            potential_column_names
-            ].apply(find_true_value, axis=1)
+        # find the subset of the synapses in the dataset that we care about for this neuron
+        # then for each possible ROI, check which synapses are in that ROI
+        # store each synapse's ROI in the neuropil column
+        synapses_we_care_about = pd.read_feather(params.NEUPRINT_SYNAPSE_FILE, columns=[':ID(Syn-ID)'])[':ID(Syn-ID)'].isin(self.synapse_df['syn_id'])
+        self.synapse_df['neuropil'] = 'None'
+        for roi in rois:
+            column_name = roi + ':boolean'
+            roi_column = pd.read_feather(params.NEUPRINT_SYNAPSE_FILE, columns=[column_name])[synapses_we_care_about].iloc[:,0]
+            synapses_in_roi = roi_column[roi_column == True].index
+            self.synapse_df.loc[self.synapse_df['syn_id'].isin(synapses_in_roi), 'neuropil'] = roi
         
     def __explicit_synapse_positions(self):
         """
