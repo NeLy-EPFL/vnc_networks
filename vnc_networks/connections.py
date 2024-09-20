@@ -59,7 +59,7 @@ class Connections:
             self.__load(from_file)
         else:
             if neurons_pre is None:
-                neurons_ = pd.read_feather(params.NEUPRINT_NODES_FILE)
+                neurons_ = pd.read_feather(params.NEUPRINT_NODES_FILE, columns=[':ID(Body-ID)'])
                 neurons_pre_ = neurons_[':ID(Body-ID)'].to_list()
 
             else:
@@ -83,7 +83,7 @@ class Connections:
         self.__dict__.update(neuron)
 
     def __get_connections(self):
-        connections_ = pd.read_feather(params.NEUPRINT_CONNECTIONS_FILE)
+        connections_ = pd.read_feather(params.NEUPRINT_CONNECTIONS_FILE, columns=[':START_ID(Body-ID)','weightHR:int',':END_ID(Body-ID)'])
         # filter out only the connections relevant here
         connections_ = connections_[
             connections_[":START_ID(Body-ID)"].isin(
@@ -609,7 +609,7 @@ class Connections:
             split_neurons: list[Neuron] = None,
             not_connected: list[int] = None, # body ids
             ):
-        if split_neurons is not None:
+        if split_neurons is not None and not_connected is not None:
             for neuron in split_neurons:
                 neuron.clear_not_connected(not_connected)
         self.__get_connections()
