@@ -1120,6 +1120,7 @@ class Connections:
                     f"Class Connections::: > display_adjacency_matrix(): Unknown method {method}"
                     )
 
+        os.makedirs(params.PLOT_DIR, exist_ok=True)
         plt.savefig(os.path.join(params.PLOT_DIR, title + "_matrix.pdf"))
         return
     
@@ -1163,6 +1164,7 @@ class Connections:
         )
         ax.set_title(title)
         if save:
+            os.makedirs(params.PLOT_DIR, exist_ok=True)
             plt.savefig(os.path.join(params.PLOT_DIR, title + "_graph.pdf"))
         if return_pos:
             return ax, pos
@@ -1236,6 +1238,7 @@ class Connections:
                 attribute,
                 )
         if save:
+            os.makedirs(params.PLOT_DIR, exist_ok=True)
             plt.savefig(os.path.join(
                 params.PLOT_DIR,
                 title + "_sorted_graph.pdf")
@@ -1297,6 +1300,7 @@ class Connections:
             # draw the plot
             _ = nx_design.plot_xyz(graph_,x,y,sorting=sorting)
         # save the plot
+        os.makedirs(params.PLOT_DIR, exist_ok=True)
         plt.savefig(os.path.join(params.PLOT_DIR, title + "3d_plot.pdf"))
         return
 
@@ -1331,6 +1335,7 @@ class Connections:
             y,
             sorting=[x_sorting, y_sorting, z_sorting],
             )
+        os.makedirs(params.PLOT_DIR, exist_ok=True)
         plt.savefig(os.path.join(params.PLOT_DIR, title + "3dx_plot.pdf"))
 
     def draw_graph_concentric_by_attribute(
@@ -1371,6 +1376,7 @@ class Connections:
             )
         ax.set_title(title)
         if save:
+            os.makedirs(params.PLOT_DIR, exist_ok=True)
             plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.pdf"))
         if return_pos:
             return ax, pos
@@ -1407,6 +1413,7 @@ class Connections:
             )
         ax.set_title(title)
         if save:
+            os.makedirs(params.PLOT_DIR, exist_ok=True)
             plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.pdf"))
         if return_pos:
             return ax, pos
@@ -1427,8 +1434,7 @@ class Connections:
         '''
         Save the connections object to a pickle file.
         '''
-        if not os.path.exists(params.CONNECTION_DIR):
-            os.makedirs(params.CONNECTION_DIR)
+        os.makedirs(params.CONNECTION_DIR, exist_ok=True)
         filename = os.path.join(params.CONNECTION_DIR, name+'.txt')
         with open(filename, 'wb') as f:
             pickle.dump(self.__dict__, f)

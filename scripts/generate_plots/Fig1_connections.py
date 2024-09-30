@@ -96,8 +96,7 @@ def fig1a(n_hops: int = 2):
     
     # saving
     folder = os.path.join(params.FIG_DIR, 'Fig1')
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+    os.makedirs(folder, exist_ok=True)
     plt.savefig(os.path.join(folder, f'Fig1a_{n_hops}_hops.pdf'))
     plt.close()
 
@@ -140,8 +139,7 @@ def fig1b(n_hops: int = 2):
     
     # saving
     folder = os.path.join(params.FIG_DIR, 'Fig1')
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+    os.makedirs(folder, exist_ok=True)
     plt.savefig(os.path.join(folder, f'Fig1b_{n_hops}_hops.pdf'))
     plt.close()
 
@@ -193,8 +191,7 @@ def fig1c(n_hops: int = 2):
         
     # saving
     folder = os.path.join(params.FIG_DIR, 'Fig1')
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+    os.makedirs(folder, exist_ok=True)
     plt.savefig(os.path.join(folder, f'Fig1c_{n_hops}_hops.pdf'))
     plt.close()
 
@@ -229,8 +226,7 @@ def fig1d():
     
     # saving
     folder = os.path.join(params.FIG_DIR, 'Fig1')
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+    os.makedirs(folder, exist_ok=True)
     plt.savefig(os.path.join(folder, f'Fig1d.pdf'))
     plt.close()
 
@@ -260,6 +256,7 @@ def fig1e(attribute: str = 'class:string'):
 
     # Plotting
     folder = os.path.join(params.FIG_DIR, 'Fig1')
+    os.makedirs(folder, exist_ok=True)
     # Fig 1e - a) Unique neurons in each group
     _, axs = plt.subplots(
         1,
@@ -360,8 +357,7 @@ def fig1f(syn_thresh: int = None, label_nodes: bool = False):
             del subconnections, l2_graph
     plt.tight_layout()
     folder = os.path.join(params.FIG_DIR, 'Fig1')
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+    os.makedirs(folder, exist_ok=True)
     title = f'Fig1f_syn-threshold={syn_thresh}'
     if label_nodes:
         title += '_labeled-nodes'
@@ -417,8 +413,7 @@ def fig1g(
             del subconnections, l2_graph
     plt.tight_layout()
     folder = os.path.join(params.FIG_DIR, 'Fig1')
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+    os.makedirs(folder, exist_ok=True)
     title = f'Fig1g_attribute={attribute}_syn-threshold={syn_thresh}'
     plt.savefig(os.path.join(folder, title+'.pdf'))
     plt.close()       
@@ -509,8 +504,7 @@ def fig1h(
     if method is not None:
         title += f'_method={method}'
     folder = os.path.join(params.FIG_DIR, 'Fig1')
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+    os.makedirs(folder, exist_ok=True)
     if label_nodes:
         title += '_labeled-nodes'
     plt.savefig(os.path.join(folder, title+'.pdf'))
