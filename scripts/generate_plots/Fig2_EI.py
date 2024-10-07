@@ -133,7 +133,6 @@ def fig2a():
     
     # Save the figure
     folder = os.path.join(params.FIG_DIR, 'Fig2')
-    os.makedirs(folder, exist_ok=True)
     plt.savefig(os.path.join(folder, 'Fig2a.pdf'))
     plt.close()
 
@@ -215,7 +214,6 @@ def fig2b():
     
     # Save the figure
     folder = os.path.join(params.FIG_DIR, 'Fig2')
-    os.makedirs(folder, exist_ok=True)
     plt.savefig(os.path.join(folder, 'Fig2b.pdf'))
     plt.close()
 

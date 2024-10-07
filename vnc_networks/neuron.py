@@ -412,7 +412,6 @@ class Neuron:
                 cmap=cmap,
                 discrete_coloring=discrete_coloring,
             )
-        os.makedirs(params.PLOT_DIR, exist_ok=True)
         plt.savefig(
             f"{params.PLOT_DIR}/synapse_distribution_{self.bodyId}_{color_by}.pdf"
             )
@@ -428,7 +427,6 @@ class Neuron:
         name : str
             The name of the file to save to.
         """
-        os.makedirs(params.NEURON_DIR, exist_ok=True)
         with open(os.path.join(params.NEURON_DIR, name+'.txt'), 'wb') as file:
             pickle.dump(self.__dict__, file)
 
@@ -443,7 +441,6 @@ def split_neuron_by_neuropil(neuron_id):
     '''
     name = 'neuron-'+str(neuron_id)+'_neuropil-split'
     # check there are files starting with name
-    os.makedirs(params.NEURON_DIR, exist_ok=True)
     files = [f for f in os.listdir(params.NEURON_DIR) if f.startswith(name)]
     if files:
         return name

@@ -636,7 +636,6 @@ class CMatrix:
         '''
         _ = matrix_design.spy(self.get_matrix(), title=title) 
         title_ = os.path.join(params.PLOT_DIR, title + "_spy.pdf")
-        os.makedirs(params.PLOT_DIR, exist_ok=True)
         plt.savefig(title_)
         return
     
@@ -665,7 +664,6 @@ class CMatrix:
             cmap=cmap,
             )
         title_ = os.path.join(params.PLOT_DIR, title + "_imshow.pdf")
-        os.makedirs(params.PLOT_DIR, exist_ok=True)
         plt.savefig(title_)
         return
 

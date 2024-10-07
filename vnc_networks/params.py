@@ -33,6 +33,12 @@ CONNECTION_DIR = os.path.join(PREPROCESSING_DIR, "connections")
 FIG_DIR = os.path.join(Path(__file__).absolute().parent.parent, "plots")
 PLOT_DIR = os.path.join(FIG_DIR,"tmp")
 
+# --- Create output directories if they don't exist --- #
+os.makedirs(NEURON_DIR, exist_ok=True)
+os.makedirs(CONNECTION_DIR, exist_ok=True)
+os.makedirs(FIG_DIR, exist_ok=True)
+os.makedirs(PLOT_DIR, exist_ok=True)
+
 # --- Parameters for the analysis --- #
 NT_WEIGHTS = {"acetylcholine": +1, "gaba": -1, "glutamate": -1, "unknown": 0, None: 0, np.nan: 0}
 # nb: GLUT being inhibitory is still unclear, you can change it here before
