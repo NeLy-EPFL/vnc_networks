@@ -533,11 +533,12 @@ if __name__ == '__main__':
     #fig1f(syn_thresh=40, label_nodes=True)
     #fig1g(attribute='target:string')
     #fig1g(attribute='target:string',syn_thresh=40)
-    target = { # right hind leg, posterior movement of the Coxa
+    # Example target:
+    target = { # right hind leg
         'class:string': 'motor neuron',
         'somaSide:string': 'RHS',
-        'subclass:string': 'fl',
-        'target:string': 'Fe reductor'
+        'subclass:string': 'hl',
+        'target:string': 'Tr flexor'
         }
     fig1h(target, n_hops=2, label_nodes=True)
     pass

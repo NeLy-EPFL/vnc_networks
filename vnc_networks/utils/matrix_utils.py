@@ -17,6 +17,8 @@ def connections_up_to_n_hops(matrix, n):
     From an input (sparse) matrix compute the matrix representing the
     connectivity
     """
+    if not sc.sparse.issparse(matrix):
+        matrix = sc.sparse.csr_matrix(matrix)
     return_mat = matrix
     for _ in range(n - 1):
         return_mat += return_mat @ matrix
@@ -33,6 +35,10 @@ def connections_at_n_hops(matrix, n):
     From an input (sparse) matrix compute the matrix representing the
     connectivity
     """
+    # if the matrix is not sparse, convert it to sparse
+    if not sc.sparse.issparse(matrix):
+        matrix = sc.sparse.csr_matrix(matrix)
+
     if n == 1:
         return matrix
     elif n%2 == 0:

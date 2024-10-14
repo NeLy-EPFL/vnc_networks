@@ -6,6 +6,11 @@ Fig 2a: Excitation-Inhibition matrix within and across leg neuropils
 
 Fig 2b: Excitation-Inhibition matrix within and across leg neuropils
  (summed weights).
+
+Fig 2c: Cumulated E and I weights up to n hops (4) from source neuron to target
+neuron, based on normalised matrix multiplication. 
+Specific use case: MDN|Ti to MNs|Ti, get a quantification of how much 
+innervation there is and whether T1 is more linear than T3.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,6 +19,8 @@ import copy
 import multiprocessing as mp
 
 import specific_neurons.all_neurons_helper as all_neurons_helper
+import specific_neurons.motor_neurons_helper as mns_helper
+import specific_neurons.mdn_helper as mdn_helper
 import utils.matrix_utils as matrix_utils
 import utils.matrix_design as matrix_design
 import params
@@ -54,6 +61,53 @@ def _sum_local_connections(args):
     return [tot, ex, inh]
 
 # -------------------------- Main functions -------------------------- #
+def simple_count_in_neuropil(
+    side: str,
+    leg: str, 
+):
+    """
+    Count the number of leg motor neurons reached from MDN by restricting
+    neurons to a neuropil.
+    """
+    if side not in ['L','R']:
+        raise ValueError('side must be either L or R')
+    if leg not in ['f', 'm', 'h']:
+        raise ValueError('leg must be either f, m or h')
+    match leg:
+        case 'f':
+            neuropil = 'T1'
+        case 'm':
+            neuropil = 'T2'
+        case 'h':
+            neuropil = 'T3'   
+    # Load all connections
+    VNC = all_neurons_helper.get_full_vnc()
+    # Get relevant neurons
+    neurons_used = []
+    neurons_used.extend( # intereurons
+        VNC.get_neurons_in_neuropil(
+            neuropil=neuropil, side=side+'HS'
+            )
+        )
+    target = mns_helper.get_leg_motor_neurons(
+            data=VNC, leg=leg, side=side+'HS'
+            ) # motor neurons
+    neurons_used.extend(target)
+    source = mdn_helper.get_mdn_uids(VNC) # MDN
+    neurons_used.extend(source)
+    neurons_used = list(set(neurons_used))
+
+    # Restrict the matrix and compute second power
+    cmatrix = VNC.get_cmatrix(type_='syn_count')
+    cmatrix.restrict_nodes(neurons_used)
+    cmatrix.power_n(2)
+
+    # Get number of connections from source to target
+    cmatrix.restrict_from_to(source, target, input_type='uid')
+    print(cmatrix.lookup)
+    print(cmatrix.get_matrix())
+    list_down = cmatrix.list_downstream_neurons(source)
+    print(f'Number of {leg} motor neurons reached from MDN in {neuropil} {side}: {len(list_down)}')
 
 def fig2a():
     # Load all connections
@@ -221,7 +275,13 @@ def fig2b():
     plt.savefig(os.path.join(folder, 'Fig2b.pdf'))
     plt.close()
 
+def fig2c():
+    pass
+
 if __name__ == '__main__':
+    simple_count_in_neuropil('R', 'h')
+    #simple_count_in_neuropil('L', 'f')
     #fig2a()
     #fig2b()
+    #fig2c()
     pass
