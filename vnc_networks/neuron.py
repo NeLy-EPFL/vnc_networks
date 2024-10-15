@@ -177,13 +177,22 @@ class Neuron:
         # find the subset of the synapses in the dataset that we care about for this neuron
         # then for each possible ROI, check which synapses are in that ROI
         # store each synapse's ROI in the neuropil column
-        synapses_we_care_about = pd.read_feather(params.NEUPRINT_SYNAPSE_FILE, columns=[':ID(Syn-ID)'])[':ID(Syn-ID)'].isin(self.synapse_df['syn_id'])
+        synapses_we_care_about = pd.read_feather(
+            params.NEUPRINT_SYNAPSE_FILE,
+            columns=[':ID(Syn-ID)']
+            )[':ID(Syn-ID)'].isin(self.synapse_df['syn_id'])
         self.synapse_df['neuropil'] = 'None'
         for roi in rois:
             column_name = roi + ':boolean'
-            roi_column = pd.read_feather(params.NEUPRINT_SYNAPSE_FILE, columns=[column_name])[synapses_we_care_about].iloc[:,0]
+            roi_column = pd.read_feather(
+                params.NEUPRINT_SYNAPSE_FILE,
+                columns=[column_name]
+                )[synapses_we_care_about].iloc[:,0]
             synapses_in_roi = roi_column[roi_column == True].index
-            self.synapse_df.loc[self.synapse_df['syn_id'].isin(synapses_in_roi), 'neuropil'] = roi
+            self.synapse_df.loc[
+                self.synapse_df['syn_id'].isin(synapses_in_roi),
+                'neuropil'
+                ] = roi
         
     def __explicit_synapse_positions(self):
         """

@@ -1376,6 +1376,42 @@ class Connections:
             return ax, pos
         return ax
 
+    def draw_graph_in_out_center_circle(
+            self,
+            input_nodes:list[int],
+            output_nodes:list[int],
+            syn_threshold: int = None,
+            label_nodes: bool = False,
+            title:str = "test",
+            save: bool = True,
+            ax: plt.Axes = None,
+            return_pos: bool = False,
+    ):
+        '''
+        Draw the graph with the input neurons at the top,
+        the output neurons at the bottom and the rest in the center placed on 
+        a circle.
+        '''
+        # threshold synapses for visualisation
+        graph_ = nx_utils.threshold_graph(self.graph, syn_threshold)
+        input_nodes = [n for n in input_nodes if n in graph_.nodes]
+        output_nodes = [n for n in output_nodes if n in graph_.nodes]
+        # draw the graph
+        ax, pos = nx_design.draw_graph_in_out_center_circle(
+            graph=graph_,
+            top_nodes=input_nodes,
+            bottom_nodes=output_nodes,
+            ax=ax,
+            return_pos=True,
+            label_nodes=label_nodes,
+            )
+        ax.set_title(title)
+        if save:
+            plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.pdf"))
+        if return_pos:
+            return ax, pos
+        return ax
+
     def list_possible_attributes(self):
         '''
         List the attributes present in the nodes dataframe.

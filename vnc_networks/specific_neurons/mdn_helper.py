@@ -9,6 +9,9 @@ import get_nodes_data
 def get_mdn_bodyids():
     return get_nodes_data.get_neuron_bodyids({'type:string': 'MDN'})
 
+def get_mdn_uids(data: Connections):
+    return data.get_neuron_ids({'type:string': 'MDN'})
+
 def get_subdivided_mdns(VNC, neuropil, side):
     '''
     Get the uids of MDNs split by neuropil and side.
