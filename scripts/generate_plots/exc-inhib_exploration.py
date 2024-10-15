@@ -89,24 +89,23 @@ def simple_count_in_neuropil(
             neuropil=neuropil, side=side+'HS'
             )
         )
-    target = mns_helper.get_leg_motor_neurons(
+    target = list(mns_helper.get_leg_motor_neurons(
             data=VNC, leg=leg, side=side+'HS'
-            ) # motor neurons
+            )) # motor neurons
+    print(f"total number of {leg}{side} leg motor neurons: {len(target)}")
     neurons_used.extend(target)
     source = mdn_helper.get_mdn_uids(VNC) # MDN
     neurons_used.extend(source)
     neurons_used = list(set(neurons_used))
 
-    # Restrict the matrix and compute second power
-    cmatrix = VNC.get_cmatrix(type_='syn_count')
-    cmatrix.restrict_nodes(neurons_used)
-    cmatrix.power_n(2)
+    # Restrict the matrix and compute second order connections
+    cm = VNC.get_cmatrix(type_='syn_count')
+    cm.restrict_nodes(neurons_used)
+    cm.power_n(2)
 
     # Get number of connections from source to target
-    cmatrix.restrict_from_to(source, target, input_type='uid')
-    print(cmatrix.lookup)
-    print(cmatrix.get_matrix())
-    list_down = cmatrix.list_downstream_neurons(source)
+    cm.restrict_from_to(source, target, input_type='uid')
+    list_down = cm.list_downstream_neurons(source)
     print(f'Number of {leg} motor neurons reached from MDN in {neuropil} {side}: {len(list_down)}')
 
 def fig2a():
@@ -280,7 +279,9 @@ def fig2c():
 
 if __name__ == '__main__':
     simple_count_in_neuropil('R', 'h')
-    #simple_count_in_neuropil('L', 'f')
+    simple_count_in_neuropil('L', 'h')
+    simple_count_in_neuropil('R', 'f')
+    simple_count_in_neuropil('L', 'f')
     #fig2a()
     #fig2b()
     #fig2c()

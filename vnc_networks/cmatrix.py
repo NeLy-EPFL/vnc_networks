@@ -631,7 +631,7 @@ class CMatrix:
         cmatrix_copy = copy.deepcopy(self)
         cmatrix_copy.restrict_rows(uids)
         matrix = cmatrix_copy.get_matrix()
-        non_zero_columns = matrix.nonzero()[1] # columns with non-zero values
+        non_zero_columns = set(matrix.nonzero()[1]) # columns with non-zero values
         downstream_uids = cmatrix_copy.get_uids(
             sub_indices=non_zero_columns,
             axis='column'
