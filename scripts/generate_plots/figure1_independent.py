@@ -129,6 +129,13 @@ def venn_mdn_branches_neuropil_direct(attribute: str = 'class:string'):
         )
     plt.close()
 
+    # print the neurons down of T3 to verify that proofreading is okish
+    write_neuron_dataframe(
+        list_down_neurons[2],
+        VNC,
+        filename='venn_mdn_branches_neuropil_t3'
+        )
+
 def venn_t3_subbranches():
     '''
     Split the T3 part in subbranches and look at the isolated circuits.
