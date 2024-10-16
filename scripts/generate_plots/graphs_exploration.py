@@ -42,27 +42,6 @@ import specific_neurons.motor_neurons_helper as mns_helper
 FOLDER_NAME = 'explo_graphs'
 
 # ----- Helper functions -----            
-def draw_bar_plot(
-    data: Connections,
-    neurons: set[int],
-    attribute: str = 'class:string',
-    ax=None
-    ):
-    '''
-    Draw a bar plot of the attribute of the neurons in the set.
-    '''
-    # Get the attribute values
-    values = []
-    for uid in neurons:
-        values.append(data.get_node_attribute(uid, attribute))
-    values.sort()
-    values = pd.Series(values)
-    counts = values.value_counts()
-    counts.plot(kind='bar', ax=ax, colormap='grey')
-    ax.set_xlabel(attribute)
-    ax.set_ylabel('# neurons')
-    ax = plots_design.make_nice_spines(ax)
-    return ax
 
 # ----- Figure functions -----
 def fig1a(n_hops: int = 2):
@@ -275,7 +254,7 @@ def fig1e(attribute: str = 'class:string'):
         set_neurons = list_down_neurons[
             i
             ] - list_down_neurons[(i+1)%3] - list_down_neurons[(i+2)%3]
-        draw_bar_plot(VNC, set_neurons, attribute, ax=axs[i])
+        VNC.draw_bar_plot(set_neurons, attribute, ax=axs[i])
         axs[i].set_title(f'unique downstream of MDNs|T{i+1}')
     plt.tight_layout()
     plt.savefig(os.path.join(folder, f'Fig1e_{attribute}.pdf'))
@@ -292,7 +271,7 @@ def fig1e(attribute: str = 'class:string'):
         set_neurons = list_down_neurons[i].intersection(
             list_down_neurons[(i+1)%3]
             )
-        draw_bar_plot(VNC, set_neurons, attribute, ax=axs[i])
+        VNC.draw_bar_plot(set_neurons, attribute, ax=axs[i])
         axs[i].set_title(
             f'overlap downstream of MDNs|T{i+1} & MDNs|T{(i+1)%3 + 1}'
             )
@@ -308,7 +287,7 @@ def fig1e(attribute: str = 'class:string'):
         figsize=(params.FIG_WIDTH, params.FIG_HEIGHT),
         dpi=params.DPI,
         )
-    draw_bar_plot(VNC, set_neurons, attribute, ax=ax)
+    VNC.draw_bar_plot(set_neurons, attribute, ax=ax)
     ax.set_title('Intersection of all 3 groups')
     plt.tight_layout()
     plt.savefig(os.path.join(folder, f'Fig1e_{attribute}_intersection.pdf'))
