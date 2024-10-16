@@ -62,7 +62,8 @@ def load_data_neuron(id_: int, attributes: list = None) -> pd.DataFrame:
         for att in attributes:
             if att not in neurons.columns:
                 raise ValueError(f'The attribute {att} is not in the dataset.')
-        attributes.append(':ID(Body-ID)')
+        if ':ID(Body-ID)' not in attributes:
+            attributes.append(':ID(Body-ID)')
         return neurons[neurons[':ID(Body-ID)'] == id_][attributes]
     else:
         return neurons[neurons[':ID(Body-ID)'] == id_]
@@ -106,5 +107,5 @@ def get_possible_columns() -> list:
     Get the possible columns of the dataset.
     """
     neurons = pd.read_feather(params.NEUPRINT_NODES_FILE)
+    # 'status:string','statusLabel:string', 'cropped:boolean',
     return neurons.columns
-

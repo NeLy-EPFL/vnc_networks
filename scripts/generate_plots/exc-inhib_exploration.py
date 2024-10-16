@@ -25,6 +25,8 @@ import utils.matrix_utils as matrix_utils
 import utils.matrix_design as matrix_design
 import params
 
+FOLDER_NAME = 'explo_exc-inhib'
+
 # -------------------------- Helper functions -------------------------- #
 def _nb_local_connections(args):
     # private function for parallelization of 2a
@@ -185,7 +187,7 @@ def fig2a():
         )
     
     # Save the figure
-    folder = os.path.join(params.FIG_DIR, 'Fig2')
+    folder = os.path.join(params.FIG_DIR, FOLDER_NAME)
     if not os.path.exists(folder):
         os.makedirs(folder)
     plt.savefig(os.path.join(folder, 'Fig2a.pdf'))
@@ -268,7 +270,7 @@ def fig2b():
         )
     
     # Save the figure
-    folder = os.path.join(params.FIG_DIR, 'Fig2')
+    folder = os.path.join(params.FIG_DIR, FOLDER_NAME)
     if not os.path.exists(folder):
         os.makedirs(folder)
     plt.savefig(os.path.join(folder, 'Fig2b.pdf'))

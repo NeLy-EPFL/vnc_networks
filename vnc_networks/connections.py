@@ -7,7 +7,7 @@ Useful class when juggeling between different representations of the connectome.
 Each neuron is referenced by a tuple of (bodyId, subdivision) where the 
 subdivision is a number indexing a set of synapses from the same neuron. This
 allows to treat a single neuron as multiple nodes in the graph.
-Each such created neuron has a unique identifier associated.
+Each such created neuron has a unique identifier associated (uid).
 
 Use the following code to initialize the class:
 ```
@@ -33,6 +33,7 @@ import get_nodes_data
 import utils.nx_design as nx_design
 import utils.matrix_utils as matrix_utils
 import utils.nx_utils as nx_utils
+import utils.plots_design as plots_design
 import cmatrix
 from neuron import Neuron
 
@@ -83,7 +84,10 @@ class Connections:
         self.__dict__.update(neuron)
 
     def __get_connections(self):
-        connections_ = pd.read_feather(params.NEUPRINT_CONNECTIONS_FILE, columns=[':START_ID(Body-ID)','weightHR:int',':END_ID(Body-ID)'])
+        connections_ = pd.read_feather(
+            params.NEUPRINT_CONNECTIONS_FILE,
+            columns=[':START_ID(Body-ID)','weightHR:int',':END_ID(Body-ID)']
+            )
         # filter out only the connections relevant here
         connections_ = connections_[
             connections_[":START_ID(Body-ID)"].isin(
@@ -689,6 +693,28 @@ class Connections:
         return subgraph_
 
     # --- getters
+    def get_connections_with_only_traced_neurons(self):
+        '''
+        Remove the neurons in the graph for which the field "status:string"
+        is not "Traced".
+
+        Returns
+        -------
+        Connections
+            New Connections object with only the traced neurons.
+        '''
+        neuron_tracing_status = self.get_node_attribute(
+            self.get_nodes(),
+            'status:string'
+            )
+        traced_nodes = [
+            node for node, status in zip(
+                self.get_nodes(),
+                neuron_tracing_status
+                ) if status == 'Traced'
+            ]
+        return self.subgraph(traced_nodes)
+    
     def get_neuron_bodyids(self, selection_dict: dict = None) -> list[int]:
         '''
         Get the neuron Body-IDs from the nodes dataframe based on a selection dictionary.
@@ -711,9 +737,29 @@ class Connections:
     def get_neurons_post(self):
         return self.neurons_post
     
-    def get_connections(self):
+    def get_connections(
+            self,
+            specific_start_uids: list[int] = None,
+            specific_end_uids: list[int] = None
+            ):
+        '''
+        Get the connections table.
+        '''
+        if specific_start_uids is not None and specific_end_uids is not None:
+            return self.connections[
+                self.connections['start_uid'].isin(specific_start_uids)
+                & self.connections['end_uid'].isin(specific_end_uids)
+                ]
+        if specific_start_uids is not None:
+            return self.connections[
+                self.connections['start_uid'].isin(specific_start_uids)
+                ]
+        if specific_end_uids is not None:
+            return self.connections[
+                self.connections['end_uid'].isin(specific_end_uids)
+                ]
         return self.connections
-    
+        
     def get_graph(
             self,
             weight_type: str = 'eff_weight',
@@ -909,6 +955,16 @@ class Connections:
             }
         return self.get_neuron_ids(neuropil_dict)
 
+    def get_bodyids_from_uids(self, uids):
+        '''
+        Get the body ids from the uids.
+        '''
+        if isinstance(uids, int):
+            uids = [uids]
+        if isinstance(uids, set):
+            uids = list(uids)
+        return self.__convert_uid_to_neuron_ids(uids, output_type='body_id')
+
     # --- setters
     def merge_nodes(self, nodes: list[int]):
         '''
@@ -1009,7 +1065,8 @@ class Connections:
         for attribute in attributes:
             _ = self.__get_node_attributes(attribute)
         return
-   
+
+
    # --- computations
     def __compute_n_hops(self, n: int, initialize_graph: bool = False):
         '''
@@ -1422,6 +1479,29 @@ class Connections:
         all_attributes = np.unique(all_attributes)
         return all_attributes
 
+    def draw_bar_plot(
+        self,
+        neurons: set[int],
+        attribute: str = 'class:string',
+        ylabel: str = '# neurons',
+        ax=None
+        ):
+        '''
+        Draw a bar plot of the attribute of the neurons in the set.
+        '''
+        # Get the attribute values
+        values = []
+        for uid in neurons:
+            values.append(self.get_node_attribute(uid, attribute))
+        values.sort()
+        values = pd.Series(values)
+        counts = values.value_counts()
+        counts.plot(kind='bar', ax=ax, colormap='grey')
+        ax.set_xlabel(attribute)
+        ax.set_ylabel(ylabel)
+        ax = plots_design.make_nice_spines(ax)
+        return ax
+    
     # --- saving
     def save(self, name: str):
         '''
