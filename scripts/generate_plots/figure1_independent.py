@@ -17,6 +17,9 @@ from connections import Connections
 from neuron import Neuron
 
 FOLDER_NAME = 'Figure_1_independent'
+FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)
+os.makedirs(FOLDER, exist_ok=True)
+
 
 # -------------------------- Helper functions -------------------------- #
 def write_neuron_dataframe(
@@ -27,10 +30,6 @@ def write_neuron_dataframe(
     '''
     Write infromation about the neurons in the list in a csv file.
     '''
-    folder = os.path.join(params.FIG_DIR, FOLDER_NAME)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-
     # get the boyids from the uids
     bodyids = VNC.get_bodyids_from_uids(neurons)
     # get neuron-specific information
@@ -40,7 +39,7 @@ def write_neuron_dataframe(
         neuron_data = neuron.get_data() # df
         print(neuron_data)
         df = pd.concat([df, neuron_data], axis=0, ignore_index=True)
-    df.to_csv(os.path.join(folder, filename+'.csv'))
+    df.to_csv(os.path.join(FOLDER, filename+'.csv'))
 
 
 # -------------------------- Main functions -------------------------- #
@@ -78,10 +77,7 @@ def venn_mdn_branches_neuropil_direct(attribute: str = 'class:string'):
         )
     
     # saving
-    folder = os.path.join(params.FIG_DIR, FOLDER_NAME)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    plt.savefig(os.path.join(folder, f'venn_mdn_branches_neuropil_direct.pdf'))
+    plt.savefig(os.path.join(FOLDER, f'venn_mdn_branches_neuropil_direct.pdf'))
     plt.close()
 
     # === II. Plot the neuron 'attribute' distribution for the intersection
@@ -96,7 +92,7 @@ def venn_mdn_branches_neuropil_direct(attribute: str = 'class:string'):
     ax.set_title('Intersection of all 3 groups')
     plt.tight_layout()
     plt.savefig(
-        os.path.join(folder, 'venn_mdn_branches_neuropil_bar_intersection.pdf')
+        os.path.join(FOLDER, 'venn_mdn_branches_neuropil_bar_intersection.pdf')
         )
     plt.close()
 
@@ -123,7 +119,7 @@ def venn_mdn_branches_neuropil_direct(attribute: str = 'class:string'):
         axs[i].set_title(f'unique downstream of MDNs|T{i+1}')
     plt.tight_layout()
     plt.savefig(
-        os.path.join(folder, 'venn_mdn_branches_neuropil_bar_exclusion.pdf')
+        os.path.join(FOLDER, 'venn_mdn_branches_neuropil_bar_exclusion.pdf')
         )
     plt.close()
 

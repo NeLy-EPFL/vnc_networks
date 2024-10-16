@@ -31,7 +31,9 @@ CONNECTION_DIR = os.path.join(PREPROCESSING_DIR, "connections")
 
 # --- Where to save the figures --- #
 FIG_DIR = os.path.join(Path(__file__).absolute().parent.parent, "plots")
+os.makedirs(FIG_DIR, exist_ok=True)
 PLOT_DIR = os.path.join(FIG_DIR,"tmp")
+os.makedirs(PLOT_DIR, exist_ok=True)
 
 # --- Parameters for the analysis --- #
 NT_WEIGHTS = {"acetylcholine": +1, "gaba": -1, "glutamate": -1, "unknown": 0, None: 0, np.nan: 0}

@@ -40,6 +40,8 @@ import specific_neurons.all_neurons_helper as all_neurons_helper
 import specific_neurons.motor_neurons_helper as mns_helper
 
 FOLDER_NAME = 'explo_graphs'
+FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)
+os.makedirs(FOLDER, exist_ok=True)
 
 # ----- Helper functions -----            
 
@@ -76,10 +78,7 @@ def fig1a(n_hops: int = 2):
         )
     
     # saving
-    folder = os.path.join(params.FIG_DIR, FOLDER_NAME)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    plt.savefig(os.path.join(folder, f'Fig1a_{n_hops}_hops.pdf'))
+    plt.savefig(os.path.join(FOLDER, f'Fig1a_{n_hops}_hops.pdf'))
     plt.close()
 
 def fig1b(n_hops: int = 2):
@@ -120,10 +119,7 @@ def fig1b(n_hops: int = 2):
         )
     
     # saving
-    folder = os.path.join(params.FIG_DIR, FOLDER_NAME)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    plt.savefig(os.path.join(folder, f'Fig1b_{n_hops}_hops.pdf'))
+    plt.savefig(os.path.join(FOLDER, f'Fig1b_{n_hops}_hops.pdf'))
     plt.close()
 
 def fig1c(n_hops: int = 2):
@@ -173,10 +169,7 @@ def fig1c(n_hops: int = 2):
             )
         
     # saving
-    folder = os.path.join(params.FIG_DIR, FOLDER_NAME)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    plt.savefig(os.path.join(folder, f'Fig1c_{n_hops}_hops.pdf'))
+    plt.savefig(os.path.join(FOLDER, f'Fig1c_{n_hops}_hops.pdf'))
     plt.close()
 
 def fig1d():
@@ -209,10 +202,7 @@ def fig1d():
         )
     
     # saving
-    folder = os.path.join(params.FIG_DIR, FOLDER_NAME)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    plt.savefig(os.path.join(folder, f'Fig1d.pdf'))
+    plt.savefig(os.path.join(FOLDER, f'Fig1d.pdf'))
     plt.close()
 
 def fig1e(attribute: str = 'class:string'):
@@ -240,9 +230,6 @@ def fig1e(attribute: str = 'class:string'):
         list_down_neurons.append(set(down_partners))
 
     # Plotting
-    folder = os.path.join(params.FIG_DIR, FOLDER_NAME)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
     # Fig 1e - a) Unique neurons in each group
     _, axs = plt.subplots(
         1,
@@ -257,7 +244,7 @@ def fig1e(attribute: str = 'class:string'):
         VNC.draw_bar_plot(set_neurons, attribute, ax=axs[i])
         axs[i].set_title(f'unique downstream of MDNs|T{i+1}')
     plt.tight_layout()
-    plt.savefig(os.path.join(folder, f'Fig1e_{attribute}.pdf'))
+    plt.savefig(os.path.join(FOLDER, f'Fig1e_{attribute}.pdf'))
     plt.close()
 
     # Fig 1e - b) Overlapping neurons 1-1
@@ -276,7 +263,7 @@ def fig1e(attribute: str = 'class:string'):
             f'overlap downstream of MDNs|T{i+1} & MDNs|T{(i+1)%3 + 1}'
             )
     plt.tight_layout()
-    plt.savefig(os.path.join(folder, f'Fig1e_{attribute}_overlap_1-1.pdf'))
+    plt.savefig(os.path.join(FOLDER, f'Fig1e_{attribute}_overlap_1-1.pdf'))
     plt.close()
 
     # Fig 1e - c) Intersection of all 3 groups
@@ -290,7 +277,7 @@ def fig1e(attribute: str = 'class:string'):
     VNC.draw_bar_plot(set_neurons, attribute, ax=ax)
     ax.set_title('Intersection of all 3 groups')
     plt.tight_layout()
-    plt.savefig(os.path.join(folder, f'Fig1e_{attribute}_intersection.pdf'))
+    plt.savefig(os.path.join(FOLDER, f'Fig1e_{attribute}_intersection.pdf'))
     plt.close()
 
 def fig1f(syn_thresh: int = None, label_nodes: bool = False):
@@ -342,13 +329,11 @@ def fig1f(syn_thresh: int = None, label_nodes: bool = False):
                 )
             del subconnections, l2_graph
     plt.tight_layout()
-    folder = os.path.join(params.FIG_DIR, FOLDER_NAME)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+
     title = f'Fig1f_syn-threshold={syn_thresh}'
     if label_nodes:
         title += '_labeled-nodes'
-    plt.savefig(os.path.join(folder, title+'.pdf'))
+    plt.savefig(os.path.join(FOLDER, title+'.pdf'))
     plt.close()
             
 def fig1g(
@@ -399,11 +384,9 @@ def fig1g(
                 )
             del subconnections, l2_graph
     plt.tight_layout()
-    folder = os.path.join(params.FIG_DIR, FOLDER_NAME)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+
     title = f'Fig1g_attribute={attribute}_syn-threshold={syn_thresh}'
-    plt.savefig(os.path.join(folder, title+'.pdf'))
+    plt.savefig(os.path.join(FOLDER, title+'.pdf'))
     plt.close()       
 
 def fig1h(
@@ -491,12 +474,10 @@ def fig1h(
     title = 'Fig1h_' + title
     if method is not None:
         title += f'_method={method}'
-    folder = os.path.join(params.FIG_DIR, FOLDER_NAME)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+
     if label_nodes:
         title += '_labeled-nodes'
-    plt.savefig(os.path.join(folder, title+'.pdf'))
+    plt.savefig(os.path.join(FOLDER, title+'.pdf'))
     plt.close()
 
 
