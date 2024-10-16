@@ -15,6 +15,8 @@ from utils import plots_design
 import params
 from connections import Connections
 from neuron import Neuron
+from get_nodes_data import get_neuron_bodyids
+
 
 FOLDER_NAME = 'Figure_1_independent'
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)
@@ -100,7 +102,7 @@ def venn_mdn_branches_neuropil_direct(attribute: str = 'class:string'):
     write_neuron_dataframe(
         full_intersection,
         VNC,
-        filename='venn_mdn_branches_neuropil_bar_intersection'
+        filename='venn_mdn_branches_neuropil_intersection'
         )
 
     # === III. Plot the neuron 'attribute' distribution for the neurons
@@ -123,12 +125,64 @@ def venn_mdn_branches_neuropil_direct(attribute: str = 'class:string'):
         )
     plt.close()
 
-    # print the neurons down of T3 to verify that proofreading is okish
-    write_neuron_dataframe(
-        list_down_neurons[2],
-        VNC,
-        filename='venn_mdn_branches_neuropil_t3'
-        )
+def mdn_synapse_distribution():
+    '''
+    show for each MDN the distribution of synapses in the neuropils.
+    Each row is an MDN.
+    The first column is depth-colour coded.
+    The second in neruopil-colored.
+    The third is clustering-colored.
+    '''
+    mdn_bodyids = get_neuron_bodyids({'type:string': 'MDN'})
+    for i in range(1): # each MDN
+        fig, axs = plt.subplots(
+            1, 
+            3,
+            figsize=(3*params.FIG_WIDTH, params.FIG_HEIGHT),
+            dpi=params.DPI
+            )
+
+        MDN = Neuron(mdn_bodyids[i])
+        _ = MDN.get_synapse_distribution()
+
+        # Column 1: depth-color coded
+        MDN.plot_synapse_distribution(
+            cmap=params.r_red_colorscale,
+            savefig=False,
+            ax = axs[0]
+            ) # default is depth-color coded
+
+        # Column 2: neuropil-colored
+        MDN.add_neuropil_information()
+        MDN.plot_synapse_distribution(
+            color_by='neuropil',
+            discrete_coloring=True,
+            ax=axs[1],
+            savefig=False
+            )
+        
+        # Column 3: clustering-colored
+        MDN.remove_defined_subdivisions()
+        MDN.cluster_synapses_spatially(n_clusters=8)
+        MDN.create_synapse_groups(attribute='KMeans_cluster')
+        MDN.plot_synapse_distribution(
+            color_by='KMeans_cluster',
+            discrete_coloring=True,
+            ax=axs[2],
+            savefig=False
+            )
+        
+        plt.tight_layout()
+        plt.savefig(
+            os.path.join(
+                FOLDER,
+                f'mdn_{mdn_bodyids[i]}_synapse_distribution.pdf'
+                )
+            )
+        plt.close()
+        del MDN, axs
+
+
 
 def venn_t3_subbranches():
     '''
@@ -136,7 +190,29 @@ def venn_t3_subbranches():
     Add the previous figure the spatial visualisation of the synapses.
     '''
     # TODO
-    pass
+    # 1. Split the MDNs in spatially defined subbranches
+    MDNs = []
+    mdn_bodyids = get_neuron_bodyids({'type:string': 'MDN'})
+
+    for i in range(4):
+        MDN = Neuron(mdn_bodyids[i])
+        _ = MDN.get_synapse_distribution(threshold=True)
+        MDN.cluster_synapses_spatially(n_clusters=3)
+        MDN.create_intersected_attribute(
+            attributes = ['neuropil', 'KMeans_cluster']
+        )
+        #MDN.create_synapse_groups(attribute='KMeans_cluster')
+        MDN.create_synapse_groups(attribute='neuropil_KMeans_cluster')
+        MDN.plot_synapse_distribution(
+            color_by='neuropil',
+            discrete_coloring=True,
+            threshold=True,
+            cmap="Spectral")
+        MDN.save(name='MDN_split-neuropil_'+str(i))  # if you want to save the neuron
+        MDNs.append(MDN)
+    # 2. Keep only the subranches that are in T3
+    # 3. Get the downstream neurons of these subbranches
 
 if __name__ == "__main__":
-    venn_mdn_branches_neuropil_direct()
+    #venn_mdn_branches_neuropil_direct()
+    mdn_synapse_distribution()

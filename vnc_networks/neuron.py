@@ -187,13 +187,17 @@ class Neuron:
             column_name = roi + ':boolean'
             roi_column = pd.read_feather(
                 params.NEUPRINT_SYNAPSE_FILE,
-                columns=[column_name]
-                )[synapses_we_care_about].iloc[:,0]
-            synapses_in_roi = roi_column[roi_column == True].index
+                columns=[column_name, ':ID(Syn-ID)'],
+                )[synapses_we_care_about]
+            synapses_in_roi = roi_column.loc[
+                roi_column[column_name] == True,
+                ':ID(Syn-ID)'
+                ].values
             self.synapse_df.loc[
                 self.synapse_df['syn_id'].isin(synapses_in_roi),
                 'neuropil'
                 ] = roi
+        
         
     def __explicit_synapse_positions(self):
         """
@@ -214,8 +218,8 @@ class Neuron:
             Y.append(pos[1])
             Z.append(pos[2])
         self.synapse_df['X'] = X
-        self.synapse_df['Y'] = Y
-        self.synapse_df['Z'] = Z
+        self.synapse_df['Y'] = Z
+        self.synapse_df['Z'] = Y
         return
 
     # public methods
@@ -300,11 +304,18 @@ class Neuron:
             return len(self.synapse_df[self.synapse_df['end_id'] == to])
         
     # --- setters
+    def add_neuropil_information(self):
+        """
+        Add neuropil information to the synapse dataframe.
+        """
+        self.__categorical_neuropil_information()
+        return
+
     def create_synapse_groups(self, attribute: str):
         """
         Create synapse groups based on an attribute.
         This will be used to split neurons in the Connections class.
-        The table is filtered such that connections form a neuron
+        The table is filtered such that connections from a neuron
         to another are removed if the total number of synapses is below 
         the threshold in the params file.
         """
@@ -358,7 +369,13 @@ class Neuron:
         self.synapse_df = self.synapse_df[
             ~self.synapse_df['end_id'].isin(not_connected)
         ]
-        
+    
+    def remove_defined_subdivisions(self):
+        """
+        Remove the defined subdivisions.
+        """
+        self.subdivisions = None
+
     # --- computations
     def cluster_synapses_spatially(
             self,
@@ -388,15 +405,18 @@ class Neuron:
             color_by: str = None,  
             discrete_coloring: bool = True,
             threshold: bool = False,
-            cmap: str = params.blue_colorscale,
+            cmap: str = params.colorblind_palette,
+            ax: plt.Axes = None,
+            savefig: bool = True,
             ):
         """
         Plot the synapse distribution for the neuron.
         """
         X, Y, Z = self.get_synapse_distribution(threshold=threshold)
-        fig, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
         if color_by is None:
-            plot_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax)
+            plot_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax, cmap=cmap)
         else:
             if color_by not in self.synapse_df.columns:
                 raise (f"Attribute {color_by} not in synapse dataframe.")
@@ -421,10 +441,11 @@ class Neuron:
                 ax=ax,
                 cmap=cmap,
                 discrete_coloring=discrete_coloring,
-            ) 
-        plt.savefig(
-            f"{params.PLOT_DIR}/synapse_distribution_{self.bodyId}_{color_by}.pdf"
             )
+        if savefig:
+            plt.savefig(
+                f"{params.PLOT_DIR}/synapse_distribution_{self.bodyId}_{color_by}.pdf"
+            ) 
         return ax
     
     # --- loading and saving
