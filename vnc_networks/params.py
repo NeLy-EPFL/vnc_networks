@@ -27,7 +27,9 @@ PROCESSED_DATA_DIR = os.path.join(Path(__file__).absolute().parent.parent, "data
 # --- Where to save the preprocessed data sets --- #
 PREPROCESSING_DIR = os.path.join(Path(__file__).absolute().parent.parent, "preprocessing")
 NEURON_DIR = os.path.join(PREPROCESSING_DIR, "neurons")
+os.makedirs(NEURON_DIR, exist_ok=True)
 CONNECTION_DIR = os.path.join(PREPROCESSING_DIR, "connections")
+os.makedirs(CONNECTION_DIR, exist_ok=True)
 
 # --- Where to save the figures --- #
 FIG_DIR = os.path.join(Path(__file__).absolute().parent.parent, "plots")
