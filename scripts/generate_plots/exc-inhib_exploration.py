@@ -26,6 +26,8 @@ import utils.matrix_design as matrix_design
 import params
 
 FOLDER_NAME = 'explo_exc-inhib'
+FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)
+os.makedirs(FOLDER, exist_ok=True)
 
 # -------------------------- Helper functions -------------------------- #
 def _nb_local_connections(args):
@@ -187,10 +189,7 @@ def fig2a():
         )
     
     # Save the figure
-    folder = os.path.join(params.FIG_DIR, FOLDER_NAME)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    plt.savefig(os.path.join(folder, 'Fig2a.pdf'))
+    plt.savefig(os.path.join(FOLDER, 'Fig2a.pdf'))
     plt.close()
 
 def fig2b():
@@ -270,10 +269,7 @@ def fig2b():
         )
     
     # Save the figure
-    folder = os.path.join(params.FIG_DIR, FOLDER_NAME)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    plt.savefig(os.path.join(folder, 'Fig2b.pdf'))
+    plt.savefig(os.path.join(FOLDER, 'Fig2b.pdf'))
     plt.close()
 
 def fig2c():
