@@ -1507,8 +1507,6 @@ class Connections:
         '''
         Save the connections object to a pickle file.
         '''
-        if not os.path.exists(params.CONNECTION_DIR):
-            os.makedirs(params.CONNECTION_DIR)
         filename = os.path.join(params.CONNECTION_DIR, name+'.txt')
         with open(filename, 'wb') as f:
             pickle.dump(self.__dict__, f)

@@ -421,9 +421,7 @@ class Neuron:
                 ax=ax,
                 cmap=cmap,
                 discrete_coloring=discrete_coloring,
-            )
-        if not os.path.exists(params.PLOT_DIR):
-            os.makedirs(params.PLOT_DIR) 
+            ) 
         plt.savefig(
             f"{params.PLOT_DIR}/synapse_distribution_{self.bodyId}_{color_by}.pdf"
             )
@@ -439,8 +437,6 @@ class Neuron:
         name : str
             The name of the file to save to.
         """
-        if not os.path.exists(params.NEURON_DIR):
-            os.makedirs(params.NEURON_DIR)
         with open(os.path.join(params.NEURON_DIR, name+'.txt'), 'wb') as file:
             pickle.dump(self.__dict__, file)
 
