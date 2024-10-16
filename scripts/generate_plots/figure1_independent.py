@@ -33,8 +33,6 @@ def write_neuron_dataframe(
 
     # get the boyids from the uids
     bodyids = VNC.get_bodyids_from_uids(neurons)
-    print(neurons)
-    print(bodyids)
     # get neuron-specific information
     df = pd.DataFrame()
     for bid in tqdm(bodyids, desc='writing information about neurons to file'):
@@ -54,10 +52,10 @@ def venn_mdn_branches_neuropil_direct(attribute: str = 'class:string'):
     3 groups, as well as the 3 groups separately.
     '''
     # Loading the connectivity data
-    VNC = mdn_helper.get_vnc_split_MDNs_by_neuropil(
+    full_VNC = mdn_helper.get_vnc_split_MDNs_by_neuropil(
         not_connected=mdn_helper.get_mdn_bodyids()
         ) # exclude connections from MDNs to MDNs
-
+    VNC = full_VNC.get_connections_with_only_traced_neurons() # exclude untraced neurons for statistics
     # Working with matrix representation, get n-th order connections
     cmatrix = VNC.get_cmatrix(type_='norm')
     

@@ -107,5 +107,5 @@ def get_possible_columns() -> list:
     Get the possible columns of the dataset.
     """
     neurons = pd.read_feather(params.NEUPRINT_NODES_FILE)
+    # 'status:string','statusLabel:string', 'cropped:boolean',
     return neurons.columns
-

@@ -693,6 +693,28 @@ class Connections:
         return subgraph_
 
     # --- getters
+    def get_connections_with_only_traced_neurons(self):
+        '''
+        Remove the neurons in the graph for which the field "status:string"
+        is not "Traced".
+
+        Returns
+        -------
+        Connections
+            New Connections object with only the traced neurons.
+        '''
+        neuron_tracing_status = self.get_node_attribute(
+            self.get_nodes(),
+            'status:string'
+            )
+        traced_nodes = [
+            node for node, status in zip(
+                self.get_nodes(),
+                neuron_tracing_status
+                ) if status == 'Traced'
+            ]
+        return self.subgraph(traced_nodes)
+    
     def get_neuron_bodyids(self, selection_dict: dict = None) -> list[int]:
         '''
         Get the neuron Body-IDs from the nodes dataframe based on a selection dictionary.
@@ -1043,7 +1065,8 @@ class Connections:
         for attribute in attributes:
             _ = self.__get_node_attributes(attribute)
         return
-   
+
+
    # --- computations
     def __compute_n_hops(self, n: int, initialize_graph: bool = False):
         '''

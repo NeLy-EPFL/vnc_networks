@@ -33,6 +33,7 @@ NEURON_BASE_ATTRIBUTES = [
     'predictedNtProb:float', 
     'predictedNt:string', 
     'tag:string',
+    'status:string', # 'Traced' or None
 ]
 
 class Neuron:
