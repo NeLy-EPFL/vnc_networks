@@ -332,6 +332,8 @@ class Neuron:
             attribute, 'syn_id', 'start_id', 'end_id'
             ]
         ]
+        # ensure the 'attribute' column is a string
+        synapses[attribute] = synapses[attribute].astype(str).values
         # find end_id for which the number of synapses is below the threshold
         syn_count = synapses.groupby('end_id').size().reset_index()
         syn_count.columns = ['end_id', 'syn_count']
@@ -342,12 +344,16 @@ class Neuron:
         # complete the table
         synapses.fillna({attribute: -1}, inplace=True)  # unclassified synapses get together
         # define the subdivision a synapse belongs to by mapping the attribute to an index
+        to_map = np.sort(synapses[attribute].dropna().unique()).tolist()
+        if '-1' in to_map: # push unclassified synapses to the end
+            to_map.remove('-1')
+            to_map.append('-1')
+        
         mapping = {
-            val: i for i, val in enumerate(
-                synapses[attribute].dropna().unique()
-                )
+            val: i for i, val in enumerate(to_map)
             }
-        mapping[np.nan] = -1
+        mapping[np.nan] = -1 if not '-1' in to_map else mapping['-1']
+        print(mapping)
         synapses['subdivision_start'] = synapses[attribute].map(mapping)
         synapses['subdivision_start_name'] = synapses[attribute]
         synapses.drop(columns=[attribute], inplace=True)
@@ -380,12 +386,36 @@ class Neuron:
     def cluster_synapses_spatially(
             self,
             n_clusters: int = 3,
+            on_attribute: dict = None,
             ):
         """
         Cluster the synapses spatially using K-Means clustering.
+        If on_attribute is not None, the clustering is done if the attribute
+        given as key contains the value given as value.
+
+        Use case: 
+        on_attribute = {'neuropil': 'T3'}
+        clusters the synapses of a neuron in the neuropils with 'T3'
+        in their name, namely LegNp(T3)(L) and LegNp(T3)(R). All other
+        synapses are clustered under the index '-1'.
+        If multiple attributes are given, the combination logic is 'OR'.
         """
         # get the synapse positions
         X, Y, Z = self.get_synapse_distribution()
+
+        # filter if the attribute is given
+        if on_attribute is not None:
+            kept_indices = []
+            if 'neuropil' in on_attribute.keys():
+                self.__categorical_neuropil_information()
+            for key, value in on_attribute.items(): # only keep the synapses with the attribute
+                synapses = self.synapse_df[
+                    self.synapse_df[key].str.contains(value)
+                    ]
+                kept_indices.extend(synapses.index)
+            X = X[kept_indices]
+            Y = Y[kept_indices]
+            Z = Z[kept_indices]
         
         # cluster the synapses
         kmeans = KMeans(n_clusters=n_clusters)
@@ -397,6 +427,12 @@ class Neuron:
                 self.synapse_df['Z']]
                 ).T 
         )
+
+        if on_attribute is not None: # set the cluster to -1 for the synapses not kept
+            self.synapse_df.loc[
+                ~self.synapse_df.index.isin(kept_indices),
+                'KMeans_cluster'
+                ] = -1
         return
         
     # --- visualisation

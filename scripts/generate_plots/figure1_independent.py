@@ -60,7 +60,7 @@ def venn_mdn_branches_neuropil_direct(attribute: str = 'class:string'):
     # Working with matrix representation, get n-th order connections
     cmatrix = VNC.get_cmatrix(type_='norm')
     
-    # Get the uids of motor neurons split by MDN synapses in leg neuropils
+    # Get the uids of neurons split by MDN synapses in leg neuropils
     mdn_uids = VNC.get_neuron_ids({'type:string': 'MDN'})
     list_down_neurons = [] # will become a list with 3 sets
     for i in range(3):
@@ -125,94 +125,48 @@ def venn_mdn_branches_neuropil_direct(attribute: str = 'class:string'):
         )
     plt.close()
 
-def mdn_synapse_distribution():
-    '''
-    show for each MDN the distribution of synapses in the neuropils.
-    Each row is an MDN.
-    The first column is depth-colour coded.
-    The second in neruopil-colored.
-    The third is clustering-colored.
-    '''
-    mdn_bodyids = get_neuron_bodyids({'type:string': 'MDN'})
-    for i in range(1): # each MDN
-        fig, axs = plt.subplots(
-            1, 
-            3,
-            figsize=(3*params.FIG_WIDTH, params.FIG_HEIGHT),
-            dpi=params.DPI
-            )
-
-        MDN = Neuron(mdn_bodyids[i])
-        _ = MDN.get_synapse_distribution()
-
-        # Column 1: depth-color coded
-        MDN.plot_synapse_distribution(
-            cmap=params.r_red_colorscale,
-            savefig=False,
-            ax = axs[0]
-            ) # default is depth-color coded
-
-        # Column 2: neuropil-colored
-        MDN.add_neuropil_information()
-        MDN.plot_synapse_distribution(
-            color_by='neuropil',
-            discrete_coloring=True,
-            ax=axs[1],
-            savefig=False
-            )
-        
-        # Column 3: clustering-colored
-        MDN.remove_defined_subdivisions()
-        MDN.cluster_synapses_spatially(n_clusters=8)
-        MDN.create_synapse_groups(attribute='KMeans_cluster')
-        MDN.plot_synapse_distribution(
-            color_by='KMeans_cluster',
-            discrete_coloring=True,
-            ax=axs[2],
-            savefig=False
-            )
-        
-        plt.tight_layout()
-        plt.savefig(
-            os.path.join(
-                FOLDER,
-                f'mdn_{mdn_bodyids[i]}_synapse_distribution.pdf'
-                )
-            )
-        plt.close()
-        del MDN, axs
-
-
-
-def venn_t3_subbranches():
+def venn_t3_subbranches(n_clusters: int = 3):
     '''
     Split the T3 part in subbranches and look at the isolated circuits.
     Add the previous figure the spatial visualisation of the synapses.
     '''
-    # TODO
-    # 1. Split the MDNs in spatially defined subbranches
-    MDNs = []
-    mdn_bodyids = get_neuron_bodyids({'type:string': 'MDN'})
+    VNC = mdn_helper.get_connectome_with_MDN_t3_branches(n_clusters=n_clusters) # already pruned of non Traced neurons
+    mdn_uids = VNC.get_neuron_ids({'type:string': 'MDN'})
 
-    for i in range(4):
-        MDN = Neuron(mdn_bodyids[i])
-        _ = MDN.get_synapse_distribution(threshold=True)
-        MDN.cluster_synapses_spatially(n_clusters=3)
-        MDN.create_intersected_attribute(
-            attributes = ['neuropil', 'KMeans_cluster']
-        )
-        #MDN.create_synapse_groups(attribute='KMeans_cluster')
-        MDN.create_synapse_groups(attribute='neuropil_KMeans_cluster')
-        MDN.plot_synapse_distribution(
-            color_by='neuropil',
-            discrete_coloring=True,
-            threshold=True,
-            cmap="Spectral")
-        MDN.save(name='MDN_split-neuropil_'+str(i))  # if you want to save the neuron
-        MDNs.append(MDN)
-    # 2. Keep only the subranches that are in T3
-    # 3. Get the downstream neurons of these subbranches
+    # Get the direct downstream partners for each subdivision
+    cmatrix = VNC.get_cmatrix(type_='norm')
+    down_neurons = {}
+    for uid in mdn_uids:
+        down_partners = cmatrix.list_downstream_neurons(uid)
+        down_neurons[uid] = down_partners
+
+    # Draw a Venn diagram for the branches of each neuron
+    mnd_bodyids = get_neuron_bodyids({'type:string': 'MDN'})
+    for mdn_bid in mnd_bodyids:
+        single_mdn_uids = VNC.get_uids_from_bodyid(mdn_bid)
+        single_mdn_uids = [
+            uid for uid in single_mdn_uids
+            if not '-1' in VNC.get_node_label(uid)
+            ] # keep only the T3 clusters, not the rest named as '-1'
+        list_down_neurons = []
+        for uid in single_mdn_uids:
+            list_down_neurons.append(set(down_neurons[uid]))
+
+        # Plot the Venn diagram
+        _ = plots_design.venn_3(
+            sets=list_down_neurons,
+            set_labels=['0', '1', '2'],
+            title=f'Neurons directly downstream of MDN {mdn_bid} T3 branches',
+            )
+    
+        # saving
+        plt.savefig(
+            os.path.join(FOLDER,f'venn_mdn-{mdn_bid}_branches_t3_direct.pdf')
+            )
+        plt.close()
+        
 
 if __name__ == "__main__":
     #venn_mdn_branches_neuropil_direct()
-    mdn_synapse_distribution()
+    #n_branches = 3
+    #venn_t3_subbranches(n_clusters=n_branches)

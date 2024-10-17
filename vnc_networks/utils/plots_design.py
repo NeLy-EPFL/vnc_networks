@@ -75,29 +75,36 @@ def scatter_xyz_2d(
     """
     if discrete_coloring:
         unique_z = np.unique(Z)
-        print(unique_z)
         n_c = len(unique_z)
         colors = sns.color_palette(palette = cmap, n_colors = n_c)
         #cmap = mpl.colors.ListedColormap(colors)
         color_map = dict(zip(unique_z, colors))
-        Zplot = [color_map[z] for z in Z]
-        print(len(Zplot))
-        print(np.unique(Zplot))
+        df = pd.DataFrame({'X':X, 'Y':Y, 'Z':Z})
         plt.scatter(
-            X,
-            Y,
-            c=Zplot,
+            df['X'],
+            df['Y'],
+            c=df['Z'].map(color_map),
             #cmap=cmap,
             marker=marker,
             alpha=0.8,
             )
+        '''
         plt.legend(
-            [plt.Line2D([0], [0], marker='o', color='w', label=z, markerfacecolor=color_map[z], markersize=10) for z in unique_z],
+            [plt.Line2D(
+                [0],
+                [0],
+                marker='o',
+                color='w',
+                label=z,
+                markerfacecolor=color_map[z],
+                markersize=10
+                ) for z in unique_z],
             unique_z,
             title=z_label,
             title_fontsize=params.LABEL_SIZE,
             fontsize=params.LABEL_SIZE,
             )
+        '''
         
         with warnings.catch_warnings():
             # suppress warnings from matplotlib, as plotting empty lists with

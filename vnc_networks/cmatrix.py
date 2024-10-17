@@ -628,6 +628,8 @@ class CMatrix:
         """
         Get the downstream neurons of the input neurons.
         """
+        if isinstance(uids, int):
+            uids = [uids]
         cmatrix_copy = copy.deepcopy(self)
         cmatrix_copy.restrict_rows(uids)
         matrix = cmatrix_copy.get_matrix()
