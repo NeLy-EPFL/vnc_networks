@@ -475,6 +475,10 @@ class CMatrix:
         '''
         if row_ids is None and column_ids is None:
             return
+        if isinstance(row_ids, int):
+            row_ids = [row_ids]
+        if isinstance(column_ids, int):
+            column_ids = [column_ids]
         # convert the nodes to indices
         row_indices = self.get_row_indices(
             row_ids,
@@ -623,6 +627,13 @@ class CMatrix:
             self.__reorder_column_indexing(order=order)
         return
 
+    def absolute(self):
+        '''
+        Computes the absolute value of the adjacency matrix.
+        '''
+        self.matrix = np.absolute(self.get_matrix()).tocsr()
+        return
+    
     # --- computations
     def list_downstream_neurons(self, uids: list[int]):
         """

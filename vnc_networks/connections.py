@@ -1071,7 +1071,6 @@ class Connections:
             _ = self.__get_node_attributes(attribute)
         return
 
-
    # --- computations
     def __compute_n_hops(self, n: int, initialize_graph: bool = False):
         '''
