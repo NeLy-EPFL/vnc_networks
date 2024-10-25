@@ -7,7 +7,7 @@ Useful class when juggeling between different representations of the connectome.
 Each neuron is referenced by a tuple of (bodyId, subdivision) where the 
 subdivision is a number indexing a set of synapses from the same neuron. This
 allows to treat a single neuron as multiple nodes in the graph.
-Each such created neuron has a unique identifier associated.
+Each such created neuron has a unique identifier associated (uid).
 
 Use the following code to initialize the class:
 ```
@@ -33,6 +33,7 @@ import get_nodes_data
 import utils.nx_design as nx_design
 import utils.matrix_utils as matrix_utils
 import utils.nx_utils as nx_utils
+import utils.plots_design as plots_design
 import cmatrix
 from neuron import Neuron
 
@@ -59,7 +60,7 @@ class Connections:
             self.__load(from_file)
         else:
             if neurons_pre is None:
-                neurons_ = pd.read_feather(params.NEUPRINT_NODES_FILE)
+                neurons_ = pd.read_feather(params.NEUPRINT_NODES_FILE, columns=[':ID(Body-ID)'])
                 neurons_pre_ = neurons_[':ID(Body-ID)'].to_list()
 
             else:
@@ -83,7 +84,10 @@ class Connections:
         self.__dict__.update(neuron)
 
     def __get_connections(self):
-        connections_ = pd.read_feather(params.NEUPRINT_CONNECTIONS_FILE)
+        connections_ = pd.read_feather(
+            params.NEUPRINT_CONNECTIONS_FILE,
+            columns=[':START_ID(Body-ID)','weightHR:int',':END_ID(Body-ID)']
+            )
         # filter out only the connections relevant here
         connections_ = connections_[
             connections_[":START_ID(Body-ID)"].isin(
@@ -128,15 +132,25 @@ class Connections:
 
         self.connections = connections_
 
-    def __compute_effective_weights_in_connections(self):
+    def __compute_effective_weights_in_connections(self, ids: str = 'body_id'):
         '''
         Compute the effective weights of the connections.
         '''
+        if ids == 'body_id':
+            grouping_on = ":END_ID(Body-ID)"
+        elif ids == 'uid':
+            grouping_on = "end_uid"
+        else:
+            raise ValueError(
+                f"Class Connections \
+                ::: > compute_effective_weights_in_connections():\
+                Unknown id type {ids}"
+                )
         ## Calculate effective weights normalized by total incoming synapses
-        in_total = self.connections.groupby(":END_ID(Body-ID)")["syn_count"].sum()
+        in_total = self.connections.groupby(grouping_on)["syn_count"].sum()
         in_total = in_total.to_frame(name="in_total")
         self.connections = self.connections.merge(
-            in_total, left_on=":END_ID(Body-ID)", right_index=True
+            in_total, left_on=grouping_on, right_index=True
             )
         self.connections["syn_count_norm"] = self.connections[
             "syn_count"
@@ -599,7 +613,7 @@ class Connections:
             split_neurons: list[Neuron] = None,
             not_connected: list[int] = None, # body ids
             ):
-        if split_neurons is not None:
+        if split_neurons is not None and not_connected is not None:
             for neuron in split_neurons:
                 neuron.clear_not_connected(not_connected)
         self.__get_connections()
@@ -610,7 +624,6 @@ class Connections:
         self.__name_neurons(split_neurons)
         self.__build_graph()
         self.__build_adjacency_matrices()
-        print("Connections initialized.")
         return
     
     # --- copy
@@ -657,7 +670,10 @@ class Connections:
         # Initialize the new object
         neurons_pre_ = connections_["start_uid"].to_list()
         neurons_post_ = connections_["end_uid"].to_list()
-        subgraph_  = Connections(neurons_pre_, neurons_post_)
+        subgraph_  = Connections(
+            neurons_pre_,
+            neurons_post_,
+            )
 
         # update the effective weights
         connections_ = connections_.drop(columns=[
@@ -665,7 +681,7 @@ class Connections:
             "eff_weight_norm",
             ])
         subgraph_.set_connections(connections_)
-        subgraph_.__compute_effective_weights_in_connections()
+        subgraph_.__compute_effective_weights_in_connections(ids='uid')
 
         # Subset the uids, keeps the names
         subgraph_.uid = self.uid.loc[self.uid['uid'].isin(nodes)].copy()
@@ -676,6 +692,28 @@ class Connections:
         return subgraph_
 
     # --- getters
+    def get_connections_with_only_traced_neurons(self):
+        '''
+        Remove the neurons in the graph for which the field "status:string"
+        is not "Traced".
+
+        Returns
+        -------
+        Connections
+            New Connections object with only the traced neurons.
+        '''
+        neuron_tracing_status = self.get_node_attribute(
+            self.get_nodes(),
+            'status:string'
+            )
+        traced_nodes = [
+            node for node, status in zip(
+                self.get_nodes(),
+                neuron_tracing_status
+                ) if status == 'Traced'
+            ]
+        return self.subgraph(traced_nodes)
+    
     def get_neuron_bodyids(self, selection_dict: dict = None) -> list[int]:
         '''
         Get the neuron Body-IDs from the nodes dataframe based on a selection dictionary.
@@ -698,9 +736,29 @@ class Connections:
     def get_neurons_post(self):
         return self.neurons_post
     
-    def get_connections(self):
+    def get_connections(
+            self,
+            specific_start_uids: list[int] = None,
+            specific_end_uids: list[int] = None
+            ):
+        '''
+        Get the connections table.
+        '''
+        if specific_start_uids is not None and specific_end_uids is not None:
+            return self.connections[
+                self.connections['start_uid'].isin(specific_start_uids)
+                & self.connections['end_uid'].isin(specific_end_uids)
+                ]
+        if specific_start_uids is not None:
+            return self.connections[
+                self.connections['start_uid'].isin(specific_start_uids)
+                ]
+        if specific_end_uids is not None:
+            return self.connections[
+                self.connections['end_uid'].isin(specific_end_uids)
+                ]
         return self.connections
-    
+        
     def get_graph(
             self,
             weight_type: str = 'eff_weight',
@@ -880,6 +938,38 @@ class Connections:
         else:
             return all[uid]
 
+    def get_neurons_in_neuropil(self, neuropil: str, side: str = None):
+        '''
+        Get the uids of neurons in a given neuropil.
+        If a side is given, only the neurons on that side are considered.
+        '''
+        if side is not None:
+            neuropil_dict = {
+                'somaSide:string': side,
+                'somaNeuromere:string': neuropil,
+            }
+        else:
+            neuropil_dict = {
+                'somaNeuromere:string': neuropil,
+            }
+        return self.get_neuron_ids(neuropil_dict)
+
+    def get_bodyids_from_uids(self, uids):
+        '''
+        Get the body ids from the uids.
+        '''
+        if isinstance(uids, int):
+            uids = [uids]
+        if isinstance(uids, set):
+            uids = list(uids)
+        return self.__convert_uid_to_neuron_ids(uids, output_type='body_id')
+
+    def get_uids_from_bodyid(self, body_id: int):
+        '''
+        Get the uids from the body id.
+        '''
+        return self.__get_uids_from_bodyids([body_id])
+
     # --- setters
     def merge_nodes(self, nodes: list[int]):
         '''
@@ -980,7 +1070,7 @@ class Connections:
         for attribute in attributes:
             _ = self.__get_node_attributes(attribute)
         return
-   
+
    # --- computations
     def __compute_n_hops(self, n: int, initialize_graph: bool = False):
         '''
@@ -1347,6 +1437,42 @@ class Connections:
             return ax, pos
         return ax
 
+    def draw_graph_in_out_center_circle(
+            self,
+            input_nodes:list[int],
+            output_nodes:list[int],
+            syn_threshold: int = None,
+            label_nodes: bool = False,
+            title:str = "test",
+            save: bool = True,
+            ax: plt.Axes = None,
+            return_pos: bool = False,
+    ):
+        '''
+        Draw the graph with the input neurons at the top,
+        the output neurons at the bottom and the rest in the center placed on 
+        a circle.
+        '''
+        # threshold synapses for visualisation
+        graph_ = nx_utils.threshold_graph(self.graph, syn_threshold)
+        input_nodes = [n for n in input_nodes if n in graph_.nodes]
+        output_nodes = [n for n in output_nodes if n in graph_.nodes]
+        # draw the graph
+        ax, pos = nx_design.draw_graph_in_out_center_circle(
+            graph=graph_,
+            top_nodes=input_nodes,
+            bottom_nodes=output_nodes,
+            ax=ax,
+            return_pos=True,
+            label_nodes=label_nodes,
+            )
+        ax.set_title(title)
+        if save:
+            plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.pdf"))
+        if return_pos:
+            return ax, pos
+        return ax
+
     def list_possible_attributes(self):
         '''
         List the attributes present in the nodes dataframe.
@@ -1357,13 +1483,34 @@ class Connections:
         all_attributes = np.unique(all_attributes)
         return all_attributes
 
+    def draw_bar_plot(
+        self,
+        neurons: set[int],
+        attribute: str = 'class:string',
+        ylabel: str = '# neurons',
+        ax=None
+        ):
+        '''
+        Draw a bar plot of the attribute of the neurons in the set.
+        '''
+        # Get the attribute values
+        values = []
+        for uid in neurons:
+            values.append(self.get_node_attribute(uid, attribute))
+        values.sort()
+        values = pd.Series(values)
+        counts = values.value_counts()
+        counts.plot(kind='bar', ax=ax, colormap='grey')
+        ax.set_xlabel(attribute)
+        ax.set_ylabel(ylabel)
+        ax = plots_design.make_nice_spines(ax)
+        return ax
+    
     # --- saving
     def save(self, name: str):
         '''
         Save the connections object to a pickle file.
         '''
-        if not os.path.exists(params.CONNECTION_DIR):
-            os.makedirs(params.CONNECTION_DIR)
         filename = os.path.join(params.CONNECTION_DIR, name+'.txt')
         with open(filename, 'wb') as f:
             pickle.dump(self.__dict__, f)

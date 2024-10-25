@@ -6,6 +6,7 @@ File containing parameters for the project.
 import os
 from pathlib import Path
 import numpy as np
+import seaborn as sns
 
 # --- Where to find the raw data sets --- #
 # MANC traced
@@ -27,11 +28,14 @@ PROCESSED_DATA_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent
 # --- Where to save the preprocessed data sets --- #
 PREPROCESSING_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent, "preprocessing")
 NEURON_DIR = os.path.join(PREPROCESSING_DIR, "neurons")
+os.makedirs(NEURON_DIR, exist_ok=True)
 CONNECTION_DIR = os.path.join(PREPROCESSING_DIR, "connections")
+os.makedirs(CONNECTION_DIR, exist_ok=True)
 
 # --- Where to save the figures --- #
 FIG_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent, "plots")
 PLOT_DIR = os.path.join(FIG_DIR,"tmp")
+os.makedirs(PLOT_DIR, exist_ok=True)
 
 # --- Parameters for the analysis --- #
 NT_WEIGHTS = {"acetylcholine": +1, "gaba": -1, "glutamate": -1, "unknown": 0, None: 0, np.nan: 0}
@@ -55,11 +59,15 @@ INHIB_COLOR = "#0f0b87"
 EXCIT_COLOR = "#9c0d0b"
 
 custom_palette = [DARKBLUE, GREEN,LIGHTORANGE,LIGHTBLUE,DARKGREY,DARKORANGE,LIGHTGREY]
+colorblind_palette = sns.color_palette("colorblind")
 blue_colorscale = 'crest' # Perceptually uniform palettes, can be used in the categorical setting
+r_blue_colorscale = 'crest_r'
 red_colorscale = 'flare'
+r_red_colorscale = 'flare_r'
 blue_heatmap = 'mako_r'
 red_heatmap = 'rocket_r'
 diverging_heatmap = 'vlag'
+grey_heatmap = 'Greys'
 
 # Figures
 MAX_EDGE_WIDTH = 5

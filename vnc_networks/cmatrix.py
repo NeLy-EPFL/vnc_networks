@@ -96,7 +96,7 @@ class CMatrix:
         lookup.dropna(
             axis='index',
             subset=['row_index', 'column_index'],
-            how='all',  # drop only if both are NaN
+            how='all',
             inplace=True,
             )
         # verify that the lookup includes indices up to the length of the matrix
@@ -126,8 +126,12 @@ class CMatrix:
         # replace elements of 'row_index' not in indices with NaN
         new_vals = [
             i if i in indices else np.nan
-            for i in self.get_row_indices()
+            for i in self.get_row_indices() # sorted numerically!
             ]
+        restrict_indices = [ # keep the original index sorting
+            i for i in self.get_row_indices()
+            if i in indices
+        ]
         
         # restrict the indices to those defined in the lookup
         if (
@@ -139,7 +143,7 @@ class CMatrix:
         self.lookup['row_index'] = new_vals
 
         # restrict the matrix to the indices
-        self.matrix = self.matrix[indices, :]
+        self.matrix = self.matrix[restrict_indices, :]
         self.__update_indexing()
         return
     
@@ -162,7 +166,7 @@ class CMatrix:
         # restrict the indices to those defined in the lookup
         defined_columns = [
             i for i in indices
-            if i in self.get_column_indices()
+            if i in self.get_column_indices() # sorted numerically!
         ]
         if not allow_empty and len(defined_columns) != len(indices):
             raise ValueError("Some column indices not found in the lookup.")
@@ -173,9 +177,13 @@ class CMatrix:
             i if i in indices else np.nan
             for i in self.get_column_indices()
             ]
+        restrict_indices = [ # keep the original index sorting
+            i for i in self.get_column_indices()
+            if i in indices
+        ]
         self.lookup['column_index'] = new_vals
         # restrict the matrix to the indices
-        self.matrix = self.matrix[:, indices]
+        self.matrix = self.matrix[:, restrict_indices]
         self.__update_indexing()
         return
     
@@ -308,6 +316,7 @@ class CMatrix:
         
 
     # public methods
+    
     # --- getters
     def get_matrix(self) -> sc.sparse.csr_matrix:
         '''
@@ -380,6 +389,8 @@ class CMatrix:
             The row indices of the nodes of the adjacency matrix.
         """
         if sub_uid is None:
+            # sort self.lookup by 'row_index' and return the 'row_index' column
+            self.lookup.sort_values(by='row_index', inplace=True)
             return self.lookup['row_index'].tolist()
         if input_type == 'body_id':
             sub_uid = self.__get_uids_from_bodyids(sub_uid)
@@ -421,6 +432,8 @@ class CMatrix:
             The column indices of the nodes of the adjacency matrix.
         """
         if sub_uid is None:
+            # sort self.lookup by 'column_index' and return the 'column_index' column
+            self.lookup.sort_values(by='column_index', inplace=True)
             return self.lookup['column_index'].tolist()
         if input_type == 'body_id':
             sub_uid = self.__get_uids_from_bodyids(sub_uid)
@@ -431,6 +444,18 @@ class CMatrix:
         if not allow_empty and len(columns) != len(sub_uid):
             raise ValueError("Some row body ids found only in the columns.")
         return columns
+
+    def get_positive_matrix(self) -> sc.sparse.csr_matrix:
+        '''
+        Returns the positive part of the adjacency matrix.
+        '''
+        return self.get_matrix().multiply(self.get_matrix() > 0)
+
+    def get_negative_matrix(self) -> sc.sparse.csr_matrix:
+        '''
+        Returns the negative part of the adjacency matrix.
+        '''
+        return self.get_matrix().multiply(self.get_matrix() < 0)
 
     # --- setters
     def restrict_from_to(
@@ -462,6 +487,10 @@ class CMatrix:
         '''
         if row_ids is None and column_ids is None:
             return
+        if isinstance(row_ids, int):
+            row_ids = [row_ids]
+        if isinstance(column_ids, int):
+            column_ids = [column_ids]
         # convert the nodes to indices
         row_indices = self.get_row_indices(
             row_ids,
@@ -491,10 +520,13 @@ class CMatrix:
             If False, raises an error if the nodes are not found in the lookup.
             The default is True.
         '''
-        # convert the nodes to indices
-        r_i, c_i = self.get_indices(nodes)
         # restrict the matrix amd lookup to the indices
-        self.restrict_from_to(r_i, c_i, allow_empty=allow_empty)
+        self.restrict_from_to(
+            row_ids=nodes,
+            column_ids=nodes,
+            allow_empty=allow_empty,
+            input_type='uid'
+            )
         return
 
     def restrict_rows(
@@ -565,7 +597,6 @@ class CMatrix:
             The power to which the adjacency matrix is raised.
         '''
         # check if the matrix is still sparse
-        assert isinstance(self.matrix, sc.sparse.csr_matrix)
         matrix_ = self.get_matrix()
         self.matrix = matrix_utils.connections_at_n_hops(matrix_, n)
 
@@ -608,15 +639,24 @@ class CMatrix:
             self.__reorder_column_indexing(order=order)
         return
 
+    def absolute(self):
+        '''
+        Computes the absolute value of the adjacency matrix.
+        '''
+        self.matrix = np.absolute(self.get_matrix()).tocsr()
+        return
+    
     # --- computations
     def list_downstream_neurons(self, uids: list[int]):
         """
         Get the downstream neurons of the input neurons.
         """
+        if isinstance(uids, int):
+            uids = [uids]
         cmatrix_copy = copy.deepcopy(self)
         cmatrix_copy.restrict_rows(uids)
         matrix = cmatrix_copy.get_matrix()
-        non_zero_columns = matrix.nonzero()[1] # columns with non-zero values
+        non_zero_columns = set(matrix.nonzero()[1]) # columns with non-zero values
         downstream_uids = cmatrix_copy.get_uids(
             sub_indices=non_zero_columns,
             axis='column'
@@ -624,7 +664,7 @@ class CMatrix:
         return downstream_uids
     
     # --- visualisation
-    def spy(self, title:str=None):
+    def spy(self, title:str='test'):
         '''
         Visualises the sparsity pattern of the adjacency matrix.
 

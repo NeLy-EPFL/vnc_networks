@@ -7,12 +7,10 @@ Helping script for working with multiprocessing
 import time
 import multiprocessing as mp
 
-
-
 def queue_wrapping(function, result_queue, **kwargs):
     """
     Wrapper function to allow a function to be called and add the result to a queue.
-    This allows to calla function compatible with multiprocessing.
+    This allows to callba function compatible with multiprocessing.
 
     Usage:
         > result_queue = mp.Queue()

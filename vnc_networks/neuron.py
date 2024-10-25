@@ -20,6 +20,22 @@ import params
 from  get_nodes_data import load_data_neuron
 import utils.plots_design as plot_design
 
+NEURON_BASE_ATTRIBUTES = [
+    'systematicType:string', 
+    'hemilineage:string', 
+    'somaSide:string', 
+    'class:string', 
+    'subclass:string', 
+    'group:int', 
+    'cellBodyFiber:string', 
+    'size:long', 
+    'target:string', 
+    'predictedNtProb:float', 
+    'predictedNt:string', 
+    'tag:string',
+    'status:string', # 'Traced' or None
+]
+
 class Neuron:
     def __init__(self, bodyId: int = None, from_file: str = None):
         """
@@ -42,7 +58,7 @@ class Neuron:
             self.__load(from_file)
         else:
             self.bodyId = bodyId
-            self.data = load_data_neuron(bodyId)
+            self.data = load_data_neuron(bodyId, NEURON_BASE_ATTRIBUTES)
             self.__initialise_base_attributes()
 
     # private methods
@@ -127,9 +143,10 @@ class Neuron:
             The subset of synapse ids to convert.
             The default is None, which converts all synapse ids.
         """
+
         # load the synapse data
         data = pd.read_feather(
-            params.NEUPRINT_SYNAPSE_FILE
+            params.NEUPRINT_SYNAPSE_FILE, columns=[':ID(Syn-ID)','location:point{srid:9157}']
             )
         data = data.loc[data[':ID(Syn-ID)'].isin(self.synapse_df['syn_id'])]
               
@@ -157,20 +174,30 @@ class Neuron:
             'all_ROIs.txt'
         )
         rois = list(pd.read_csv(roi_file, sep='\t').values.flatten())
-        potential_column_names = [roi + ':boolean' for roi in rois]
-        # for each row, find the column in potential_column_names that has a True value
-        # and add the corresponding roi to the 'neuropil' column
-        # Function to find the column name with the True value
-        def find_true_value(row):
-            true_columns = row[row == True].index
-            if len(true_columns) > 0:
-                return true_columns[0].replace(':boolean', '')
-            else:
-                return 'None'
 
-        self.synapse_df['neuropil'] = self.synapse_df[
-            potential_column_names
-            ].apply(find_true_value, axis=1)
+        # find the subset of the synapses in the dataset that we care about for this neuron
+        # then for each possible ROI, check which synapses are in that ROI
+        # store each synapse's ROI in the neuropil column
+        synapses_we_care_about = pd.read_feather(
+            params.NEUPRINT_SYNAPSE_FILE,
+            columns=[':ID(Syn-ID)']
+            )[':ID(Syn-ID)'].isin(self.synapse_df['syn_id'])
+        self.synapse_df['neuropil'] = 'None'
+        for roi in rois:
+            column_name = roi + ':boolean'
+            roi_column = pd.read_feather(
+                params.NEUPRINT_SYNAPSE_FILE,
+                columns=[column_name, ':ID(Syn-ID)'],
+                )[synapses_we_care_about]
+            synapses_in_roi = roi_column.loc[
+                roi_column[column_name] == True,
+                ':ID(Syn-ID)'
+                ].values
+            self.synapse_df.loc[
+                self.synapse_df['syn_id'].isin(synapses_in_roi),
+                'neuropil'
+                ] = roi
+        
         
     def __explicit_synapse_positions(self):
         """
@@ -191,8 +218,8 @@ class Neuron:
             Y.append(pos[1])
             Z.append(pos[2])
         self.synapse_df['X'] = X
-        self.synapse_df['Y'] = Y
-        self.synapse_df['Z'] = Z
+        self.synapse_df['Y'] = Z
+        self.synapse_df['Z'] = Y
         return
 
     # public methods
@@ -277,11 +304,18 @@ class Neuron:
             return len(self.synapse_df[self.synapse_df['end_id'] == to])
         
     # --- setters
+    def add_neuropil_information(self):
+        """
+        Add neuropil information to the synapse dataframe.
+        """
+        self.__categorical_neuropil_information()
+        return
+
     def create_synapse_groups(self, attribute: str):
         """
         Create synapse groups based on an attribute.
         This will be used to split neurons in the Connections class.
-        The table is filtered such that connections form a neuron
+        The table is filtered such that connections from a neuron
         to another are removed if the total number of synapses is below 
         the threshold in the params file.
         """
@@ -298,6 +332,8 @@ class Neuron:
             attribute, 'syn_id', 'start_id', 'end_id'
             ]
         ]
+        # ensure the 'attribute' column is a string
+        synapses[attribute] = synapses[attribute].astype(str).values
         # find end_id for which the number of synapses is below the threshold
         syn_count = synapses.groupby('end_id').size().reset_index()
         syn_count.columns = ['end_id', 'syn_count']
@@ -308,12 +344,16 @@ class Neuron:
         # complete the table
         synapses.fillna({attribute: -1}, inplace=True)  # unclassified synapses get together
         # define the subdivision a synapse belongs to by mapping the attribute to an index
+        to_map = np.sort(synapses[attribute].dropna().unique()).tolist()
+        if '-1' in to_map: # push unclassified synapses to the end
+            to_map.remove('-1')
+            to_map.append('-1')
+        
         mapping = {
-            val: i for i, val in enumerate(
-                synapses[attribute].dropna().unique()
-                )
+            val: i for i, val in enumerate(to_map)
             }
-        mapping[np.nan] = -1
+        mapping[np.nan] = -1 if not '-1' in to_map else mapping['-1']
+        print(mapping)
         synapses['subdivision_start'] = synapses[attribute].map(mapping)
         synapses['subdivision_start_name'] = synapses[attribute]
         synapses.drop(columns=[attribute], inplace=True)
@@ -335,17 +375,47 @@ class Neuron:
         self.synapse_df = self.synapse_df[
             ~self.synapse_df['end_id'].isin(not_connected)
         ]
-        
+    
+    def remove_defined_subdivisions(self):
+        """
+        Remove the defined subdivisions.
+        """
+        self.subdivisions = None
+
     # --- computations
     def cluster_synapses_spatially(
             self,
             n_clusters: int = 3,
+            on_attribute: dict = None,
             ):
         """
         Cluster the synapses spatially using K-Means clustering.
+        If on_attribute is not None, the clustering is done if the attribute
+        given as key contains the value given as value.
+
+        Use case: 
+        on_attribute = {'neuropil': 'T3'}
+        clusters the synapses of a neuron in the neuropils with 'T3'
+        in their name, namely LegNp(T3)(L) and LegNp(T3)(R). All other
+        synapses are clustered under the index '-1'.
+        If multiple attributes are given, the combination logic is 'OR'.
         """
         # get the synapse positions
         X, Y, Z = self.get_synapse_distribution()
+
+        # filter if the attribute is given
+        if on_attribute is not None:
+            kept_indices = []
+            if 'neuropil' in on_attribute.keys():
+                self.__categorical_neuropil_information()
+            for key, value in on_attribute.items(): # only keep the synapses with the attribute
+                synapses = self.synapse_df[
+                    self.synapse_df[key].str.contains(value)
+                    ]
+                kept_indices.extend(synapses.index)
+            X = X[kept_indices]
+            Y = Y[kept_indices]
+            Z = Z[kept_indices]
         
         # cluster the synapses
         kmeans = KMeans(n_clusters=n_clusters)
@@ -357,6 +427,12 @@ class Neuron:
                 self.synapse_df['Z']]
                 ).T 
         )
+
+        if on_attribute is not None: # set the cluster to -1 for the synapses not kept
+            self.synapse_df.loc[
+                ~self.synapse_df.index.isin(kept_indices),
+                'KMeans_cluster'
+                ] = -1
         return
         
     # --- visualisation
@@ -365,15 +441,18 @@ class Neuron:
             color_by: str = None,  
             discrete_coloring: bool = True,
             threshold: bool = False,
-            cmap: str = params.blue_colorscale,
+            cmap: str = params.colorblind_palette,
+            ax: plt.Axes = None,
+            savefig: bool = True,
             ):
         """
         Plot the synapse distribution for the neuron.
         """
         X, Y, Z = self.get_synapse_distribution(threshold=threshold)
-        fig, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
         if color_by is None:
-            plot_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax)
+            plot_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax, cmap=cmap)
         else:
             if color_by not in self.synapse_df.columns:
                 raise (f"Attribute {color_by} not in synapse dataframe.")
@@ -399,11 +478,10 @@ class Neuron:
                 cmap=cmap,
                 discrete_coloring=discrete_coloring,
             )
-        if not os.path.exists(params.PLOT_DIR):
-            os.makedirs(params.PLOT_DIR) 
-        plt.savefig(
-            f"{params.PLOT_DIR}/synapse_distribution_{self.bodyId}_{color_by}.pdf"
-            )
+        if savefig:
+            plt.savefig(
+                f"{params.PLOT_DIR}/synapse_distribution_{self.bodyId}_{color_by}.pdf"
+            ) 
         return ax
     
     # --- loading and saving
@@ -416,8 +494,6 @@ class Neuron:
         name : str
             The name of the file to save to.
         """
-        if not os.path.exists(params.NEURON_DIR):
-            os.makedirs(params.NEURON_DIR)
         with open(os.path.join(params.NEURON_DIR, name+'.txt'), 'wb') as file:
             pickle.dump(self.__dict__, file)
 

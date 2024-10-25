@@ -17,6 +17,8 @@ def connections_up_to_n_hops(matrix, n):
     From an input (sparse) matrix compute the matrix representing the
     connectivity
     """
+    if not sc.sparse.issparse(matrix):
+        matrix = sc.sparse.csr_matrix(matrix)
     return_mat = matrix
     for _ in range(n - 1):
         return_mat += return_mat @ matrix
@@ -33,6 +35,10 @@ def connections_at_n_hops(matrix, n):
     From an input (sparse) matrix compute the matrix representing the
     connectivity
     """
+    # if the matrix is not sparse, convert it to sparse
+    if not sc.sparse.issparse(matrix):
+        matrix = sc.sparse.csr_matrix(matrix)
+
     if n == 1:
         return matrix
     elif n%2 == 0:
@@ -167,6 +173,45 @@ def convert_bodyid_to_index(bodyid, lookup, allow_empty=True):
         return indices[0]
     return indices
 
+def count_nonzero(matrix, sign=None):
+    """
+    input: sparse matrix
 
+    output: number of non-zero elements
+    sign: if None, count all non-zero elements. 
+    If 'positive', count only positive elements.
+    If 'negative', count only negative elements.
+    """
+    if sign is None:
+        return matrix.count_nonzero()
+    if sign == "positive":
+        pos_mat = matrix.copy()
+        pos_mat.data = pos_mat.data > 0
+        return pos_mat.count_nonzero()
+    if sign == "negative":
+        neg_mat = matrix.copy()
+        neg_mat.data = neg_mat.data < 0
+        return neg_mat.count_nonzero()
 
-    
+def sum_weights(matrix, sign=None):
+    """
+    input: sparse matrix
+
+    output: sum of all weights
+    sign: if None, sum all weights. 
+    If 'absolute', sum the absolute value of all weights.
+    If 'positive', sum only positive weights.
+    If 'negative', sum only negative weights.
+    """
+    if sign is None:
+        return matrix.sum()
+    if sign == "absolute":
+        return np.sum(np.abs(matrix.data))
+    if sign == "positive":
+        pos_mat = matrix.copy()
+        pos_mat.data = pos_mat.data * (pos_mat.data > 0)
+        return pos_mat.sum()
+    if sign == "negative":
+        neg_mat = matrix.copy()
+        neg_mat.data = neg_mat.data * (neg_mat.data < 0)
+        return neg_mat.sum()

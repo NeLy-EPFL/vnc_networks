@@ -683,7 +683,92 @@ def draw_graph_concentric_by_attribute(
 
     if return_pos:
         return ax, positions
-    return ax    
+    return ax   
+
+def draw_graph_in_out_center_circle(
+    graph: nx.DiGraph,
+    top_nodes: list[int],
+    bottom_nodes: list[int],
+    ax: plt.Axes = None,
+    return_pos: bool = False,
+    label_nodes: bool = False,
+    ):
+    '''
+    Represent the graph with an upper and lower rows of nodes,
+    and a central circle.
+    '''
+    # === prepare the display of the nodes ===
+    if ax is None:
+        fig, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
+
+    # === prepare the positions of the nodes ===
+    positions = {}
+
+    # --- top row: top_nodes
+    # display all the nodes uniformly on the top row as a line
+    width = params.FIGSIZE[0]
+    height = 0.95*width
+    for idx, node in enumerate(top_nodes):
+        pos = (width*(idx+1)/(len(top_nodes)+1), height)
+        positions[node] = pos
+
+    # --- bottom row: bottom_nodes
+    # display all the nodes uniformly on the bottom row as a line
+    height = 0.05*width
+    for idx, node in enumerate(bottom_nodes):
+        pos = (width*(idx+1)/(len(bottom_nodes)+1), height)
+        positions[node] = pos
+
+    # --- central circle: the rest of the nodes
+    other_nodes = [
+        node for node in graph.nodes
+        if not node in top_nodes and not node in bottom_nodes
+        ]
+    for idx, node in enumerate(other_nodes):
+        angle = 2*np.pi*idx/len(other_nodes)
+        pos = (
+            width*(0.5 + 0.25*np.cos(angle)),
+            width*(0.5 + 0.25*np.sin(angle))
+            )
+        positions[node] = pos
+
+    # === draw the graph ===
+    edge_norm = max([np.abs(graph.edges[e]["weight"]) for e in graph.edges]) / 5
+    widths = [np.abs(graph.edges[e]["weight"]) / edge_norm for e in graph.edges]
+    edge_colors = define_edge_colors(graph)
+    node_colors = define_node_colors(graph)
+    node_labels = {
+            n: graph.nodes[n]["node_label"]
+            if "node_label" in graph.nodes[n].keys()
+            else ""
+            for n in graph.nodes
+    }
+    nx.draw(
+        graph,
+        pos=positions,
+        nodelist=graph.nodes,
+        with_labels=label_nodes,
+        labels=node_labels,
+        alpha=0.5,
+        node_size=params.NODE_SIZE,
+        node_color=node_colors,
+        edge_color=edge_colors,
+        width=widths,
+        connectionstyle="arc3,rad=0.1",
+        font_size=2,
+        font_color="black",
+        ax=ax,
+    )
+    add_edge_legend(
+        ax,
+        weights=widths,
+        color_list=edge_colors,
+        arrow_norm=1 / edge_norm,
+        )
+    
+    if return_pos:
+        return ax, positions
+    return ax
 
 
 def position_3d_nodes(x: list, y:list , z:list):
