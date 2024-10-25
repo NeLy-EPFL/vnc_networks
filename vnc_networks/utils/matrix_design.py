@@ -35,6 +35,8 @@ def imshow(
     ax: plt.Axes = None,
     xlabel: str = "postsynaptic neuron",
     ylabel: str = "presynaptic neuron",
+    row_labels: list = None,
+    col_labels: list = None,
     save: bool = False,
 ):
     """
@@ -62,6 +64,10 @@ def imshow(
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
+    if row_labels is not None:
+        ax.set_yticks(range(len(row_labels)), labels=row_labels)
+    if col_labels is not None:
+        ax.set_xticks(range(len(col_labels)), labels=col_labels)
     ax = plots_design.make_nice_spines(ax)
     
     # colorbar

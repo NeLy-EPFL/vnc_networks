@@ -624,7 +624,6 @@ class Connections:
         self.__name_neurons(split_neurons)
         self.__build_graph()
         self.__build_adjacency_matrices()
-        print("Connections initialized.")
         return
     
     # --- copy
@@ -965,6 +964,12 @@ class Connections:
             uids = list(uids)
         return self.__convert_uid_to_neuron_ids(uids, output_type='body_id')
 
+    def get_uids_from_bodyid(self, body_id: int):
+        '''
+        Get the uids from the body id.
+        '''
+        return self.__get_uids_from_bodyids([body_id])
+
     # --- setters
     def merge_nodes(self, nodes: list[int]):
         '''
@@ -1065,7 +1070,6 @@ class Connections:
         for attribute in attributes:
             _ = self.__get_node_attributes(attribute)
         return
-
 
    # --- computations
     def __compute_n_hops(self, n: int, initialize_graph: bool = False):

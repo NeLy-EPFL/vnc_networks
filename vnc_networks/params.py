@@ -6,6 +6,7 @@ File containing parameters for the project.
 import os
 from pathlib import Path
 import numpy as np
+import seaborn as sns
 
 # --- Where to find the raw data sets --- #
 # MANC traced
@@ -59,8 +60,11 @@ INHIB_COLOR = "#0f0b87"
 EXCIT_COLOR = "#9c0d0b"
 
 custom_palette = [DARKBLUE, GREEN,LIGHTORANGE,LIGHTBLUE,DARKGREY,DARKORANGE,LIGHTGREY]
+colorblind_palette = sns.color_palette("colorblind")
 blue_colorscale = 'crest' # Perceptually uniform palettes, can be used in the categorical setting
+r_blue_colorscale = 'crest_r'
 red_colorscale = 'flare'
+r_red_colorscale = 'flare_r'
 blue_heatmap = 'mako_r'
 red_heatmap = 'rocket_r'
 diverging_heatmap = 'vlag'

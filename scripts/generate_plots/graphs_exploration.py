@@ -92,6 +92,7 @@ def fig1b(n_hops: int = 2):
     VNC = mdn_helper.get_vnc_split_MDNs_by_neuropil(
         not_connected=mdn_helper.get_mdn_bodyids()
         )
+    VNC = VNC.get_connections_with_only_traced_neurons() # exclude untraced neurons for statistics
 
     # Working with matrix representation, get n-th order connections
     cmatrix = VNC.get_cmatrix(type_='norm')
@@ -129,6 +130,8 @@ def fig1c(n_hops: int = 2):
     VNC = mdn_helper.get_vnc_split_MDNs_by_neuropil(
         not_connected=mdn_helper.get_mdn_bodyids()
         )
+    VNC = VNC.get_connections_with_only_traced_neurons() # exclude untraced neurons for statistics
+
 
     # Working with matrix representation, get n-th order connections
     cmatrix = VNC.get_cmatrix(type_='norm')
@@ -498,11 +501,11 @@ if __name__ == '__main__':
     #fig1g(attribute='target:string')
     #fig1g(attribute='target:string',syn_thresh=40)
     # Example target:
-    target = { # right hind leg
-        'class:string': 'motor neuron',
-        'somaSide:string': 'RHS',
-        'subclass:string': 'hl',
-        'target:string': 'Tr flexor'
-        }
-    fig1h(target, n_hops=2, label_nodes=True)
+    #target = { # right hind leg
+    #    'class:string': 'motor neuron',
+    #    'somaSide:string': 'RHS',
+    #    'subclass:string': 'hl',
+    #    'target:string': 'Tr flexor'
+    #    }
+    #fig1h(target, n_hops=2, label_nodes=True)
     pass
