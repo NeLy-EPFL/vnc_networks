@@ -445,6 +445,18 @@ class CMatrix:
             raise ValueError("Some row body ids found only in the columns.")
         return columns
 
+    def get_positive_matrix(self) -> sc.sparse.csr_matrix:
+        '''
+        Returns the positive part of the adjacency matrix.
+        '''
+        return self.get_matrix().multiply(self.get_matrix() > 0)
+
+    def get_negative_matrix(self) -> sc.sparse.csr_matrix:
+        '''
+        Returns the negative part of the adjacency matrix.
+        '''
+        return self.get_matrix().multiply(self.get_matrix() < 0)
+
     # --- setters
     def restrict_from_to(
             self,
