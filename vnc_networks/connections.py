@@ -630,7 +630,7 @@ class Connections:
     def subgraph(
             self,
             nodes: list[int] = None,
-            edges: list[tuple[int]] = None
+            edges: list[tuple[int]] = None,
             ):
         '''
         Copy operator of the Connections class that returns a new object
@@ -655,11 +655,15 @@ class Connections:
         '''
         # Get the connections
         connections_ = self.get_connections()
-        connections_ = connections_[
-            connections_["start_uid"].isin(nodes)
-            & connections_["end_uid"].isin(nodes)
-            ]
-        if not edges is None:
+        if nodes is not None:
+            connections_ = connections_[
+                connections_["start_uid"].isin(nodes)
+                & connections_["end_uid"].isin(nodes)
+                ]
+        else:
+            # get all the elements present in the tuples edges
+            nodes = list(set([x for y in edges for x in y]))
+        if edges is not None:
             rows_to_drop = []
             for index, row in connections_.iterrows():
                 if (row["start_uid"],
@@ -954,6 +958,57 @@ class Connections:
             }
         return self.get_neuron_ids(neuropil_dict)
 
+    def get_neurons_downstream_of(
+            self,
+            neuron_id: int,
+            input_type: str = 'uid',
+            output_type: str = 'uid'
+        ):
+        '''
+        Get the neurons downstream of a given neuron, based on the graph.
+
+        Parameters
+        ----------
+        neuron_id: int
+            Identifier of the neuron.
+        input_type: str
+            Type of the input list, can be 'uid' or 'body_id'.
+        return_type: str
+            Type of the return list, can be 'uid' or 'body_id'.
+
+        Returns
+        -------
+        list[int]
+            List of identifiers of the downstream neurons.
+        '''
+        # Get uid of the neuron as the graph indexes with uids
+        if input_type == 'uid':
+            nid = neuron_id
+        elif input_type == 'body_id':
+            nid = self.get_uids_from_bodyid(neuron_id)[0]
+        else:
+            raise ValueError(
+                f"Class Connections \
+                ::: > get_neurons_downstream_of(): Unknown input type {input_type}"
+                )
+        
+        # Get the downstream neurons
+        downstream = [node for node in self.graph.successors(nid)]
+
+        # Convert the output type
+        if output_type == 'uid':
+            return list(downstream)
+        elif output_type == 'body_id':
+            return self.__convert_uid_to_neuron_ids(
+                downstream,
+                output_type='body_id'
+                )
+        else:
+            raise ValueError(
+                f"Class Connections \
+                ::: > get_neurons_downstream_of(): Unknown output type {output_type}"
+                )
+        
     def get_bodyids_from_uids(self, uids):
         '''
         Get the body ids from the uids.

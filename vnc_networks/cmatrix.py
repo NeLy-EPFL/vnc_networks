@@ -646,6 +646,38 @@ class CMatrix:
         self.matrix = np.absolute(self.get_matrix()).tocsr()
         return
     
+    def square_positive_paths_only(self) -> sc.sparse.csr_matrix:
+        '''
+        Squares the adjacency matrix, where the sum over a_ik*a_kj
+        is only computed if the product of a_ik and a_kj is positive.
+        In practice this yield the sum of paths lenght 2 that are either
+        twice excitatory or twice inhibitory.
+        '''
+        matrix = copy.deepcopy(self.get_matrix())
+        matrix_pos = matrix.multiply(matrix > 0)
+        matrix_neg = matrix.multiply(matrix < 0)
+        matrix_positive_paths = (
+            matrix_pos @ matrix_pos + matrix_neg @ matrix_neg
+        )
+        self.matrix = matrix_positive_paths # indexing remains identical
+    
+    def square_negative_paths_only(self) -> sc.sparse.csr_matrix:
+        '''
+        Squares the adjacency matrix, where the sum over a_ik*a_kj
+        is only computed if the product of a_ik and a_kj is negative.
+        In practice this yield the sum of paths lenght 2 that are either
+        excitatory then inhibitory or inhibitory then excitatory.
+        '''
+        matrix = copy.deepcopy(self.get_matrix())
+        matrix_pos = matrix.multiply(matrix > 0)
+        matrix_neg = matrix.multiply(matrix < 0)
+        matrix_negative_paths = (
+            matrix_pos @ matrix_neg + matrix_neg @ matrix_pos
+        )
+        self.matrix = matrix_negative_paths
+
+
+
     # --- computations
     def list_downstream_neurons(self, uids: list[int]):
         """
