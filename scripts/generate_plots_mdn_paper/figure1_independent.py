@@ -231,7 +231,10 @@ def confusion_matrix_mdn_to_mn(n_hops: int = 2):
     plt.savefig(os.path.join(FOLDER, f'Fig1_{n_hops}_hops_total_weight.pdf'))
     plt.close()
 
-def confusion_matrix_sign_assymetry_mdn_to_mn():
+def confusion_matrix_sign_assymetry_mdn_to_mn(
+        mdn_side_: str = None,
+        mn_side_: str = None
+        ):
     '''
     Create a confusion matrix of the relative number of excitatory and
     inhibitory of connections from MDN to motor neurons within 2 hops,
@@ -246,7 +249,7 @@ def confusion_matrix_sign_assymetry_mdn_to_mn():
     VNC = full_VNC.get_connections_with_only_traced_neurons() # exclude untraced neurons for statistics
     
     # Get the uids of neurons split by MDN synapses in leg neuropils
-    mdn_uids = mdn_helper.get_mdn_uids(VNC, side='R')
+    mdn_uids = mdn_helper.get_mdn_uids(VNC, side=mdn_side_)
     mdn_neuropil = []
     for i in range(3):
         neuropil = 'LegNp(T'+str(i+1)+')'
@@ -257,9 +260,18 @@ def confusion_matrix_sign_assymetry_mdn_to_mn():
     # Get the uids of motor neurons split by leg
     list_motor_neurons = [[],[],[]]
     for i, leg in enumerate(['f', 'm', 'h']):
-        leg_motor_neurons = list(
-            mns_helper.get_leg_motor_neurons(VNC, leg=leg, side='RHS')
+        if mn_side_ is None:
+            leg_motor_neurons = list(
+            mns_helper.get_leg_motor_neurons(VNC, leg=leg)
             )
+        else:
+            leg_motor_neurons = list(
+                mns_helper.get_leg_motor_neurons(
+                    VNC,
+                    leg=leg,
+                    side=mn_side_+'HS'
+                    )
+                )
         list_motor_neurons[i] = leg_motor_neurons
 
     # Get the summed connection strength up to n hops
@@ -268,81 +280,51 @@ def confusion_matrix_sign_assymetry_mdn_to_mn():
     neg_matrix = VNC.get_cmatrix(type_='norm')
     neg_matrix.square_negative_paths_only()
 
-    # Show the connections T1-T1
-    pmat = copy.deepcopy(pos_matrix)
-    pmat.restrict_from_to(
-        row_ids=mdn_neuropil[0],
-        column_ids=list_motor_neurons[0],
-        input_type='uid'
-        )
-    nmat = copy.deepcopy(neg_matrix)
-    nmat.restrict_from_to(
-        row_ids=mdn_neuropil[0],
-        column_ids=list_motor_neurons[0],
-        input_type='uid'
-        )
-    # plot both matrices on top of each other
-    fig, axs = plt.subplots(2, 1, figsize=(params.FIG_WIDTH, 2*params.FIG_HEIGHT))
-    matrix_design.imshow(
-        pmat.get_matrix(),
-        ylabel='MDN|T1',
-        xlabel='leg motor neuron',
-        title='Effective excitatory connections',
-        cmap=params.diverging_heatmap,
-        ax=axs[0],
-        )
-    matrix_design.imshow(
-        nmat.get_matrix(),
-        ylabel='MDN|T1',
-        xlabel='leg motor neuron',
-        title='Effective inhibitory connections',
-        cmap=params.diverging_heatmap,
-        ax=axs[1],
-        )
-    plt.tight_layout()
-    plt.savefig(os.path.join(FOLDER, f'Fig1_T1-T1_connections.pdf'))
-    plt.close()
-
-    # Show the connections T3-T3
-    pmat = copy.deepcopy(pos_matrix)
-    pmat.restrict_from_to(
-        row_ids=mdn_neuropil[2],
-        column_ids=list_motor_neurons[2],
-        input_type='uid'
-        )
-    nmat = copy.deepcopy(neg_matrix)
-    nmat.restrict_from_to(
-        row_ids=mdn_neuropil[2],
-        column_ids=list_motor_neurons[2],
-        input_type='uid'
-        )
-    
-    # plot both matrices on top of each other
-    fig, axs = plt.subplots(2, 1, figsize=(params.FIG_WIDTH, 2*params.FIG_HEIGHT))
-    matrix_design.imshow(
-        pmat.get_matrix(),
-        ylabel='MDN|T3',
-        xlabel='leg motor neuron',
-        title='Effective excitatory connections',
-        cmap=params.diverging_heatmap,
-        ax=axs[0],
-        )
-    matrix_design.imshow(
-        nmat.get_matrix(),
-        ylabel='MDN|T3',
-        xlabel='leg motor neuron',
-        title='Effective inhibitory connections',
-        cmap=params.diverging_heatmap,
-        ax=axs[1],
-        )
-    plt.tight_layout()
-    plt.savefig(os.path.join(FOLDER, f'Fig1_T3-T3_connections.pdf'))
-    plt.close()
+    # Show the connections T1-T1, T2-T2, T3-T3
+    for k in range(3):
+        pmat = copy.deepcopy(pos_matrix)
+        pmat.restrict_from_to(
+            row_ids=mdn_neuropil[k],
+            column_ids=list_motor_neurons[k],
+            input_type='uid'
+            )
+        nmat = copy.deepcopy(neg_matrix)
+        nmat.restrict_from_to(
+            row_ids=mdn_neuropil[k],
+            column_ids=list_motor_neurons[k],
+            input_type='uid'
+            )
+        # plot both matrices on top of each other
+        fig, axs = plt.subplots(2, 1, figsize=(params.FIG_WIDTH, 2*params.FIG_HEIGHT))
+        matrix_design.imshow(
+            pmat.get_matrix(),
+            ylabel=f'MDN|T{k+1}',
+            xlabel='leg motor neuron',
+            title='Effective excitatory connections',
+            cmap=params.diverging_heatmap,
+            ax=axs[0],
+            )
+        matrix_design.imshow(
+            nmat.get_matrix(),
+            ylabel=f'MDN|T{k+1}',
+            xlabel='leg motor neuron',
+            title='Effective inhibitory connections',
+            cmap=params.diverging_heatmap,
+            ax=axs[1],
+            )
+        plt.tight_layout()
+        title = f'Fig1_T{k+1}-T{k+1}_connections'
+        if mdn_side_ is not None:
+            title += f'_MDN-{mdn_side_}'
+        if mn_side_ is not None:
+            title += f'_MN-{mn_side_}'
+        title +='.pdf'
+        plt.savefig(os.path.join(FOLDER, title))
+        plt.close()
 
     # Get the confusion matrix
     confusion_matrix = np.zeros((3,3))
     confusion_matrix_tot = np.zeros((3,3))
-    confusion_matrix_rel = np.zeros((3,3))
 
     for i in range(3):
         for j in range(3):
@@ -361,13 +343,12 @@ def confusion_matrix_sign_assymetry_mdn_to_mn():
             pos = pmat.get_matrix()
             neg = -1 * nmat.get_matrix()
             # elementwise sign imbalance computation
-            tot = pos + neg
-            rel = (pos - neg)
             imbalance = (pos - neg) / (pos + neg)
             imbalance[np.isnan(imbalance)] = 0
+            tot = np.abs(pos - neg) / (pos + neg)
+            tot[np.isnan(tot)] = 0
             confusion_matrix[i,j] = imbalance.sum()
             confusion_matrix_tot[i,j] = tot.sum()
-            confusion_matrix_rel[i,j] = rel.sum()
     # Plot the confusion matrix
     ax = matrix_design.imshow(
         confusion_matrix,
@@ -378,8 +359,33 @@ def confusion_matrix_sign_assymetry_mdn_to_mn():
         title='Signed confusion matrix of MDN to MN connections',
         cmap=params.diverging_heatmap,
         )
-    plt.savefig(os.path.join(FOLDER, f'Fig1_sign_imbalance.pdf'))
+    title = 'Fig1_sign_imbalance_MDN'
+    if mdn_side_ is not None:
+        title += f'_MDN-{mdn_side_}'
+    if mn_side_ is not None:
+        title += f'_MN-{mn_side_}'
+    plt.savefig(os.path.join(FOLDER, f'{title}.pdf'))
     plt.close()
+
+    # Plot the confusion matrix
+    ax = matrix_design.imshow(
+        confusion_matrix_tot,
+        ylabel='MDN subdivision',
+        row_labels=['T1', 'T2', 'T3'],
+        xlabel='leg motor neuron',
+        col_labels=['f', 'm', 'h'],
+        title='confusion matrix of MDN to each MN connection',
+        cmap=params.grey_heatmap,
+        vmin=0,
+        )
+    title = 'Fig1_total_imbalance_MDN'
+    if mdn_side_ is not None:
+        title += f'_MDN-{mdn_side_}'
+    if mn_side_ is not None:
+        title += f'_MN-{mn_side_}'
+    plt.savefig(os.path.join(FOLDER, f'{title}.pdf'))
+    plt.close()
+
 
  
         
@@ -390,5 +396,6 @@ if __name__ == "__main__":
     #venn_t3_subbranches(n_clusters=n_branches)
     #confusion_matrix_mdn_to_mn(n_hops=2)
     #confusion_matrix_mdn_to_mn(n_hops=4)
-    confusion_matrix_sign_assymetry_mdn_to_mn()
+    #confusion_matrix_sign_assymetry_mdn_to_mn(mn_side_='R', mdn_side_='R')
+    #confusion_matrix_sign_assymetry_mdn_to_mn(mn_side_='R')
     pass
