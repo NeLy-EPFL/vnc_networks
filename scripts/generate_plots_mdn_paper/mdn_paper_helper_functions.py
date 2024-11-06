@@ -23,9 +23,10 @@ def graph_from_mdn_to_muscle(
     'target:string'
     '''
     # Loading the connectivity data
-    VNC = mdn_helper.get_vnc_split_MDNs_by_neuropil(
+    full_VNC = mdn_helper.get_vnc_split_MDNs_by_neuropil(
         not_connected=mdn_helper.get_mdn_bodyids()
         )
+    VNC = full_VNC.get_connections_with_only_traced_neurons()
     side = target['somaSide:string']
     neuropil = target['subclass:string']
     mdns = mdn_helper.get_subdivided_mdns(VNC, neuropil, side)

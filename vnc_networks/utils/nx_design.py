@@ -662,7 +662,7 @@ def draw_graph_concentric_by_attribute(
         edge_color=edge_colors,
         width=widths,
         connectionstyle="arc3,rad=0.1",
-        font_size=2,
+        font_size=params.FONT_SIZE,
         font_color="black",
         ax=ax,
     )
@@ -755,7 +755,7 @@ def draw_graph_in_out_center_circle(
         edge_color=edge_colors,
         width=widths,
         connectionstyle="arc3,rad=0.1",
-        font_size=2,
+        font_size=params.FONT_SIZE,
         font_color="black",
         ax=ax,
     )
