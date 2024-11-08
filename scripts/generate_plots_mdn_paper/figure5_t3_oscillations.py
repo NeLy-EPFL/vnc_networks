@@ -414,6 +414,45 @@ def intersection_upstream_motor_neuron_pools(
     plt.savefig(os.path.join(FOLDER, title+'.pdf'))
     plt.close()
 
+def motor_groups_upstream_interactions(
+        motor_neuron_file,
+        syn_threshold: int = None
+        ):
+    '''
+    Plot the connections between the pools of interneurons upstream of the 
+    clusters of motor neurons.
+    This is done by looking at the interneurons uniquely upstream of each 
+    cluster.
+    '''
+    cluster_data = pd.read_csv(motor_neuron_file)
+    cluster_ids = list(set(cluster_data['cluster']) - {-1})
+    nb_clusters = len(cluster_ids)    
+
+    # load connectivity data
+    subconnections = get_length_n_t3_connections(n_hops=2)
+    motor_neurons = mns_helper.get_leg_motor_neurons(
+        subconnections,
+        leg = 'h',
+        side = 'RHS'
+    )
+    mdns = mdn_helper.get_subdivided_mdns(
+        subconnections,
+        neuropil = 'hl',
+        side = 'RHS'
+        )
+
+    # Find upstream neurons for each cluster
+    neurons_up = {}
+    for i, c in enumerate(cluster_ids):
+        cluster = list(cluster_data[cluster_data['cluster'] == c]['uid'])
+        graph = subconnections.paths_length_n(
+            n=2,
+            source=mdns,
+            target=cluster,
+            syn_threshold=syn_threshold,
+            )
+        interneurons = set(graph.nodes()) - set(motor_neurons) - set(mdns)
+        neurons_up[i] = interneurons
 
 
 
@@ -428,4 +467,5 @@ if __name__ == '__main__':
     #    )
     motor_neuron_clusters_file = os.path.join(FOLDER, 'motor_clusters.csv')
     #intersection_upstream_motor_neuron_pools(motor_neuron_clusters_file)
+    motor_groups_upstream_interactions(motor_neuron_clusters_file)
     pass
