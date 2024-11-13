@@ -269,6 +269,41 @@ class CMatrix:
             ]
         return body_ids
 
+    def __convert_index_to_bodyid(self, index, axis='row'):
+        """
+        Get the body ids corresponding to index (int or list[int]).
+        The indexing must be either 'row' or 'column'.        
+        
+        Parameters
+        ----------
+        index : int or list[int]
+            The index or list of indices to convert to body ids.
+        axis : str, optional
+            The axis of the index. The default is 'row'.
+
+        Returns
+        -------
+        body_ids : list[int]
+            The body ids corresponding to the index or list of indices.
+        """      
+        if isinstance(index, int):
+            index = [index]
+        lookup = self.get_lookup()
+        if axis == 'row':
+            body_ids = [
+                lookup.loc[lookup["row_index"] == id].body_id.values[0]
+                for id in index
+                ]
+        elif axis == 'column':
+            body_ids = [
+                lookup.loc[lookup["column_index"] == id].body_id.values[0]
+                for id in index
+                ]
+        else:
+            raise ValueError('The axis must be either "row" or "column".')
+
+        return body_ids
+
     def __get_uids_from_bodyids(self, body_ids: list):
         """
         Get the uids corresponding to the body_ids.
@@ -586,7 +621,7 @@ class CMatrix:
         self.__restrict_column_indices(c_i, allow_empty=allow_empty)
         return
 
-    # --- processing
+    # --- processing (modifies in place)
     def power_n(self, n:int):
         '''
         Computes the n-th power of the adjacency matrix of the connectome.
@@ -639,6 +674,46 @@ class CMatrix:
             self.__reorder_column_indexing(order=order)
         return
 
+    def hierarchical_clustering(self):
+        '''
+        Clusters the adjacency matrix using hierarchical clustering.
+        '''
+        matrix_ = self.get_matrix()
+        matrix_ = matrix_.todense()
+        dendrogram = sch.dendrogram(
+            sch.linkage(matrix_, method="ward"), no_plot=True
+        )
+        order = dendrogram["leaves"]
+        # reorder the matrix and indexing
+        self.matrix = self.get_matrix()[order,:][:,order]
+        self.__reorder_row_indexing(order=order)
+        self.__reorder_column_indexing(order=order)
+        return
+
+    def markov_clustering(self, inflation: float = 2.0, iterations: int = 100):
+        '''
+        Applies the Markov clustering algorithm to the adjacency matrix.
+
+        Parameters
+        ----------
+        inflation : float, optional
+            The inflation parameter of the Markov clustering algorithm.
+            The default is 2.0.
+        iterations : int, optional
+            The number of iterations of the Markov clustering algorithm.
+            The default is 100.
+        '''
+        clusters = matrix_utils.markov_clustering(
+            self.get_matrix().todense(),
+            inflation=inflation,
+            iterations=iterations
+            )
+        new_order = [i for c in clusters for i in c]
+        self.matrix = self.get_matrix()[new_order,:][:,new_order]
+        self.__reorder_row_indexing(new_order)
+        self.__reorder_column_indexing(new_order)
+        return
+
     def absolute(self):
         '''
         Computes the absolute value of the adjacency matrix.
@@ -646,7 +721,47 @@ class CMatrix:
         self.matrix = np.absolute(self.get_matrix()).tocsr()
         return
     
-    # --- computations
+    def square_positive_paths_only(self) -> sc.sparse.csr_matrix:
+        '''
+        Squares the adjacency matrix, where the sum over a_ik*a_kj
+        is only computed if the product of a_ik and a_kj is positive.
+        In practice this yield the sum of paths lenght 2 that are either
+        twice excitatory or twice inhibitory.
+        '''
+        matrix = copy.deepcopy(self.get_matrix())
+        matrix_pos = matrix.multiply(matrix > 0)
+        matrix_neg = matrix.multiply(matrix < 0)
+        matrix_positive_paths = (
+            matrix_pos @ matrix_pos + matrix_neg @ matrix_neg
+        )
+        self.matrix = matrix_positive_paths # indexing remains identical
+    
+    def square_negative_paths_only(self) -> sc.sparse.csr_matrix:
+        '''
+        Squares the adjacency matrix, where the sum over a_ik*a_kj
+        is only computed if the product of a_ik and a_kj is negative.
+        In practice this yield the sum of paths lenght 2 that are either
+        excitatory then inhibitory or inhibitory then excitatory.
+        '''
+        matrix = copy.deepcopy(self.get_matrix())
+        matrix_pos = matrix.multiply(matrix > 0)
+        matrix_neg = matrix.multiply(matrix < 0)
+        matrix_negative_paths = (
+            matrix_pos @ matrix_neg + matrix_neg @ matrix_pos
+        )
+        self.matrix = matrix_negative_paths
+
+    def invert_elements(self, inv_of_zero = np.nan) -> sc.sparse.csr_matrix:
+        '''
+        For each element of the adjacency matrix, invert the value to 1/value.
+        '''
+        matrix = copy.deepcopy(self.get_matrix())
+        matrix.data = 1/matrix.data
+        matrix.data = np.nan_to_num(matrix.data, nan=inv_of_zero)
+        self.matrix = matrix
+        return
+
+    # --- computations (returns something)
     def list_downstream_neurons(self, uids: list[int]):
         """
         Get the downstream neurons of the input neurons.
@@ -663,6 +778,162 @@ class CMatrix:
             )
         return downstream_uids
     
+    def build_distance_matrix(self, method: str = 'cosine'):
+        """
+        Build a similarity matrix from the adjacency matrix.
+
+        Parameters
+        ----------
+        similarity_function : function
+            The similarity function to apply to the adjacency matrix.
+
+        Returns
+        -------
+        similarity_matrix : CMatrix object
+            The similarity matrix, and the associated lookup table.
+        """
+        new_cmatrix = copy.deepcopy(self)
+        similarity_matrix = matrix_utils.build_distance_matrix(
+            new_cmatrix.get_matrix(),
+            method
+            )
+        new_cmatrix.matrix = similarity_matrix
+        return new_cmatrix
+
+    def cosine_similarity(self, in_out: str = 'both'):
+        """
+        Compute the cosine similarity of the adjacency matrix.
+
+        Parameters
+        ----------
+        in_out : str
+            Whether to use the input or output connectivity to define the metric
+            By default, 'both' concatenates both connections
+
+        Returns
+        ----------
+        new_cmatrix : CMatrix object
+        """
+        match in_out:
+            case 'both':
+                new_cmatrix = self.build_distance_matrix(method='cosine')
+            case 'in':
+                new_cmatrix = self.build_distance_matrix(method='cosine_in')
+            case 'out':
+                new_cmatrix = self.build_distance_matrix(method='cosine_out')
+            case _:
+                raise ValueError('The in_out parameter must be either "both", "in" or "out".')
+        new_cmatrix = self.build_distance_matrix(method='cosine')
+        # conversion of distance to similarity through exp(-distance)
+        new_cmatrix.matrix.data = np.exp(-new_cmatrix.matrix.data)
+        return new_cmatrix
+
+    def detect_clusters(
+            self,
+            distance : str = 'cosine',
+            method: str = 'hierarchical',
+            cutoff: float = 0.5,
+            cluster_size_cutoff: int = 2,
+            show_plot: bool = False,
+            cluster_data_type: str = 'uid',
+            ):
+        """
+        Detects the clusters in the adjacency matrix.
+
+        Parameters
+        ----------
+        distance : str
+            The distance metric used to define the node similarity.
+            The default is the bilateral 'cosine'.
+        method : str
+            The method used to detect the clusters. The default is 'hierarchical'.
+        cutoff : float
+            The cutoff value used to define the clusters. The default is 0.5.
+        cluster_size_cutoff : int
+            The minimum number of nodes in a cluster. The default is 2.
+        show_plot : bool
+            If True, shows the plot of the adjacency matrix with the cluster boundaries.
+            The default is False.
+        cluster_data_type : str
+            The type of data returned in the clusters. The default is 'uid'.
+
+        Returns
+        -------
+        clusters : list
+            The list of clusters detected in the adjacency matrix.
+        """
+        # define the similarity matrix
+        new_cmatrix = self.build_distance_matrix(method=distance)
+        new_cmatrix.matrix.data = np.exp(-new_cmatrix.matrix.data) # convert distance to similarity
+        
+        # cluster the similarity matrix
+        match method: # to be completed
+            case 'hierarchical':
+                new_cmatrix.hierarchical_clustering()
+            case 'markov':
+                new_cmatrix.markov_clustering()
+            case _:
+                raise ValueError('CMatrix::detect_cluster() -> The method is not recognised.')
+        
+        # detect the clusters
+        clustered_mat = new_cmatrix.get_matrix().todense()
+        # replace NaN with 0
+        clustered_mat = np.nan_to_num(clustered_mat, nan=0)
+        clusters = []
+        start_cluster = 0
+        for i in range(clustered_mat.shape[0]):
+            average_similarity = np.mean(clustered_mat[i, start_cluster:i])
+            if average_similarity < cutoff:
+                new_cluster = list(
+                    np.linspace(start_cluster,i-1, i-start_cluster, dtype=int)
+                    )
+                if len(new_cluster) >= cluster_size_cutoff:   
+                    clusters.append(new_cluster)
+                start_cluster = i
+        last_cluster = list(
+            np.linspace(
+                start_cluster,
+                clustered_mat.shape[0]-1,
+                clustered_mat.shape[0]-start_cluster,
+                dtype=int
+                )
+            )
+        if len(last_cluster) >= cluster_size_cutoff:
+            clusters.append(last_cluster)
+        # convert cluster indices to the relevant data type
+        match cluster_data_type:
+            case 'uid':
+                return_clusters = [
+                    new_cmatrix.get_uids(sub_indices=cluster, axis='row')
+                    for cluster in clusters
+                    ]
+            case 'index':
+                return_clusters = clusters
+            case 'body_id':
+                return_clusters = [
+                    new_cmatrix.__convert_index_to_bodyid(cluster, axis='row')
+                    for cluster in clusters
+                    ]
+            case _:
+                raise ValueError('CMatrix::detect_cluster() -> The cluster_data_type is not recognised.')
+
+        if show_plot:
+            # draw a matrix where all entries are white except for the boundaries
+            # between clusters as defined by the number of elements in each list in
+            # the clusters list.
+
+            # create a matrix of zeros
+            mat = np.zeros((clustered_mat.shape[0], clustered_mat.shape[1]))
+            # draw the boundaries between clusters
+            for cluster in clusters:
+                mat[cluster[0]:cluster[-1]+1, cluster[0]:cluster[-1]+1] = 1
+            ax, title = new_cmatrix.imshow(savefig=False)
+            ax.imshow(mat, cmap='binary', alpha=0.3)
+            plt.savefig(title)
+            plt.close()
+
+        return new_cmatrix, return_clusters, clusters
+
     # --- visualisation
     def spy(self, title:str='test'):
         '''
@@ -683,6 +954,7 @@ class CMatrix:
             title:str='test',
             vmax:float=None,
             cmap=params.diverging_heatmap,
+            savefig:bool=True,
         ):
         '''
         Visualises the adjacency matrix with a colorbar.
@@ -696,13 +968,17 @@ class CMatrix:
         cmap : str, optional
             The colormap of the visualisation. The default is params.blue_heatmap.
         '''
-        _ = matrix_design.imshow(
+        ax = matrix_design.imshow(
             self.get_matrix(),
             title=title,
             vmax=vmax,
             cmap=cmap,
             )
-        title_ = os.path.join(params.PLOT_DIR, title + "_imshow.pdf")
-        plt.savefig(title_)
-        return
+        if savefig:
+            title_ = os.path.join(params.PLOT_DIR, title + "_imshow.pdf")
+            plt.savefig(title_)
+            return
+        else:
+            return ax, title
+        
 

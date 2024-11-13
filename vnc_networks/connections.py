@@ -630,7 +630,7 @@ class Connections:
     def subgraph(
             self,
             nodes: list[int] = None,
-            edges: list[tuple[int]] = None
+            edges: list[tuple[int]] = None,
             ):
         '''
         Copy operator of the Connections class that returns a new object
@@ -654,12 +654,16 @@ class Connections:
             New Connections object with the subgraph.
         '''
         # Get the connections
-        connections_ = self.get_connections()
-        connections_ = connections_[
-            connections_["start_uid"].isin(nodes)
-            & connections_["end_uid"].isin(nodes)
-            ]
-        if not edges is None:
+        connections_ = self.get_dataframe()
+        if nodes is not None:
+            connections_ = connections_[
+                connections_["start_uid"].isin(nodes)
+                & connections_["end_uid"].isin(nodes)
+                ]
+        else:
+            # get all the elements present in the tuples edges
+            nodes = list(set([x for y in edges for x in y]))
+        if edges is not None:
             rows_to_drop = []
             for index, row in connections_.iterrows():
                 if (row["start_uid"],
@@ -736,7 +740,7 @@ class Connections:
     def get_neurons_post(self):
         return self.neurons_post
     
-    def get_connections(
+    def get_dataframe(
             self,
             specific_start_uids: list[int] = None,
             specific_end_uids: list[int] = None
@@ -954,6 +958,57 @@ class Connections:
             }
         return self.get_neuron_ids(neuropil_dict)
 
+    def get_neurons_downstream_of(
+            self,
+            neuron_id: int,
+            input_type: str = 'uid',
+            output_type: str = 'uid'
+        ):
+        '''
+        Get the neurons downstream of a given neuron, based on the graph.
+
+        Parameters
+        ----------
+        neuron_id: int
+            Identifier of the neuron.
+        input_type: str
+            Type of the input list, can be 'uid' or 'body_id'.
+        return_type: str
+            Type of the return list, can be 'uid' or 'body_id'.
+
+        Returns
+        -------
+        list[int]
+            List of identifiers of the downstream neurons.
+        '''
+        # Get uid of the neuron as the graph indexes with uids
+        if input_type == 'uid':
+            nid = neuron_id
+        elif input_type == 'body_id':
+            nid = self.get_uids_from_bodyid(neuron_id)[0]
+        else:
+            raise ValueError(
+                f"Class Connections \
+                ::: > get_neurons_downstream_of(): Unknown input type {input_type}"
+                )
+        
+        # Get the downstream neurons
+        downstream = [node for node in self.graph.successors(nid)]
+
+        # Convert the output type
+        if output_type == 'uid':
+            return list(downstream)
+        elif output_type == 'body_id':
+            return self.__convert_uid_to_neuron_ids(
+                downstream,
+                output_type='body_id'
+                )
+        else:
+            raise ValueError(
+                f"Class Connections \
+                ::: > get_neurons_downstream_of(): Unknown output type {output_type}"
+                )
+        
     def get_bodyids_from_uids(self, uids):
         '''
         Get the body ids from the uids.
@@ -1094,7 +1149,12 @@ class Connections:
             )
         return
     
-    def paths_length_n(self, n: int, source: list[int], target: list[int]):
+    def paths_length_n(
+            self,
+            n: int,
+            source: list[int],
+            target: list[int],
+            syn_threshold: int = None,):
         '''
         Get the graph with all the paths of length n between two sets of nodes.
 
@@ -1106,6 +1166,8 @@ class Connections:
             List of source nodes.
         target: list[int]
             List of target nodes.
+        syn_threshold: int
+            Threshold for the synapse count.
 
         Returns
         -------
@@ -1117,6 +1179,7 @@ class Connections:
             source = [source]
         if isinstance(target, int):
             target = [target]
+        # Find all the paths of length n between the source and target nodes
         edges_ = []
         for s in source:
             subedges_ = nx.all_simple_edge_paths(
@@ -1126,6 +1189,13 @@ class Connections:
                 cutoff=n
                 )
             _ = [edges_.extend(path) for path in subedges_]
+        # Filter the edges based on the synapse threshold
+        if syn_threshold is not None:
+            edges_ = [
+                edge for edge in edges_
+                if self.graph[edge[0]][edge[1]]['syn_count'] >= syn_threshold
+                ]
+        # Create the subgraph
         return nx_utils.get_subgraph_from_edges(self.graph, edges_)
         
     def cluster_hierarchical(self, reference: str = "syn_count"):
@@ -1473,16 +1543,6 @@ class Connections:
             return ax, pos
         return ax
 
-    def list_possible_attributes(self):
-        '''
-        List the attributes present in the nodes dataframe.
-        '''
-        all_attributes = self.__defined_attributes_in_graph
-        from_dataset = get_nodes_data.get_possible_columns()
-        all_attributes.extend(from_dataset)
-        all_attributes = np.unique(all_attributes)
-        return all_attributes
-
     def draw_bar_plot(
         self,
         neurons: set[int],
@@ -1506,6 +1566,67 @@ class Connections:
         ax = plots_design.make_nice_spines(ax)
         return ax
     
+    # --- listing properties
+    def list_possible_attributes(self):
+        '''
+        List the attributes present in the nodes dataframe.
+        '''
+        all_attributes = self.__defined_attributes_in_graph
+        from_dataset = get_nodes_data.get_possible_columns()
+        all_attributes.extend(from_dataset)
+        all_attributes = np.unique(all_attributes)
+        return all_attributes
+
+    def list_neuron_properties(
+            self,
+            neurons: list[int],
+            input_type: str = 'uid'
+            ):
+        '''
+        List the properties of the neurons in the list in a dataframe.
+        Warning: only the properties already present in the graph are listed,
+        which can vary depending on the processing done before.
+        If you want include a specific property, use the 
+        Connections::include_node_attributes(attributes = [property]) method
+        before calling this method.
+
+        Parameters
+        ----------
+        neurons: list[int]
+            List of neuron identifiers.
+        input_type: str
+            Type of the neuron identifiers, can be 'uid' or 'body_id'.
+
+        Returns
+        -------
+        pd.DataFrame
+            Dataframe with the properties of the neurons.
+        '''
+        defined_properties = self.__defined_attributes_in_graph
+
+        if input_type == 'uid':
+            nodes = list(neurons)
+        elif input_type == 'body_id':
+            nodes = self.get_uids_from_bodyid(neurons)
+        else:
+            raise ValueError(
+                f"Class Connections ::: > \
+                list_neuron_properties(): Unknown neuron type {input_type}"
+            )
+        if len(nodes) < len(neurons):
+            print("WARNING:: Some neurons were not found in the graph.")
+
+        properties = pd.DataFrame(columns = defined_properties, index = nodes)
+
+        for p in defined_properties:
+            values = self.__get_node_attributes(p)
+            properties[p] = [values[n] for n in nodes]
+
+        properties['uid'] = nodes
+
+        return properties
+
+
     # --- saving
     def save(self, name: str):
         '''

@@ -17,8 +17,24 @@ os.makedirs(FOLDER, exist_ok=True)
 def get_mdn_bodyids():
     return get_nodes_data.get_neuron_bodyids({'type:string': 'MDN'})
 
-def get_mdn_uids(data: Connections):
-    return data.get_neuron_ids({'type:string': 'MDN'})
+def get_mdn_uids(data: Connections, side: str = None):
+    if side is None:
+        return data.get_neuron_ids({'type:string': 'MDN'})
+    
+    if side in ['L', 'Left', 'l', 'left', 'LHS']:
+        side_ = 'L'
+    elif side in ['R', 'Right', 'r', 'right', 'RHS']:
+        side_ = 'R'
+    else:
+        raise ValueError('Side not recognized.')
+
+    mdns = data.get_neuron_ids({'type:string': 'MDN'})
+    specific_mdns = [
+            mdn for mdn in mdns if side_ == data.get_node_label(mdn)[-2]
+            # names finishing with (L|R)
+            # soma side not given for MDNs, but exists in the name
+        ]
+    return specific_mdns
 
 def get_subdivided_mdns(VNC, neuropil, side):
     '''

@@ -13,7 +13,7 @@ import seaborn as sns
 RAW_DATA_DIR = os.path.join(Path(__file__).absolute().parent.parent, "data_dump")
 MANC_RAW_DIR = os.path.join(RAW_DATA_DIR, "manc", "v1.0", "manc-traced-adjacencies-v1.0")
 NODES_FILE = os.path.join(MANC_RAW_DIR, "traced-neurons.csv")
-CONNECTIONS_FILE = os.path.join(MANC_RAW_DIR, "traced-connections-per-roi.csv")
+CONNECTIONS_FILE = os.path.join(MANC_RAW_DIR, "traced-connections.csv")
 # MANC neuprint
 NEUPRINT_RAW_DIR = os.path.join(RAW_DATA_DIR, "manc", "v1.0", "neuprint_manc_v1.0", "neuprint_manc_v1.0_ftr")
 NEUPRINT_NODES_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neurons_manc_v1.ftr")

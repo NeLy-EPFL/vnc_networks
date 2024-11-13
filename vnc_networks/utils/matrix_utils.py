@@ -215,3 +215,65 @@ def sum_weights(matrix, sign=None):
         neg_mat = matrix.copy()
         neg_mat.data = neg_mat.data * (neg_mat.data < 0)
         return neg_mat.sum()
+    
+def build_distance_matrix(matrix, method='pearson'):
+    """
+    input: sparse matrix
+    output: similarity matrix
+    """
+    match method:
+        case 'cosine_in': # cosine similarity of the input vectors
+            # the vectors are the columns of the matrix, i.e. all i to each j
+            columns = matrix.todense().T
+            sim_mat = sc.spatial.distance.cdist(
+                columns,
+                columns,
+                'cosine'
+                )
+        case 'cosine_out': # cosine similarity of the output vectors
+            # the vectors are the rows of the matrix, i.e. all j to each i
+            rows = matrix.todense()
+            sim_mat = sc.spatial.distance.cdist(
+                rows,
+                rows,
+                'cosine'
+                )
+        case 'cosine': # cosine similarity of the input and output vectors
+            # create vectors that are for each i the concatenation of the row and column vectors
+            matrix = matrix.todense()
+            matrix = np.concatenate((matrix, matrix.T), axis=1)
+            sim_mat = sc.spatial.distance.cdist(
+                matrix,
+                matrix,
+                'cosine'
+                )
+        case 'euclidean':
+            matrix = matrix.todense()
+            matrix = np.concatenate((matrix, matrix.T), axis=1)
+            sim_mat = sc.spatial.distance.cdist(
+                matrix,
+                matrix,
+                'euclidean'
+                )
+        case _:
+            raise ValueError(f"Method {method} not recognized.")
+    
+    # correct for numerical errors
+    # if the values are very close to 0, set them to 0
+    sim_mat[sim_mat < 1e-10] = 0
+    return sc.sparse.csr_matrix(sim_mat)
+
+def markov_clustering(matrix, inflation=2, iterations=100):
+    """
+    input: sparse matrix
+    output: clusters
+    """
+    import markov_clustering as mcl
+
+    # if the matrix is a scipy sparse matrix, convert to dense
+    if sc.sparse.issparse(matrix):
+        matrix = matrix.todense()
+    result = mcl.run_mcl(matrix, inflation=inflation, iterations=iterations)
+    clusters = mcl.get_clusters(result)
+
+    return clusters
