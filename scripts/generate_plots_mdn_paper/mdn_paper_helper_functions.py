@@ -13,14 +13,33 @@ def graph_from_mdn_to_muscle(
         n_hops: int = 2,
         label_nodes: bool = False,
         method: str = None,
+        interneuron_conditions: dict = None,
     ):
     '''
     Zooming in on a single muscle, show the graph of the neurons contacting
     MDNs -> motor neurons within n hops.
 
-    target: dictionary with the target neuron attributes
-    necessary keys: 'class:string', 'somaSide:string', 'subclass:string',
-    'target:string'
+    Parameters
+    ----------
+    target: dict
+        dictionary with the target neuron attributes
+        necessary keys: 'class:string', 'somaSide:string', 'subclass:string',
+        'target:string'
+    n_hops: int
+        number of hops to consider
+    label_nodes: bool
+        whether to label the nodes
+    method: str
+        method to use for the graph layout
+    interneuron_conditions: dict
+        conditions to filter the interneurons
+
+    Returns
+    -------
+    title: str
+        title of the plot
+    axs: list of matplotlib axes
+        axes of the plot
     '''
     # Loading the connectivity data
     full_VNC = mdn_helper.get_vnc_split_MDNs_by_neuropil(
@@ -34,6 +53,14 @@ def graph_from_mdn_to_muscle(
 
     # Get the graph made of neurons contacting MDNs -> motor neurons within n hops
     graph = VNC.paths_length_n(n_hops, mdns, target_neurons)
+    if interneuron_conditions is None:
+        nodes = graph.nodes
+    else:
+        interneurons = set(graph.nodes) - set(mdns) - (target_neurons)
+        interneurons = interneurons.intersection(
+            VNC.get_neuron_ids(interneuron_conditions)
+            )
+        nodes = list(mdns.union(target_neurons).union(interneurons))
 
     # Make 2 graphs: on the left only the connections directly involved in the
     # paths, on the right the graph generate by the neurons in the paths
@@ -46,7 +73,7 @@ def graph_from_mdn_to_muscle(
     
     # Left
     subconnections = VNC.subgraph(
-        graph.nodes,
+        nodes,
         edges=graph.edges(), # only the edges directly involved in the paths
         )  # new Connections object
     if method is None:
@@ -72,7 +99,7 @@ def graph_from_mdn_to_muscle(
 
     # Right
     subconnections = VNC.subgraph(
-        graph.nodes,
+        nodes,
         )  # new Connections object 
     _ = subconnections.display_graph(
                 title='complete',

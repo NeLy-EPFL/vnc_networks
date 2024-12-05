@@ -27,6 +27,8 @@ def draw_graph(
     node_size: int = params.NODE_SIZE,
     return_pos: bool = False,
     label_nodes: bool = False,
+    add_legend: bool = True,
+    connection_style="arc3,rad=0.1",
 ) -> dict:
     """Plots the network using the network specs and
     returns the positions of the nodes.
@@ -58,7 +60,10 @@ def draw_graph(
     if pos is None:
         if pos_nx_method == nx.kamada_kawai_layout:
             # method not defined on negative edge weights
-            pos = nx.kamada_kawai_layout(G, weight='syn_count')
+            # add a 'pos_weight' attribute to the graph
+            for u, v, data in G.edges(data=True):
+                data['pos_weight'] = np.abs(data['weight'])
+            pos = nx.kamada_kawai_layout(G, weight='pos_weight')
         else:
             pos = pos_nx_method(G)
 
@@ -72,30 +77,38 @@ def draw_graph(
     node_colors = define_node_colors(G)
     edge_colors = define_edge_colors(G)
 
+    # Node labels
+    labels = nx.get_node_attributes(G, "node_label")
+    node_labels = {
+        k: labels[k] if k in labels.keys() else k 
+        for k in G.nodes
+        }
+
     # Plot graph
     nx.draw(
         G,
         pos,
         with_labels=label_nodes,
-        labels=nx.get_node_attributes(G, "node_label"),
+        labels=node_labels,
         width=normalized_weights,
         alpha=0.75,
         node_size=node_size,
         node_color=node_colors,
         edge_color=edge_colors,
-        connectionstyle="arc3,rad=0.1",
+        connectionstyle=connection_style,
         font_size=params.FONT_SIZE,
         font_color=params.FONT_COLOR,
         ax=ax,
     )
 
     # Add legend
-    ax = add_edge_legend(
-            ax,
-            normalized_weights,
-            edge_colors,
-            params.MAX_EDGE_WIDTH/np.abs(weights).max(),
-            )
+    if add_legend:
+        ax = add_edge_legend(
+                ax,
+                normalized_weights,
+                edge_colors,
+                params.MAX_EDGE_WIDTH/np.abs(weights).max(),
+                )
 
     # return
     if return_pos:
@@ -146,19 +159,24 @@ def define_edge_colors(graph: nx.DiGraph):
     """
     edges = graph.edges(data=True)
     edge_colors = []
+    edge_color_dict = {}
     for e_ in edges:
-        if "predictedNt:string" in e_[2].keys():
-            edge_colors.append(
-                params.NT_TYPES[e_[2]["predictedNt:string"]]["color"]
-                )
+        if "edge_color" in e_[2].keys():
+            edge_colors.append(e_[2]["edge_color"])
         else:
-            if not "weight" in e_[2].keys():
-                edge_colors.append(params.LIGHTGREY)
-            elif e_[2]["weight"] >= 0:
-                edge_colors.append(params.EXCIT_COLOR)
+            if "predictedNt:string" in e_[2].keys():
+                edge_colors.append(
+                    params.NT_TYPES[e_[2]["predictedNt:string"]]["color"]
+                    )
             else:
-                edge_colors.append(params.INHIB_COLOR)
-    graph = nx.set_edge_attributes(graph, values=edge_colors, name="edge_color")
+                if not "weight" in e_[2].keys():
+                    edge_colors.append(params.LIGHTGREY)
+                elif e_[2]["weight"] >= 0:
+                    edge_colors.append(params.EXCIT_COLOR)
+                else:
+                    edge_colors.append(params.INHIB_COLOR)
+        edge_color_dict[(e_[0], e_[1])] = {"edge_color": edge_colors[-1]}
+    graph = nx.set_edge_attributes(graph, values=edge_color_dict)
     return edge_colors
 
 def define_node_colors(graph: nx.DiGraph):
@@ -168,15 +186,20 @@ def define_node_colors(graph: nx.DiGraph):
     """
     nodes_ = graph.nodes(data=True)
     node_colors = []
+    node_dict = {}
     for (n_,dict_) in nodes_:
-        if "color" in dict_.keys():
-            node_colors.append(dict_["color"])
-        elif "node_class" in dict_.keys():
-            node_colors.append(
-                params.NEURON_CLASSES[dict_["node_class"]]["color"])
+        if "node_color" in dict_.keys():
+            node_colors.append(dict_["node_color"])
         else:
-            node_colors.append(params.LIGHTGREY)
-    graph = nx.set_node_attributes(graph, values=node_colors, name="node_color")
+            if "color" in dict_.keys():
+                node_colors.append(dict_["color"])
+            elif "node_class" in dict_.keys():
+                node_colors.append(
+                    params.NEURON_CLASSES[dict_["node_class"]]["color"])
+            else:
+                node_colors.append(params.LIGHTGREY)
+        node_dict[n_] = {"node_color": node_colors[-1]}
+    graph = nx.set_node_attributes(graph, values=node_dict)
     return node_colors
  
 def define_node_boundary_colors(graph: nx.DiGraph):
@@ -769,7 +792,6 @@ def draw_graph_in_out_center_circle(
     if return_pos:
         return ax, positions
     return ax
-
 
 def position_3d_nodes(x: list, y:list , z:list):
     """

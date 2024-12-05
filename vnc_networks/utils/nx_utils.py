@@ -167,3 +167,32 @@ def threshold_graph(graph: nx.DiGraph, threshold: int = None):
                 nodes_to_remove.append(node)
         graph_.remove_nodes_from(nodes_to_remove)
         return graph_
+    
+def sum_graphs(graph1: nx.DiGraph, graph2: nx.DiGraph):
+    """
+    Sum the weights of the edges of two graphs.
+    """
+    graph = nx.DiGraph()
+
+    # Unique to graph 1
+    edges_to_add = [
+        (u,v, graph1.edges[(u,v)]["weight"])
+        for (u,v) in set(graph1.edges()).difference(set(graph2.edges()))
+    ]
+    graph.add_weighted_edges_from(edges_to_add)
+    # Unique to graph 2
+    edges_to_add = [
+        (u,v, graph2.edges[(u,v)]["weight"])
+        for (u,v) in set(graph2.edges()).difference(set(graph1.edges()))
+    ]
+    graph.add_weighted_edges_from(edges_to_add)
+    # Overlapping edges
+    edges_to_add = [
+        (u,v, graph1.edges[(u,v)]["weight"] + graph2.edges[(u,v)]["weight"])
+        for (u,v) in set(graph1.edges()).intersection(set(graph2.edges()))
+    ]
+    graph.add_weighted_edges_from(edges_to_add)
+    # add the nodes
+    graph.add_nodes_from(graph1.nodes())
+    graph.add_nodes_from(graph2.nodes())
+    return graph
