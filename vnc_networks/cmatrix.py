@@ -391,6 +391,11 @@ class CMatrix:
             The uids of the nodes of the adjacency matrix.
         """
         if sub_indices is None:
+            # sort the lookup by indices of the axis and return the 'uid' column
+            if axis == 'row':
+                self.lookup.sort_values(by='row_index', inplace=True)
+            elif axis == 'column':
+                self.lookup.sort_values(by='column_index', inplace=True)
             return self.lookup['uid'].tolist()
         return self.__convert_index_to_uid(
             sub_indices,
@@ -778,6 +783,22 @@ class CMatrix:
             )
         return downstream_uids
     
+    def list_upstream_neurons(self, uids: list[int]):
+        """
+        Get the upstream neurons of the input neurons.
+        """
+        if isinstance(uids, int):
+            uids = [uids]
+        cmatrix_copy = copy.deepcopy(self)
+        cmatrix_copy.restrict_columns(uids)
+        matrix = cmatrix_copy.get_matrix()
+        non_zero_rows = set(matrix.nonzero()[0])
+        upstream_uids = cmatrix_copy.get_uids(
+            sub_indices=non_zero_rows,
+            axis='row'
+            )
+        return upstream_uids
+
     def build_distance_matrix(self, method: str = 'cosine'):
         """
         Build a similarity matrix from the adjacency matrix.

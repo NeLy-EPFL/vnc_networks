@@ -585,26 +585,39 @@ class Connections:
         of (A,1) and (A,2) will be the same as A.
         '''
         if attribute not in self.__defined_attributes_in_graph:
-            print(f"Attribute {attribute} not found in the graph. Adding it.")
-            nodes = self.get_nodes(type='uid') # uids
-            body_ids = self.get_nodes(type='body_id')
-            attr = get_nodes_data.load_data_neuron_set( # retrieve data
-                ids = body_ids,
-                attributes = [attribute],
-                )
-            attr_mapping = {body_id: value # map body id to attribute value
-                        for body_id, value
-                        in zip(attr[":ID(Body-ID)"], attr[attribute])}
-            attr_list = {node: attr_mapping[body_id] # map node to attribute value
-                        for node, body_id in zip(nodes, body_ids)}
-            
-            # replace None values with a default value
-            attr_list = {
-                k: default if v is None else v for k, v in attr_list.items()
-                }
-            nx.set_node_attributes(self.graph, attr_list, attribute)
-            self.__defined_attributes_in_graph.append(attribute)
-        return nx.get_node_attributes(self.graph, attribute)
+            if attribute == 'uid': # should be there from default, but present for backward compatibility
+                attr_list = {node: node for node in self.graph.nodes}
+                nx.set_node_attributes(self.graph, attr_list, attribute)
+                self.__defined_attributes_in_graph.append(attribute)
+                return self.graph.nodes
+            elif attribute == 'body_id':
+                attr_list = {node: self.uid.loc[
+                    self.uid['uid'] == node, 'body_id'
+                    ].values[0] for node in self.graph.nodes}
+                nx.set_node_attributes(self.graph, attr_list, attribute)
+                self.__defined_attributes_in_graph.append(attribute)
+                return nx.get_node_attributes(self.graph, attribute)
+            else:
+                print(f"Attribute {attribute} not found in the graph. Adding it.")
+                nodes = self.get_nodes(type='uid') # uids
+                body_ids = self.get_nodes(type='body_id')
+                attr = get_nodes_data.load_data_neuron_set( # retrieve data
+                    ids = body_ids,
+                    attributes = [attribute],
+                    )
+                attr_mapping = {body_id: value # map body id to attribute value
+                            for body_id, value
+                            in zip(attr[":ID(Body-ID)"], attr[attribute])}
+                attr_list = {node: attr_mapping[body_id] # map node to attribute value
+                            for node, body_id in zip(nodes, body_ids)}
+                
+                # replace None values with a default value
+                attr_list = {
+                    k: default if v is None else v for k, v in attr_list.items()
+                    }
+                nx.set_node_attributes(self.graph, attr_list, attribute)
+                self.__defined_attributes_in_graph.append(attribute)
+            return nx.get_node_attributes(self.graph, attribute)
 
     # public methods
     # --- initialize
@@ -1009,6 +1022,57 @@ class Connections:
                 ::: > get_neurons_downstream_of(): Unknown output type {output_type}"
                 )
         
+    def get_neurons_upstream_of(
+            self,
+            neuron_id: int,
+            input_type: str = 'uid',
+            output_type: str = 'uid'
+        ):
+        '''
+        Get the neurons upstream of a given neuron, based on the graph.
+
+        Parameters
+        ----------
+        neuron_id: int
+            Identifier of the neuron.
+        input_type: str
+            Type of the input list, can be 'uid' or 'body_id'.
+        return_type: str
+            Type of the return list, can be 'uid' or 'body_id'.
+
+        Returns
+        -------
+        list[int]
+            List of identifiers of the upstream neurons.
+        '''
+        # Get uid of the neuron as the graph indexes with uids
+        if input_type == 'uid':
+            nid = neuron_id
+        elif input_type == 'body_id':
+            nid = self.get_uids_from_bodyid(neuron_id)[0]
+        else:
+            raise ValueError(
+                f"Class Connections ::: > get_neurons_upstream_of():\
+                Unknown input type {input_type}"
+                )
+        
+        # Get the upstream neurons
+        upstream = [node for node in self.graph.predecessors(nid)]
+
+        # Convert the output type
+        if output_type == 'uid':
+            return list(upstream)
+        elif output_type == 'body_id':
+            return self.__convert_uid_to_neuron_ids(
+                upstream,
+                output_type='body_id'
+                )
+        else:
+            raise ValueError(
+                f"Class Connections ::: > get_neurons_upstream_of():\
+                Unknown output type {output_type}"
+                )
+           
     def get_bodyids_from_uids(self, uids):
         '''
         Get the body ids from the uids.
@@ -1024,6 +1088,12 @@ class Connections:
         Get the uids from the body id.
         '''
         return self.__get_uids_from_bodyids([body_id])
+
+    def get_out_degree(self, uid: int):
+        '''
+        Get the out degree of a node.
+        '''
+        return self.graph.out_degree(uid)
 
     # --- setters
     def merge_nodes(self, nodes: list[int]):
@@ -1182,10 +1252,11 @@ class Connections:
         # Find all the paths of length n between the source and target nodes
         edges_ = []
         for s in source:
+            target_ = list(set(target) - {s}) # remove the source from the target
             subedges_ = nx.all_simple_edge_paths(
                 self.graph,
                 source=s,
-                target=target,
+                target=target_,
                 cutoff=n
                 )
             _ = [edges_.extend(path) for path in subedges_]
@@ -1278,13 +1349,19 @@ class Connections:
                 case "circular":
                     pos = nx.circular_layout(graph_)
                 case "spring":
-                    pos = nx.spring_layout(graph_)
+                    pos = nx.arf_layout(graph_)
                 case "kamada_kawai":
                     graph_ = self.get_graph(
                         weight_type='syn_count',
                         syn_threshold=syn_threshold,
                         ) # no negative weights
                     pos = nx.kamada_kawai_layout(graph_)
+                case "breadth_first":
+                    pos = nx.bfs_layout(graph_)
+                case "force":
+                    pos = nx.forceatlas2_layout(graph_)
+                case "spectral":
+                    pos = nx.spectral_layout(graph_)
                 case _:
                     raise ValueError(
                         f"Class Connections > display_graph(): Unknown method {method}"

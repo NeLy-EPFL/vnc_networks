@@ -347,8 +347,8 @@ def confusion_matrix_sign_assymetry_mdn_to_mn(
             imbalance[np.isnan(imbalance)] = 0
             tot = np.abs(pos - neg) / (pos + neg)
             tot[np.isnan(tot)] = 0
-            confusion_matrix[i,j] = imbalance.sum()
-            confusion_matrix_tot[i,j] = tot.sum()
+            confusion_matrix[i,j] = imbalance.sum()/imbalance.size
+            confusion_matrix_tot[i,j] = tot.sum()/tot.size
     # Plot the confusion matrix
     ax = matrix_design.imshow(
         confusion_matrix,
@@ -386,6 +386,88 @@ def confusion_matrix_sign_assymetry_mdn_to_mn(
     plt.savefig(os.path.join(FOLDER, f'{title}.pdf'))
     plt.close()
 
+def sign_assymetry_mdn_to_mn(
+        mdn_side_: str = None,
+        mn_side_: str = None
+        ):
+    '''
+    Create a plot of the relative number of excitatory and
+    inhibitory of connections from MDN to motor neurons within 2 hops.
+    '''
+    # Loading the connectivity data
+    full_VNC = mdn_helper.get_vnc_split_MDNs_by_neuropil(
+        not_connected=mdn_helper.get_mdn_bodyids()
+        ) # exclude connections from MDNs to MDNs
+    VNC = full_VNC.get_connections_with_only_traced_neurons() # exclude untraced neurons for statistics
+    
+    # Get the uids of neurons split by MDN synapses in leg neuropils
+    mdn_uids = mdn_helper.get_mdn_uids(VNC, side=mdn_side_)
+    mdn_neuropil = []
+    for i in range(3):
+        neuropil = 'LegNp(T'+str(i+1)+')'
+        mdn_neuropil.append([
+            uid for uid in mdn_uids if neuropil in VNC.get_node_label(uid)
+            ]) # 2 right MDNs
+        
+    # Get the uids of motor neurons split by leg
+    list_motor_neurons = [[],[],[]]
+    for i, leg in enumerate(['f', 'm', 'h']):
+        if mn_side_ is None:
+            leg_motor_neurons = list(
+            mns_helper.get_leg_motor_neurons(VNC, leg=leg)
+            )
+        else:
+            leg_motor_neurons = list(
+                mns_helper.get_leg_motor_neurons(
+                    VNC,
+                    leg=leg,
+                    side=mn_side_+'HS'
+                    )
+                )
+        list_motor_neurons[i] = leg_motor_neurons
+
+    # Get the summed connection strength up to n hops
+    pos_matrix = VNC.get_cmatrix(type_='norm')
+    pos_matrix.square_positive_paths_only()
+    neg_matrix = VNC.get_cmatrix(type_='norm')
+    neg_matrix.square_negative_paths_only()
+
+    # Get the confusion matrix
+    imbalance_metric = []
+
+    for i in range(3):
+        pmat = copy.deepcopy(pos_matrix)
+        pmat.restrict_from_to(
+            row_ids=mdn_neuropil[i],
+            column_ids=list_motor_neurons[i],
+            input_type='uid'
+            )
+        nmat = copy.deepcopy(neg_matrix)
+        nmat.restrict_from_to(
+            row_ids=mdn_neuropil[i],
+            column_ids=list_motor_neurons[i],
+            input_type='uid'
+            )
+        pos = pmat.get_matrix()
+        neg = -1 * nmat.get_matrix() # positive values
+        # elementwise sign imbalance computation
+        imbalance = np.abs(pos - neg) / (pos + neg)
+        imbalance[np.isnan(imbalance)] = 0
+        imbalance_metric.append(imbalance.sum()/imbalance.size)
+
+    # Plot the imbalance metric
+    _ = plots_design.scatter_xy(
+        imbalance_metric,
+        xlabel='MDN subdivision',
+        ylabel='imbalance metric',
+        )
+    title = 'Fig1_imbalance_metric_MDN'
+    if mdn_side_ is not None:
+        title += f'_MDN-{mdn_side_}'
+    if mn_side_ is not None:
+        title += f'_MN-{mn_side_}'
+    plt.savefig(os.path.join(FOLDER, f'{title}.pdf'))
+    plt.close()
 
  
         
@@ -398,4 +480,5 @@ if __name__ == "__main__":
     #confusion_matrix_mdn_to_mn(n_hops=4)
     #confusion_matrix_sign_assymetry_mdn_to_mn(mn_side_='R', mdn_side_='R')
     #confusion_matrix_sign_assymetry_mdn_to_mn(mn_side_='R')
+    sign_assymetry_mdn_to_mn(mn_side_='R', mdn_side_='R')
     pass

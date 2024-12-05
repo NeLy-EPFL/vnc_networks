@@ -134,6 +134,33 @@ def scatter_xyz_2d(
     plt.tight_layout()
     return ax
 
+def scatter_xy(
+        Y,
+        X: list = None,
+        ax: plt.Axes = None,
+        marker='o',
+        color=params.DARKGREY,
+        alpha=0.8,
+        xlabel='X',
+        ylabel='Y',
+        ):
+    """
+    Scatter plot in 2D.
+    """
+    if ax is None:
+        _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
+    if X is None:
+        X = np.arange(len(Y))
+
+    ax.scatter(X, Y, c=color, marker=marker, alpha=alpha)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    ax = make_nice_spines(ax)
+    plt.tight_layout()
+    return ax
+
+
 def venn_3(
         sets: list,
         set_labels: list[str] = ['','',''],
