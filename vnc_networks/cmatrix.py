@@ -23,7 +23,7 @@ import numpy as np
 import copy
 
 import params
-from params import UID
+from params import UID, BodyId
 import utils.matrix_utils as matrix_utils
 import utils.matrix_design as matrix_design
 
@@ -308,7 +308,7 @@ class CMatrix:
 
         return body_ids
 
-    def __get_uids_from_bodyids(self, body_ids: list):
+    def __get_uids_from_bodyids(self, body_ids: list[BodyId] | list[int]) -> list[UID]:
         """
         Get the uids corresponding to the body_ids.
         Careful that this is not a 1-on-1 mapping as a given body_id might
@@ -323,7 +323,7 @@ class CMatrix:
         uids = lookup['uid'].tolist()
         return uids
 
-    def __reorder_row_indexing(self, order):
+    def __reorder_row_indexing(self, order: list[int]):
         """
         Reorder the indexing of the lookup table according to the order.
         The order of indices given as arguments will be mapped to [0,1,2,...].
@@ -338,7 +338,7 @@ class CMatrix:
         self.lookup = lookup
         return
     
-    def __reorder_column_indexing(self, order):
+    def __reorder_column_indexing(self, order: list[int]):
         """
         Reorder the indexing of the lookup table according to the order.
         The order of indices given as arguments will be mapped to [0,1,2,...].

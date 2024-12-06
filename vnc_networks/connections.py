@@ -978,13 +978,13 @@ class Connections:
             self.uid['node_label'].str.contains(label_contains, na=False)
             ]['uid'].values
     
-    def get_node_label(self, uid: int):
+    def get_node_label(self, uid: UID | int):
         '''
         Get the label of a node.
         '''
         return self.uid.loc[self.uid['uid'] == uid]['node_label'].values[0]
 
-    def get_node_attribute(self, uid, attribute: NeuronAttribute):
+    def get_node_attribute(self, uid: UID | int, attribute: NeuronAttribute):
         '''
         Get the attribute of a node.
 
@@ -1054,7 +1054,7 @@ class Connections:
         if input_type == 'uid':
             nid = neuron_id
         elif input_type == 'body_id':
-            nid = self.get_uid_from_bodyid(neuron_id)
+            nid = self.get_first_uid_from_bodyid(neuron_id)
         else:
             raise ValueError(
                 f"Class Connections \
@@ -1105,7 +1105,7 @@ class Connections:
         if input_type == 'uid':
             nid = neuron_id
         elif input_type == 'body_id':
-            nid = self.get_uid_from_bodyid(neuron_id)
+            nid = self.get_first_uid_from_bodyid(neuron_id)
         else:
             raise ValueError(
                 f"Class Connections \
@@ -1129,7 +1129,7 @@ class Connections:
                 Unknown output type {output_type}"
                 )
         
-    def get_bodyids_from_uids(self, uids: UID | list[UID] | list[int]) -> list[BodyId]:
+    def get_bodyids_from_uids(self, uids: UID | list[UID] | list[int] | set[UID] | set[int]) -> list[BodyId]:
         '''
         Get the body ids from the uids.
         '''
@@ -1139,15 +1139,21 @@ class Connections:
             uids = list(uids)
         return self.__convert_uid_to_neuron_ids(uids, output_type='body_id')
 
-    def get_uid_from_bodyid(self, body_id: get_nodes_data.BodyId | int) -> UID:
+    def get_first_uid_from_bodyid(self, body_id: get_nodes_data.BodyId | int) -> UID:
         '''
-        Get the uids from the body id.
+        Get the first uid (if there are more than one) corresponding to a body id.
         '''
         return self.__get_uids_from_bodyids([body_id])[0]
+
+    def get_uids_from_bodyid(self, body_id: get_nodes_data.BodyId | int) -> list[UID]:
+        '''
+        Get the uids corresponding to a body id.
+        '''
+        return self.__get_uids_from_bodyids([body_id])
     
     def get_uids_from_bodyids(self, body_ids: list[BodyId] | list[int]) -> list[UID]:
         '''
-        Get the uids from the body id.
+        Get all the uids from a list of body ids.
         '''
         return self.__get_uids_from_bodyids(body_ids)
 
