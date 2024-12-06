@@ -2,11 +2,15 @@
 Helper functions regarding the ensemble of all motor neurons in the VNC.
 '''
 from connections import Connections
+import typing
+from typing import Optional
+
+from params import UID
 
 def get_leg_motor_neurons(
     data: Connections,
-    leg: str = None,
-    side: str = None):
+    leg: Optional[typing.Literal['f', 'm', 'h']] = None,
+    side: Optional[typing.Literal['LHS', 'RHS']] = None) -> set[UID]:
     '''
     Get the uids of leg motor neurons.
     f: front leg
@@ -29,16 +33,15 @@ def get_leg_motor_neurons(
     leg_motor_neurons = []
     for t in target:
         if side is not None:
-            selection_dict = {
+            neurons_post = data.get_neuron_ids({
                 'subclass:string': t,
                 'class:string': 'motor neuron',
                 'somaSide:string': side
-                }
+                })
         else:
-            selection_dict = {
+            neurons_post = data.get_neuron_ids({
                 'subclass:string': t,
                 'class:string': 'motor neuron'
-                }
-        neurons_post = data.get_neuron_ids(selection_dict) # uids
+                })
         leg_motor_neurons.extend(neurons_post)
     return set(leg_motor_neurons)

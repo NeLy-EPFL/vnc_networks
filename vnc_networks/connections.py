@@ -450,7 +450,7 @@ class Connections:
         elif output_type == 'subdivision':
             return to_return['subdivision'].values
    
-    def __get_uids_from_bodyids(self, body_ids: list[BodyId | int]) -> list[UID]:
+    def __get_uids_from_bodyids(self, body_ids: list[BodyId] | list[int]) -> list[UID]:
         '''
         Get the unique identifiers from a list of body ids.
         '''
@@ -633,7 +633,7 @@ class Connections:
     def initialize(
             self,
             split_neurons: Optional[list[Neuron]] = None,
-            not_connected: Optional[list[int]] = None, # body ids
+            not_connected: Optional[list[BodyId] | list[int]] = None, # body ids
             ):
         if split_neurons is not None and not_connected is not None:
             for neuron in split_neurons:
@@ -747,7 +747,7 @@ class Connections:
         nodes = self.get_nodes(type='body_id')
         return get_nodes_data.get_neuron_bodyids(selection_dict, nodes)
     
-    def get_neuron_ids(self, selection_dict: Optional[dict] = None) -> list[UID]:
+    def get_neuron_ids(self, selection_dict: Optional[dict[NeuronAttribute, str | int | float | bool | BodyId]] = None) -> list[UID]:
         '''
         Get the neuron IDs from the nodes dataframe as loaded in the initial
         dataset, based on a selection dictionary.
@@ -1082,7 +1082,7 @@ class Connections:
                 Unknown output type {output_type}"
                 )
         
-    def get_bodyids_from_uids(self, uids: UID | list[UID | int]) -> list[BodyId]:
+    def get_bodyids_from_uids(self, uids: UID | list[UID] | list[int]) -> list[BodyId]:
         '''
         Get the body ids from the uids.
         '''
@@ -1098,7 +1098,7 @@ class Connections:
         '''
         return self.__get_uids_from_bodyids([body_id])[0]
     
-    def get_uids_from_bodyids(self, body_ids: list[BodyId | int]) -> list[UID]:
+    def get_uids_from_bodyids(self, body_ids: list[BodyId] | list[int]) -> list[UID]:
         '''
         Get the uids from the body id.
         '''
@@ -1237,8 +1237,8 @@ class Connections:
     def paths_length_n(
             self,
             n: int,
-            source: UID | int | list[UID | int],
-            target: UID | int | list[UID | int],
+            source: UID | int | list[UID] | list[int],
+            target: UID | int | list[UID] | list[int],
             syn_threshold: Optional[int] = None,):
         '''
         Get the graph with all the paths of length n between two sets of nodes.

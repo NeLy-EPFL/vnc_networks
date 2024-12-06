@@ -370,9 +370,9 @@ class Neuron:
 
         self.subdivisions = synapses
 
-    def clear_not_connected(self, not_connected: list[int]):
+    def clear_not_connected(self, not_connected: list[BodyId] | list[int]):
         """
-        Clear the subdivions table from neurons that have their bodyid in 
+        Clear the subdivisions table from neurons that have their bodyid in 
         the not_connected list.
         """
         self.subdivisions = self.subdivisions[

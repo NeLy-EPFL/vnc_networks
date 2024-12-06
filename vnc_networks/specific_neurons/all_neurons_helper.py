@@ -2,8 +2,9 @@
 Helper functions regarding the ensemble of all neurons in the VNC.
 '''
 from connections import Connections
+from typing import Optional
 
-def get_full_vnc(not_connected: list[int] = None):
+def get_full_vnc(not_connected: Optional[list[int]] = None):
     try:
         VNC = Connections(from_file='full_VNC')
         print('Loaded full VNC Connections object.')
