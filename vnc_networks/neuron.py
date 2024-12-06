@@ -195,7 +195,6 @@ class Neuron:
                 params.NEUPRINT_SYNAPSE_FILE,
                 columns=[column_name, ':ID(Syn-ID)'],
                 )[synapses_we_care_about]
-            l = pd.DataFrame().loc["this"].values
             synapses_in_roi = roi_column.loc[roi_column[column_name] == True,':ID(Syn-ID)'].values # type: ignore
             self.synapse_df.loc[
                 self.synapse_df['syn_id'].isin(synapses_in_roi),
