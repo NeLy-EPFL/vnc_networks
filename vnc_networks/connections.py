@@ -39,7 +39,7 @@ import utils.nx_utils as nx_utils
 import utils.plots_design as plots_design
 import cmatrix
 from neuron import Neuron
-from typing import Mapping, Optional
+from typing import Optional
 
 
 
@@ -822,7 +822,7 @@ class Connections:
         '''
         Get the graph of the connections.
         '''
-        if not weight_type in [
+        if weight_type not in [
             "syn_count", "eff_weight","syn_count_norm", "eff_weight_norm"
         ]:
             raise ValueError(
@@ -1557,7 +1557,7 @@ class Connections:
 
         if sorting == 'from_index':
             z = [node for node in self.graph.nodes
-                if not node in x and not node in y]
+                if node not_() in x and node not in y]
             assert self.adjacency is not None, "Error: adjacency matrix is None - probably wasn't initialised"
             sort_list_nodes = self.adjacency['lookup']['uid'].to_list()
             # reorder x,y,z by the order of the adjacency matrix indexing

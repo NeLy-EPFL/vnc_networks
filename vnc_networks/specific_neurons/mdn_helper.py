@@ -76,7 +76,7 @@ def get_vnc_split_MDNs_by_neuropil(not_connected: Optional[list[BodyId] | list[i
     try:
         VNC = Connections(from_file='VNC_split_MDNs_by_neuropil')
         print('Loaded VNC Connections object with MDNs split by neuropil.')
-    except:
+    except FileNotFoundError:
         print('Creating VNC Connections object with MDNs split by neuropil...')
         MDNs = []
         for neuron_id in get_mdn_bodyids():
@@ -168,7 +168,7 @@ def get_connectome_with_MDN_t3_branches(n_clusters: int = 3):
     try:
         VNC = Connections(from_file=connectome_name)
         print('Loaded the connectome with T3 branches of MDN split.')
-    except:
+    except FileNotFoundError:
         print('Creating the connectome with T3 branches of MDN split...')
     
         # === creating the split neurons

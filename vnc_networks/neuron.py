@@ -12,7 +12,6 @@ import matplotlib.axes
 import matplotlib.colors
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 import pickle
 import os
 import numpy as np
@@ -195,7 +194,7 @@ class Neuron:
                 params.NEUPRINT_SYNAPSE_FILE,
                 columns=[column_name, ':ID(Syn-ID)'],
                 )[synapses_we_care_about]
-            synapses_in_roi = roi_column.loc[roi_column[column_name] == True,':ID(Syn-ID)'].values # type: ignore
+            synapses_in_roi = roi_column.loc[roi_column[column_name],':ID(Syn-ID)'].values # type: ignore
             self.synapse_df.loc[
                 self.synapse_df['syn_id'].isin(synapses_in_roi),
                 'neuropil'
@@ -355,7 +354,7 @@ class Neuron:
         mapping = {
             val: i for i, val in enumerate(to_map)
             }
-        mapping[np.nan] = -1 if not '-1' in to_map else mapping['-1']
+        mapping[np.nan] = -1 if '-1' not in to_map else mapping['-1']
         print(mapping)
         synapses['subdivision_start'] = synapses[attribute].map(mapping)
         synapses['subdivision_start_name'] = synapses[attribute]
