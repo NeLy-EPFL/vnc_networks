@@ -23,6 +23,7 @@ import numpy as np
 import copy
 
 import params
+from params import UID
 import utils.matrix_utils as matrix_utils
 import utils.matrix_design as matrix_design
 
@@ -769,7 +770,7 @@ class CMatrix:
         return
 
     # --- computations (returns something)
-    def list_downstream_neurons(self, uids: list[int]):
+    def list_downstream_neurons(self, uids: UID | list[UID]):
         """
         Get the downstream neurons of the input neurons.
         """

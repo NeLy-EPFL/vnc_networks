@@ -10,6 +10,7 @@ from neuron import Neuron
 from connections import Connections
 import get_nodes_data
 import params
+from params import BodyId
 from typing import Optional
 
 FOLDER_NAME = 'MDN_specific'
@@ -68,7 +69,7 @@ def get_subdivided_mdns(VNC: Connections,
         ]
     return specific_mdns
 
-def get_vnc_split_MDNs_by_neuropil(not_connected: Optional[list[int]] = None):
+def get_vnc_split_MDNs_by_neuropil(not_connected: Optional[list[BodyId] | list[int]] = None):
     '''
     Get the VNC Connections object with MDNs split by neuropil.
     '''

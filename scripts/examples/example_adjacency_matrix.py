@@ -13,12 +13,13 @@ if __name__ == '__main__':
     
     # Identify specific neurons
     source_neurons = mdn_helper.get_subdivided_mdns(VNC, neuropil, side)
-    target_dict =  { # right hind leg motor neurons
+    
+    # right hind leg motor neurons
+    target_neurons = VNC.get_neuron_ids({
         'class:string': 'motor neuron',
         'somaSide:string': side,
         'subclass:string': neuropil,
-        }
-    target_neurons = VNC.get_neuron_ids(target_dict)
+        })
     
     # Get the graph made of neurons contacting MDNs -> motor neurons
     # within n hops

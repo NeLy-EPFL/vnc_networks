@@ -678,7 +678,7 @@ class Connections:
     # --- copy
     def subgraph(
             self,
-            nodes: Optional[list[int]] = None,
+            nodes: Optional[typing.Iterable[int]] = None,
             edges: Optional[list[tuple[int]]] = None,
             ):
         '''
