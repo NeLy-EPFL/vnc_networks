@@ -97,7 +97,7 @@ class Neuron:
         """
         # neuron to synapse set
         neuron_to_synapse = pd.read_feather(
-            params.NEUPRINT_NEURON_SYNAPSESSET_FILE
+            params.NEUPRINT_NEURON_SYNAPSESET_FILE
             )
         synset_list = neuron_to_synapse.loc[
             neuron_to_synapse[':START_ID(Body-ID)'] == self.bodyId
@@ -106,7 +106,7 @@ class Neuron:
 
         # synapse set to synapse
         synapses = pd.read_feather(
-            params.NEUPRINT_SYNAPSSET_FILE
+            params.NEUPRINT_SYNAPSESET_FILE
             )
         synapses = synapses.loc[
             synapses[':START_ID(SynSet-ID)'].isin(synset_list)
@@ -195,10 +195,8 @@ class Neuron:
                 params.NEUPRINT_SYNAPSE_FILE,
                 columns=[column_name, ':ID(Syn-ID)'],
                 )[synapses_we_care_about]
-            synapses_in_roi = roi_column.loc[
-                roi_column[column_name] == True,
-                ':ID(Syn-ID)'
-                ].values
+            l = pd.DataFrame().loc["this"].values
+            synapses_in_roi = roi_column.loc[roi_column[column_name] == True,':ID(Syn-ID)'].values # type: ignore
             self.synapse_df.loc[
                 self.synapse_df['syn_id'].isin(synapses_in_roi),
                 'neuropil'
@@ -215,7 +213,7 @@ class Neuron:
         
         locations = self.synapse_df['location:point{srid:9157}'].values
         X, Y, Z = [], [], []
-        x,y,z = 0,1,2  # needed for dict parsing as the positions are samed as text
+        x,y,z = 0,1,2  # needed for dict parsing as the positions are same as text
         for loc in locations:
             pos = eval(loc)  # read loc as a dict, use of x,y,z under the hood
             if not isinstance(pos, dict):
@@ -375,6 +373,7 @@ class Neuron:
         Clear the subdivisions table from neurons that have their bodyid in 
         the not_connected list.
         """
+        assert self.subdivisions is not None, "Trying to clear not_connected but subdivisions is None"
         self.subdivisions = self.subdivisions[
             ~self.subdivisions['end_id'].isin(not_connected)
         ]

@@ -19,8 +19,8 @@ CONNECTIONS_FILE = os.path.join(MANC_RAW_DIR, "traced-connections.csv")
 NEUPRINT_RAW_DIR = os.path.join(RAW_DATA_DIR, "manc", "v1.0", "neuprint_manc_v1.0", "neuprint_manc_v1.0_ftr")
 NEUPRINT_NODES_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neurons_manc_v1.ftr")
 NEUPRINT_CONNECTIONS_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neuron_Connections_manc_v1.ftr")
-NEUPRINT_NEURON_SYNAPSESSET_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neuron_to_SynapseSet_manc_v1.ftr")
-NEUPRINT_SYNAPSSET_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_SynapseSet_to_Synapses_manc_v1.ftr")
+NEUPRINT_NEURON_SYNAPSESET_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neuron_to_SynapseSet_manc_v1.ftr")
+NEUPRINT_SYNAPSESET_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_SynapseSet_to_Synapses_manc_v1.ftr")
 NEUPRINT_SYNAPSE_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Synapses_manc_v1.ftr")
 
 # --- Where to save the processed data sets --- #
