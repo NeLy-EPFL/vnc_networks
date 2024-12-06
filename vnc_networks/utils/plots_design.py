@@ -1,6 +1,7 @@
 '''
 Helper functions for making plots look nice.
 '''
+import typing
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -9,9 +10,10 @@ import seaborn as sns
 import pandas as pd
 import warnings
 from matplotlib_venn import venn3
+import matplotlib.colors, matplotlib.colorbar, matplotlib.axes
 
 
-def make_nice_spines(ax, linewidth=params.LINEWIDTH):
+def make_nice_spines(ax: matplotlib.axes.Axes, linewidth=params.LINEWIDTH):
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["left"].set_position(("outward", 2 * linewidth))
@@ -29,7 +31,7 @@ def make_nice_spines(ax, linewidth=params.LINEWIDTH):
     ax = set_ticks(ax)
     return ax
 
-def make_nice_cbar(cbar, linewidth=params.LINEWIDTH):
+def make_nice_cbar(cbar: matplotlib.colorbar.Colorbar, linewidth=params.LINEWIDTH):
     cbar.outline.set_linewidth(0.5*linewidth)
     cbar.ax.tick_params(width=linewidth)
     cbar.ax.tick_params(length=2.5 * linewidth)
@@ -38,7 +40,7 @@ def make_nice_cbar(cbar, linewidth=params.LINEWIDTH):
     cbar.ax.yaxis.label.set_size(params.LABEL_SIZE)
     return cbar
 
-def make_axis_disappear(ax):
+def make_axis_disappear(ax: matplotlib.axes.Axes):
     sides = ["top", "left", "right", "bottom"]
     for side in sides:
         ax.spines[side].set_visible(False)
@@ -46,7 +48,7 @@ def make_axis_disappear(ax):
         ax.set_xticks([])
         ax.set_yticks([])
 
-def set_ticks(ax, n_ticks:int = 5):
+def set_ticks(ax: matplotlib.axes.Axes, n_ticks:int = 5):
     """
     Set the number of ticks on the axis.
     """
@@ -64,8 +66,8 @@ def scatter_xyz_2d(
         X,
         Y,
         Z,
-        ax,
-        cmap=params.red_heatmap,
+        ax: matplotlib.axes.Axes,
+        cmap: str | matplotlib.colors.Colormap | typing.Any = params.red_heatmap,
         marker='o',
         z_label='Z',
         discrete_coloring: bool=False,
@@ -164,7 +166,7 @@ def scatter_xy(
 def venn_3(
         sets: list,
         set_labels: list[str] = ['','',''],
-        ax: plt.Axes = None,
+        ax: typing.Optional[matplotlib.axes.Axes] = None,
         colors=params.custom_palette[:3],
         alpha=0.8,
         title: str = '',
@@ -178,7 +180,7 @@ def venn_3(
         List of sets to compare. Must be a list of 3 sets/lists.
     set_labels : list[str], optional
         Labels for the sets, by default None
-    ax : plt.Axes, optional
+    ax : matplotlib.axes.Axes, optional
         Axis to plot on, by default None
     colors : list, optional
         List of colors to use for the sets, by default params.custom_palette[:3]

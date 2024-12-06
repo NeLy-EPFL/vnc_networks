@@ -2,6 +2,7 @@
 Functions specific to working with MDNs to avoid copying code.
 '''
 import os
+import typing
 import matplotlib.pyplot as plt
 
 import neuron
@@ -9,6 +10,8 @@ from neuron import Neuron
 from connections import Connections
 import get_nodes_data
 import params
+from params import BodyId
+from typing import Optional
 
 FOLDER_NAME = 'MDN_specific'
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)
@@ -17,7 +20,7 @@ os.makedirs(FOLDER, exist_ok=True)
 def get_mdn_bodyids():
     return get_nodes_data.get_neuron_bodyids({'type:string': 'MDN'})
 
-def get_mdn_uids(data: Connections, side: str = None):
+def get_mdn_uids(data: Connections, side: Optional[str] = None):
     if side is None:
         return data.get_neuron_ids({'type:string': 'MDN'})
     
@@ -36,11 +39,13 @@ def get_mdn_uids(data: Connections, side: str = None):
         ]
     return specific_mdns
 
-def get_subdivided_mdns(VNC, neuropil, side):
+def get_subdivided_mdns(VNC: Connections,
+                        neuropil: typing.Literal['LegNp(T1)', 'T1', 'f', 'fl', 'LegNp(T2)', 'T2', 'm', 'ml', 'LegNp(T3)', 'T3', 'h', 'hl'],
+                        side: typing.Literal['L', 'Left', 'l', 'left', 'LHS', 'R', 'Right', 'r', 'right', 'RHS']):
     '''
     Get the uids of MDNs split by neuropil and side.
     neuropil format and side format are flexible to account for different
-    naming conventions accross the dataset.
+    naming conventions across the dataset.
     '''
     if neuropil in ['LegNp(T1)', 'T1', 'f', 'fl']:
         neuropil_ = 'LegNp(T1)'
@@ -64,14 +69,14 @@ def get_subdivided_mdns(VNC, neuropil, side):
         ]
     return specific_mdns
 
-def get_vnc_split_MDNs_by_neuropil(not_connected: list[int] = None):
+def get_vnc_split_MDNs_by_neuropil(not_connected: Optional[list[BodyId] | list[int]] = None):
     '''
     Get the VNC Connections object with MDNs split by neuropil.
     '''
     try:
         VNC = Connections(from_file='VNC_split_MDNs_by_neuropil')
         print('Loaded VNC Connections object with MDNs split by neuropil.')
-    except:
+    except FileNotFoundError:
         print('Creating VNC Connections object with MDNs split by neuropil...')
         MDNs = []
         for neuron_id in get_mdn_bodyids():
@@ -163,7 +168,7 @@ def get_connectome_with_MDN_t3_branches(n_clusters: int = 3):
     try:
         VNC = Connections(from_file=connectome_name)
         print('Loaded the connectome with T3 branches of MDN split.')
-    except:
+    except FileNotFoundError:
         print('Creating the connectome with T3 branches of MDN split...')
     
         # === creating the split neurons

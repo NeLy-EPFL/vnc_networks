@@ -1,12 +1,15 @@
 '''
 Helper functions for making networkx graphs look nice and standardized.
 '''
+import typing
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 from collections import Counter
 from matplotlib.lines import Line2D
 from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.axes
+from typing import Optional
 
 
 import params
@@ -19,17 +22,42 @@ import params
 
 #--- CODE ---#
 
+@typing.overload
 def draw_graph(
-    G: nx.Graph,
-    pos: dict = None,
+    G: nx.Graph | nx.DiGraph,
+    pos: Optional[typing.Mapping] = None,
     pos_nx_method=nx.circular_layout,
-    ax: plt.Axes = None,
+    ax: Optional[matplotlib.axes.Axes] = None,
+    node_size: int = params.NODE_SIZE,
+    return_pos: typing.Literal[False] = False,
+    label_nodes: bool = False,
+    add_legend: bool = True,
+    connection_style="arc3,rad=0.1",
+) -> matplotlib.axes.Axes: ...
+@typing.overload
+def draw_graph(
+    G: nx.Graph | nx.DiGraph,
+    pos: Optional[typing.Mapping] = None,
+    pos_nx_method=nx.circular_layout,
+    ax: Optional[matplotlib.axes.Axes] = None,
+    node_size: int = params.NODE_SIZE,
+    return_pos: typing.Literal[True] = True,
+    label_nodes: bool = False,
+    add_legend: bool = True,
+    connection_style="arc3,rad=0.1",
+) -> tuple[matplotlib.axes.Axes, dict]: ...
+
+def draw_graph(
+    G: nx.Graph | nx.DiGraph,
+    pos: Optional[typing.Mapping] = None,
+    pos_nx_method=nx.circular_layout,
+    ax: Optional[matplotlib.axes.Axes] = None,
     node_size: int = params.NODE_SIZE,
     return_pos: bool = False,
     label_nodes: bool = False,
     add_legend: bool = True,
     connection_style="arc3,rad=0.1",
-) -> dict:
+) -> matplotlib.axes.Axes | tuple[matplotlib.axes.Axes, dict]:
     """Plots the network using the network specs and
     returns the positions of the nodes.
 
@@ -56,6 +84,7 @@ def draw_graph(
 
     if ax is None:
         _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
+    assert ax is not None # needed for type hinting
 
     if pos is None:
         if pos_nx_method == nx.kamada_kawai_layout:
@@ -116,7 +145,7 @@ def draw_graph(
     return ax
 
 def add_edge_legend(
-    ax: plt.Axes,
+    ax: matplotlib.axes.Axes,
     weights: list,
     color_list: list,
     arrow_norm: float,
@@ -226,7 +255,7 @@ def get_ring_pos_sorted_alphabetically(
     node_list: list,
     graph: nx.DiGraph,
     radius: float = 3,
-    center: tuple = (0,0),
+    center: tuple | None = (0,0),
     ):
     """
     Define the positions of the nodes in a circular layout, sorted alphabetically.
@@ -249,12 +278,12 @@ def get_ring_pos_sorted_alphabetically(
 
 def draw_graph_concentric_circles(
     graph: nx.DiGraph,
-    ax: plt.Axes = None,
-    edge_norm: float = None,
-    pos=None,
-    center=None,
-    radius_scaling=1,
-    output='graph'
+    ax: Optional[matplotlib.axes.Axes] = None,
+    edge_norm: Optional[float] = None,
+    pos:Optional[dict]=None,
+    center:Optional[tuple]=None,
+    radius_scaling:float=1,
+    output:str='graph'
 ):
     """
     Draw a graph with the nodes and edges attributes based on the
@@ -264,7 +293,7 @@ def draw_graph_concentric_circles(
     ----------
     graph : nx.DiGraph
         The graph to draw
-    ax : plt.Axes, optional
+    ax : Optional[matplotlib.axes.Axes], optional
         The axes to plot on, by default None
     edge_norm : float, optional
         The normalisation factor for the edge width, by default None
@@ -374,10 +403,10 @@ def draw_graph_concentric_circles(
 def draw_graph_grouped_by_attribute(
         graph: nx.DiGraph,
         attribute: str,
-        restricted_connections: str = None,
-        position_reference: str = None,
-        center_instance: str = None,
-        center_nodes: list = None,
+        restricted_connections: Optional[str] = None,
+        position_reference: Optional[str] = None,
+        center_instance: Optional[str] = None,
+        center_nodes: Optional[list] = None,
         ):
     """
     The plot resembles a large flower, where each petal is a cluster of neurons.
@@ -463,7 +492,7 @@ def draw_graph_grouped_by_attribute(
         if position_reference == 'inhibitory': 
             subgraph = nx_utils.remove_excitatory_connections(subgraph)
         elif position_reference == 'excitatory':
-            subgraph = nx_utils.remove_inhbitory_connections(subgraph)
+            subgraph = nx_utils.remove_inhibitory_connections(subgraph)
 
         # draw the graph
         pos = draw_graph_concentric_circles(
@@ -486,7 +515,7 @@ def draw_graph_grouped_by_attribute(
     if position_reference == 'inhibitory': 
         subgraph = nx_utils.remove_excitatory_connections(subgraph)
     elif position_reference == 'excitatory':
-        subgraph = nx_utils.remove_inhbitory_connections(subgraph)
+        subgraph = nx_utils.remove_inhibitory_connections(subgraph)
     pos = draw_graph_concentric_circles(
         subgraph,
         center=(0,0),
@@ -502,7 +531,7 @@ def draw_graph_grouped_by_attribute(
     if restricted_connections == 'inhibitory': 
         graph = nx_utils.remove_excitatory_connections(graph)
     elif restricted_connections == 'excitatory':
-        graph = nx_utils.remove_inhbitory_connections(graph)
+        graph = nx_utils.remove_inhibitory_connections(graph)
 
     edge_norm = max([np.abs(graph.edges[e]["weight"]) for e in graph.edges]) / 5
     widths = [np.abs(graph.edges[e]["weight"]) / edge_norm for e in graph.edges]
@@ -556,15 +585,36 @@ def draw_graph_grouped_by_attribute(
         )
     return ax
 
+
+@typing.overload
 def draw_graph_concentric_by_attribute(
     graph: nx.DiGraph,
     attribute: str,
     center_nodes: list[int],
     target_nodes: list[int],
-    ax: plt.Axes = None,
+    ax: Optional[matplotlib.axes.Axes] = None,
+    return_pos: typing.Literal[False] = False,
+    label_nodes: bool = False,
+    ) -> matplotlib.axes.Axes: ...
+@typing.overload
+def draw_graph_concentric_by_attribute(
+    graph: nx.DiGraph,
+    attribute: str,
+    center_nodes: list[int],
+    target_nodes: list[int],
+    ax: Optional[matplotlib.axes.Axes] = None,
+    return_pos: typing.Literal[True] = True,
+    label_nodes: bool = False,
+    ) -> tuple[matplotlib.axes.Axes, dict]: ...
+def draw_graph_concentric_by_attribute(
+    graph: nx.DiGraph,
+    attribute: str,
+    center_nodes: list[int],
+    target_nodes: list[int],
+    ax: Optional[matplotlib.axes.Axes] = None,
     return_pos: bool = False,
     label_nodes: bool = False,
-    ):
+    ) -> matplotlib.axes.Axes | tuple[matplotlib.axes.Axes, dict]:
     '''
     Represent the graph with 3 concentric circles.
     center_nodes are on a center circle, typically input neurons.
@@ -663,6 +713,7 @@ def draw_graph_concentric_by_attribute(
     # --- draw the graph ---
     if ax is None:
         fig, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
+    assert ax is not None # needed for type hinting
     edge_norm = max([np.abs(graph.edges[e]["weight"]) for e in graph.edges]) / 5
     widths = [np.abs(graph.edges[e]["weight"]) / edge_norm for e in graph.edges]
     edge_colors = define_edge_colors(graph)
@@ -708,14 +759,32 @@ def draw_graph_concentric_by_attribute(
         return ax, positions
     return ax   
 
+@typing.overload
 def draw_graph_in_out_center_circle(
     graph: nx.DiGraph,
     top_nodes: list[int],
     bottom_nodes: list[int],
-    ax: plt.Axes = None,
+    ax: Optional[matplotlib.axes.Axes] = None,
+    return_pos: typing.Literal[False] = False,
+    label_nodes: bool = False,
+    ) -> matplotlib.axes.Axes: ...
+@typing.overload
+def draw_graph_in_out_center_circle(
+    graph: nx.DiGraph,
+    top_nodes: list[int],
+    bottom_nodes: list[int],
+    ax: Optional[matplotlib.axes.Axes] = None,
+    return_pos: typing.Literal[True] = True,
+    label_nodes: bool = False,
+    ) -> tuple[matplotlib.axes.Axes, dict]: ...
+def draw_graph_in_out_center_circle(
+    graph: nx.DiGraph,
+    top_nodes: list[int],
+    bottom_nodes: list[int],
+    ax: Optional[matplotlib.axes.Axes] = None,
     return_pos: bool = False,
     label_nodes: bool = False,
-    ):
+    ) -> matplotlib.axes.Axes | tuple[matplotlib.axes.Axes, dict]:
     '''
     Represent the graph with an upper and lower rows of nodes,
     and a central circle.
@@ -723,6 +792,7 @@ def draw_graph_in_out_center_circle(
     # === prepare the display of the nodes ===
     if ax is None:
         fig, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
+    assert ax is not None # needed for type hinting
 
     # === prepare the positions of the nodes ===
     positions = {}
@@ -815,9 +885,9 @@ def plot_xyz(
         graph: nx.DiGraph,
         x: list,
         y: list,
-        z: list = None,
-        sorting = None,
-        pos: dict = None,
+        z: Optional[list] = None,
+        sorting: Optional[str | list] = None,
+        pos: Optional[dict] = None,
     ):
     """
     Plot the graph in 3D, with the nodes distributed on the x, y and z axes.
@@ -931,7 +1001,7 @@ def draw_3d(
     fig.tight_layout()
     return ax
 
-def _format_axes_3d(ax):
+def _format_axes_3d(ax: Axes3D):
         """Visualization options for the 3D axes."""
         # set the camera view
         ax.view_init(elev=10, azim=45)

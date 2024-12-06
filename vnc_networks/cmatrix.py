@@ -11,15 +11,19 @@ The lookup table is used to convert between body ids and matrix indices. This
 conversion is kept internally to the class.
 """
 
+from typing import Optional
+import typing
 import scipy as sc
 import scipy.cluster.hierarchy as sch
 import pandas as pd
 import os
+import matplotlib.axes
 import matplotlib.pyplot as plt
 import numpy as np
 import copy
 
 import params
+from params import UID, BodyId
 import utils.matrix_utils as matrix_utils
 import utils.matrix_design as matrix_design
 
@@ -71,7 +75,7 @@ class CMatrix:
     def __update_indexing(self):
         '''
         Updates the indexing of the lookup table to match the new matrix.
-        Everytime the matrix is restricted, the lookup table must be updated and
+        Every time the matrix is restricted, the lookup table must be updated and
         the indexing shifted back to a continuous range starting from 0.
         '''
         lookup = self.get_lookup().copy()
@@ -187,17 +191,17 @@ class CMatrix:
         self.__update_indexing()
         return
     
-    def __convert_uid_to_index(self, uid: list, allow_empty=True):
+    def __convert_uid_to_index(self, uid: int | list[int], allow_empty=True):
         """
         input: uid
         output: indices
         if allow_empty is False, raise an error if the uid is not found.
         """
         # format inputs
-        if uid is None or len(uid) == 0:
-            raise ValueError("uid is None or empty.")
         if isinstance(uid, int):
             uid = [uid]
+        if uid is None or len(uid) == 0:
+            raise ValueError("uid is None or empty.")
 
         # find indices
         empty_matches = []
@@ -223,7 +227,7 @@ class CMatrix:
                 print(f"Warning: {len(empty_matches)} uid(s) not found.")
         return row_indices, column_indices
 
-    def __convert_index_to_uid(self, index, axis='row'):
+    def __convert_index_to_uid(self, index: int | list[int], axis:typing.Literal["row", "column"]='row'):
         """
         Get the body ids corresponding to index (int or list[int]).
         The indexing must be either 'row' or 'column'.        
@@ -304,7 +308,7 @@ class CMatrix:
 
         return body_ids
 
-    def __get_uids_from_bodyids(self, body_ids: list):
+    def __get_uids_from_bodyids(self, body_ids: list[BodyId] | list[int]) -> list[UID]:
         """
         Get the uids corresponding to the body_ids.
         Careful that this is not a 1-on-1 mapping as a given body_id might
@@ -319,13 +323,13 @@ class CMatrix:
         uids = lookup['uid'].tolist()
         return uids
 
-    def __reorder_row_indexing(self, order):
+    def __reorder_row_indexing(self, order: list[int]):
         """
         Reorder the indexing of the lookup table according to the order.
         The order of indices given as arguments will be mapped to [0,1,2,...].
         """
         lookup = self.get_lookup().copy()
-        mapping = dict(zip(order, range(len(order))))
+        mapping: dict[int | float, int | float] = dict(zip(order, range(len(order))))
         mapping[np.nan] = np.nan
         # sort he column 'row_index' according to the order
         lookup['row_index'] = lookup['row_index'].map(
@@ -334,13 +338,13 @@ class CMatrix:
         self.lookup = lookup
         return
     
-    def __reorder_column_indexing(self, order):
+    def __reorder_column_indexing(self, order: list[int]):
         """
         Reorder the indexing of the lookup table according to the order.
         The order of indices given as arguments will be mapped to [0,1,2,...].
         """
         lookup = self.get_lookup().copy()
-        mapping = dict(zip(order, range(len(order))))
+        mapping: dict[int | float, int | float] = dict(zip(order, range(len(order))))
         mapping[np.nan] = np.nan
         # sort he column 'column_index' according to the order
         lookup['column_index'] = lookup['column_index'].map(
@@ -375,7 +379,7 @@ class CMatrix:
         '''
         return self.lookup
         
-    def get_uids(self, sub_indices: list = None, axis: str = 'row') -> list:
+    def get_uids(self, sub_indices: Optional[list[int]] = None, axis: typing.Literal["row", "column"] = 'row') -> list:
         """
         Returns the uids of the nodes of the adjacency matrix.
 
@@ -404,9 +408,9 @@ class CMatrix:
     
     def get_row_indices(
             self,
-            sub_uid: list = None,
+            sub_uid: Optional[list] = None,
             allow_empty: bool = True,
-            input_type: str = 'uid',
+            input_type: typing.Literal["uid","body_id"] = 'uid',
         ) -> list:
         """
         Returns the indices of the adjacency matrix references by the body_id list.
@@ -444,9 +448,9 @@ class CMatrix:
 
     def get_column_indices(
             self,
-            sub_uid: list = None,
+            sub_uid: Optional[list] = None,
             allow_empty: bool = True,
-            input_type: str = 'uid',
+            input_type: typing.Literal["uid","body_id"] = 'uid',
         ) -> list:
         """
         Returns the indices of the adjacency matrix references by the body_id
@@ -500,13 +504,13 @@ class CMatrix:
     # --- setters
     def restrict_from_to(
             self,
-            row_ids: list = None,
-            column_ids: list = None,
+            row_ids: Optional[list] = None,
+            column_ids: Optional[list] = None,
             allow_empty: bool = True,
-            input_type: str = 'body_id',
+            input_type: typing.Literal["uid","body_id"] = 'body_id',
         ):
         '''
-        Restricts the adjacency matrixand lookup table to a subset of uids,
+        Restricts the adjacency matrix and lookup table to a subset of uids,
         with different uids for rows and columns.
 
         Parameters
@@ -573,7 +577,7 @@ class CMatrix:
             self,
             rows: list,
             allow_empty: bool = True,
-            input_type: str = 'uid',
+            input_type: typing.Literal["uid","body_id"] = 'uid',
             ):
         '''
         Restricts the adjacency matrix to a subset of rows.
@@ -603,7 +607,7 @@ class CMatrix:
             self,
             columns: list,
             allow_empty: bool = True,
-            input_type: str = 'uid',
+            input_type: typing.Literal["uid","body_id"] = 'uid',
             ):
         '''
         Restricts the adjacency matrix to a subset of columns (body_ids).
@@ -695,15 +699,14 @@ class CMatrix:
         self.__reorder_column_indexing(order=order)
         return
 
-    def markov_clustering(self, inflation: float = 2.0, iterations: int = 100):
+    def markov_clustering(self, inflation: int = 2, iterations: int = 100):
         '''
         Applies the Markov clustering algorithm to the adjacency matrix.
 
         Parameters
         ----------
-        inflation : float, optional
+        inflation : int, optional
             The inflation parameter of the Markov clustering algorithm.
-            The default is 2.0.
         iterations : int, optional
             The number of iterations of the Markov clustering algorithm.
             The default is 100.
@@ -730,7 +733,7 @@ class CMatrix:
         '''
         Squares the adjacency matrix, where the sum over a_ik*a_kj
         is only computed if the product of a_ik and a_kj is positive.
-        In practice this yield the sum of paths lenght 2 that are either
+        In practice this yield the sum of paths length 2 that are either
         twice excitatory or twice inhibitory.
         '''
         matrix = copy.deepcopy(self.get_matrix())
@@ -745,7 +748,7 @@ class CMatrix:
         '''
         Squares the adjacency matrix, where the sum over a_ik*a_kj
         is only computed if the product of a_ik and a_kj is negative.
-        In practice this yield the sum of paths lenght 2 that are either
+        In practice this yield the sum of paths length 2 that are either
         excitatory then inhibitory or inhibitory then excitatory.
         '''
         matrix = copy.deepcopy(self.get_matrix())
@@ -767,7 +770,7 @@ class CMatrix:
         return
 
     # --- computations (returns something)
-    def list_downstream_neurons(self, uids: list[int]):
+    def list_downstream_neurons(self, uids: UID | list[UID]):
         """
         Get the downstream neurons of the input neurons.
         """
@@ -778,7 +781,7 @@ class CMatrix:
         matrix = cmatrix_copy.get_matrix()
         non_zero_columns = set(matrix.nonzero()[1]) # columns with non-zero values
         downstream_uids = cmatrix_copy.get_uids(
-            sub_indices=non_zero_columns,
+            sub_indices=list(non_zero_columns),
             axis='column'
             )
         return downstream_uids
@@ -794,12 +797,12 @@ class CMatrix:
         matrix = cmatrix_copy.get_matrix()
         non_zero_rows = set(matrix.nonzero()[0])
         upstream_uids = cmatrix_copy.get_uids(
-            sub_indices=non_zero_rows,
+            sub_indices=list(non_zero_rows),
             axis='row'
             )
         return upstream_uids
 
-    def build_distance_matrix(self, method: str = 'cosine'):
+    def build_distance_matrix(self, method: typing.Literal['cosine_in', 'cosine_out', 'cosine', 'euclidean'] = 'cosine'):
         """
         Build a similarity matrix from the adjacency matrix.
 
@@ -851,12 +854,12 @@ class CMatrix:
 
     def detect_clusters(
             self,
-            distance : str = 'cosine',
-            method: str = 'hierarchical',
+            distance : typing.Literal['cosine_in', 'cosine_out', 'cosine', 'euclidean'] = 'cosine',
+            method: typing.Literal["hierarchical","markov"] = 'hierarchical',
             cutoff: float = 0.5,
             cluster_size_cutoff: int = 2,
             show_plot: bool = False,
-            cluster_data_type: str = 'uid',
+            cluster_data_type: typing.Literal['uid', 'index', 'body_id'] = 'uid',
             ):
         """
         Detects the clusters in the adjacency matrix.
@@ -970,10 +973,27 @@ class CMatrix:
         plt.savefig(title_)
         return
     
+    @typing.overload
     def imshow(
             self,
             title:str='test',
-            vmax:float=None,
+            vmax:Optional[float]=None,
+            cmap=params.diverging_heatmap,
+            savefig:typing.Literal[True]=True,
+        ) -> None: ...
+    @typing.overload
+    def imshow(
+            self,
+            title:str='test',
+            vmax:Optional[float]=None,
+            cmap=params.diverging_heatmap,
+            savefig:typing.Literal[False]=False,
+        ) -> tuple[matplotlib.axes.Axes, str]: ...
+    
+    def imshow(
+            self,
+            title:str='test',
+            vmax:Optional[float]=None,
             cmap=params.diverging_heatmap,
             savefig:bool=True,
         ):

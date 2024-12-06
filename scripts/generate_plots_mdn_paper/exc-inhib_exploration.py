@@ -12,6 +12,7 @@ neuron, based on normalised matrix multiplication.
 Specific use case: MDN|Ti to MNs|Ti, get a quantification of how much 
 innervation there is and whether T1 is more linear than T3.
 '''
+import typing
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -66,8 +67,8 @@ def _sum_local_connections(args):
 
 # -------------------------- Main functions -------------------------- #
 def simple_count_in_neuropil(
-    side: str,
-    leg: str, 
+    side: typing.Literal['L', 'R'],
+    leg: typing.Literal['f', 'm', 'h'], 
 ):
     """
     Count the number of leg motor neurons reached from MDN by restricting

@@ -2,12 +2,14 @@
 Module containing utility functions for processing nx graphs.
 '''
 import networkx as nx
+from typing import Optional
 
-def remove_inhibitory_connections(graph: nx.DiGraph):
+def remove_inhibitory_connections(graph: nx.DiGraph) -> nx.DiGraph:
     """
     Remove inhibitory connections from the graph.
     """
     graph_ = graph.copy()
+    assert isinstance(graph_, nx.DiGraph) # for type hinting
     edges_to_remove = []
     for edge in graph_.edges():
         if graph_.edges[edge]["weight"] < 0:
@@ -15,11 +17,12 @@ def remove_inhibitory_connections(graph: nx.DiGraph):
     graph_.remove_edges_from(edges_to_remove)
     return graph_
 
-def remove_excitatory_connections(graph: nx.DiGraph):
+def remove_excitatory_connections(graph: nx.DiGraph) -> nx.DiGraph:
     """
     Remove excitatory connections from the graph.
     """
     graph_ = graph.copy()
+    assert isinstance(graph_, nx.DiGraph) # for type hinting
     edges_to_remove = []
     for edge in graph_.edges():
         if graph_.edges[edge]["weight"] > 0:
@@ -27,14 +30,14 @@ def remove_excitatory_connections(graph: nx.DiGraph):
     graph_.remove_edges_from(edges_to_remove)
     return graph_
 
-def get_subgraph(graph: nx.DiGraph, nodes: list):
+def get_subgraph(graph: nx.DiGraph, nodes: list) -> nx.DiGraph:
     """
     Get the subgraph of the graph containing only the nodes in the list.
     """
     graph_ = graph.copy()
     return graph_.subgraph(nodes)
 
-def get_subgraph_from_edges(graph: nx.DiGraph, edges: list):
+def get_subgraph_from_edges(graph: nx.DiGraph, edges: list) -> nx.DiGraph:
     """
     Get the subgraph of the graph containing only the nodes in the list.
     """
@@ -56,8 +59,8 @@ def get_subgraph_from_edges(graph: nx.DiGraph, edges: list):
 def sort_nodes(
         graph: nx.DiGraph,
         nodes: list, 
-        sorting: str = None,
-        ref: list = None
+        sorting: Optional[str] = None,
+        ref: list = []
     ):
     """
     Sort the nodes according to the sorting parameter.
@@ -147,11 +150,12 @@ def sort_nodes(
 
     return nodes
     
-def threshold_graph(graph: nx.DiGraph, threshold: int = None):
+def threshold_graph(graph: nx.DiGraph, threshold: Optional[int] = None):
     """
     Threshold the graph by removing edges with a weight below the threshold.
     """
     graph_ = graph.copy()
+    assert isinstance(graph_, nx.DiGraph) # for type hinting
     if threshold is None:
         return graph_
     else:
