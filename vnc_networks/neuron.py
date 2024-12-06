@@ -7,6 +7,9 @@ Possible upgrade: possible to match synapses on the pre and post neurons
 by using the dataset "Neuprint_Synapse_Connections_manc_v1.ftr" which
 has two columns: ':START_ID(Syn-ID)' and ':END_ID(Syn-ID)'.
 '''
+import typing
+import matplotlib.axes
+import matplotlib.colors
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -17,10 +20,12 @@ from sklearn.cluster import KMeans
 
 
 import params
+from params import BodyId, NeuronAttribute
+from typing import Optional
 from  get_nodes_data import load_data_neuron
 import utils.plots_design as plot_design
 
-NEURON_BASE_ATTRIBUTES = [
+NEURON_BASE_ATTRIBUTES: list[NeuronAttribute] = [
     'systematicType:string', 
     'hemilineage:string', 
     'somaSide:string', 
@@ -37,7 +42,7 @@ NEURON_BASE_ATTRIBUTES = [
 ]
 
 class Neuron:
-    def __init__(self, bodyId: int = None, from_file: str = None):
+    def __init__(self, bodyId: Optional[BodyId | int] = None, from_file: Optional[str] = None):
         """
         Initialise the neuron.
         Loading possible either from scratch using only the bodyId, or
@@ -57,6 +62,7 @@ class Neuron:
         if from_file is not None:
             self.__load(from_file)
         else:
+            assert bodyId is not None, "To initialise a `Neuron`, you must provide either a `bodyId` or `from_file`, but both were None."
             self.bodyId = bodyId
             self.data = load_data_neuron(bodyId, NEURON_BASE_ATTRIBUTES)
             self.__initialise_base_attributes()
@@ -201,7 +207,7 @@ class Neuron:
         
     def __explicit_synapse_positions(self):
         """
-        convert the synapse locations deifned in thte text version of a dict
+        convert the synapse locations defined in the text version of a dict
         to explicit position columns in the synapse df.
         """
         if 'X' in self.synapse_df.columns: # already done
@@ -322,7 +328,7 @@ class Neuron:
         if attribute == 'neuropil':
             self.__categorical_neuropil_information()
         if attribute not in self.synapse_df.columns:
-            raise (f"Attribute {attribute} not in synapse dataframe.")
+            raise AttributeError(f"Attribute {attribute} not in synapse dataframe.")
         # create a connections_df table involving the Neuron.
         # It has two columns 'id_pre' and 'id_post' with the bodyId of the pre and post neurons
         # and a columns 'subdivision_pre'  with the index associated to the attribute split on.
@@ -386,7 +392,7 @@ class Neuron:
     def cluster_synapses_spatially(
             self,
             n_clusters: int = 3,
-            on_attribute: dict = None,
+            on_attribute: Optional[dict] = None,
             ):
         """
         Cluster the synapses spatially using K-Means clustering.
@@ -438,24 +444,26 @@ class Neuron:
     # --- visualisation
     def plot_synapse_distribution(
             self,
-            color_by: str = None,  
+            color_by: Optional[str] = None,
             discrete_coloring: bool = True,
             threshold: bool = False,
-            cmap: str = params.colorblind_palette,
-            ax: plt.Axes = None,
+            cmap: str | matplotlib.colors.Colormap | typing.Any = params.colorblind_palette,
+            ax: Optional[matplotlib.axes.Axes] = None,
             savefig: bool = True,
             ):
         """
         Plot the synapse distribution for the neuron.
         """
+        plt.get_cmap()
         X, Y, Z = self.get_synapse_distribution(threshold=threshold)
         if ax is None:
-            fig, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
+            fig, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)[1]
+        assert ax is not None # needed for type hinting
         if color_by is None:
             plot_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax, cmap=cmap)
         else:
             if color_by not in self.synapse_df.columns:
-                raise (f"Attribute {color_by} not in synapse dataframe.")
+                raise AttributeError(f"Attribute {color_by} not in synapse dataframe.")
             # map self.synapse_df[color_by] categorical values to integers
             if threshold:
                 syn_count = self.synapse_df.groupby('end_id').size().reset_index()

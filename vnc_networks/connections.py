@@ -2,7 +2,7 @@
 Initializes the connections class.
 Possible use cases are processing the adjacency matrix from a set of neurons,
 or displaying the connections between neurons in a graph.
-Useful class when juggeling between different representations of the connectome.
+Useful class when juggling between different representations of the connectome.
 
 Each neuron is referenced by a tuple of (bodyId, subdivision) where the 
 subdivision is a number indexing a set of synapses from the same neuron. This
@@ -19,16 +19,19 @@ connections = Connections(neurons_pre, neurons_post)
 connections.initialize()
 ``` 
 '''
+import typing
 import pandas as pd
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
+import matplotlib.axes
 import os
 import seaborn as sns
 import pickle
 
 
 import params
+from params import BodyId, UID, NeuronAttribute
 import get_nodes_data
 import utils.nx_design as nx_design
 import utils.matrix_utils as matrix_utils
@@ -36,6 +39,12 @@ import utils.nx_utils as nx_utils
 import utils.plots_design as plots_design
 import cmatrix
 from neuron import Neuron
+from typing import Optional
+
+
+
+## ---- Types ---- ##
+SortingStyle = typing.Literal['degree','betweenness','from_index','input_clustering','centrality','output_clustering']
 
 ## ---- Constants ---- ##
 FIGSIZE = (8, 8)
@@ -46,9 +55,9 @@ DPI = 300
 class Connections:
     def __init__(
             self,
-            neurons_pre: list[int] = None,
-            neurons_post: list[int] = None,
-            from_file: str = None,
+            neurons_pre: Optional[list[int] | list[BodyId]] = None,
+            neurons_post: Optional[list[int] | list[BodyId]] = None,
+            from_file: Optional[str] = None,
         ):
         '''
         If no neurons_post are given, the class assumes the same neurons as pre-synaptic.
@@ -161,7 +170,7 @@ class Connections:
         self.connections = self.connections.drop(columns=["in_total"])
         return
     
-    def __remove_connections_between(self, not_connected: list[int] = None):
+    def __remove_connections_between(self, not_connected: Optional[list[BodyId] | list[int]] = None):
         '''
         Remove connections between neurons in the not_connected list.
 
@@ -309,7 +318,7 @@ class Connections:
                 ignore_index=True
                 )
 
-    def __split_neurons_in_connections(self, split_neurons: list[Neuron] = None):
+    def __split_neurons_in_connections(self, split_neurons: Optional[list[Neuron]] = None):
         """
         Divide the neurons that have more than one subdivision into multiple nodes.
         Each subdivision is considered as a separate node, based on the list of
@@ -321,7 +330,7 @@ class Connections:
         This means that when a neuron is subdivided, the splitting is different
         depending on whether the neuron is pre- or post-synaptic.
         - If the split neuron is pre-synaptic, the axon is split into multiple
-        branches, each targeting a different post-synaptic neuron. The syanptic
+        branches, each targeting a different post-synaptic neuron. The synaptic
         weights are divided accordingly.
         - If the split neuron is post-synaptic, the dendrites converge, and the
         split neurons receive the same input from the pre-synaptic neuron. In
@@ -409,7 +418,7 @@ class Connections:
     def __convert_uid_to_neuron_ids(
         self,
         uids,
-        output_type: str = 'tuple',
+        output_type: typing.Literal["tuple", "table", "body_id", "subdivision"] = 'tuple',
         ):
         '''
         Convert a list of unique identifiers to a list of neuron ids.
@@ -441,7 +450,7 @@ class Connections:
         elif output_type == 'subdivision':
             return to_return['subdivision'].values
    
-    def __get_uids_from_bodyids(self, body_ids: list[int]):
+    def __get_uids_from_bodyids(self, body_ids: list[BodyId | int]) -> list[UID]:
         '''
         Get the unique identifiers from a list of body ids.
         '''
@@ -496,7 +505,7 @@ class Connections:
             )
         self.__defined_attributes_in_graph.append("node_class")
         
-    def __name_neurons(self, split_neurons: list[Neuron] = None):
+    def __name_neurons(self, split_neurons: Optional[list[Neuron]] = None):
         """
         For the neurons that are split, append the subdivision label
         to the neuron name in the graph.
@@ -532,7 +541,7 @@ class Connections:
                     'node_label'
                     ] += row['subdivision_start_name']
             
-    def __build_adjacency_matrices(self, nodelist: list[int] = None):
+    def __build_adjacency_matrices(self, nodelist: Optional[list[int]] = None):
         '''
         Create a dictionary with relevant connectivity matrices
         and the index ordering table.
@@ -576,7 +585,7 @@ class Connections:
         }
         return
 
-    def __get_node_attributes(self, attribute: str, default='None'):
+    def __get_node_attributes(self, attribute: NeuronAttribute, default='None'):
         '''
         Get the node attributes for the graph.
         If the attribute is not present, identify it in the nodes dataframe and add it to the graph.
@@ -623,8 +632,8 @@ class Connections:
     # --- initialize
     def initialize(
             self,
-            split_neurons: list[Neuron] = None,
-            not_connected: list[int] = None, # body ids
+            split_neurons: Optional[list[Neuron]] = None,
+            not_connected: Optional[list[int]] = None, # body ids
             ):
         if split_neurons is not None and not_connected is not None:
             for neuron in split_neurons:
@@ -642,8 +651,8 @@ class Connections:
     # --- copy
     def subgraph(
             self,
-            nodes: list[int] = None,
-            edges: list[tuple[int]] = None,
+            nodes: Optional[list[int]] = None,
+            edges: Optional[list[tuple[int]]] = None,
             ):
         '''
         Copy operator of the Connections class that returns a new object
@@ -731,14 +740,14 @@ class Connections:
             ]
         return self.subgraph(traced_nodes)
     
-    def get_neuron_bodyids(self, selection_dict: dict = None) -> list[int]:
+    def get_neuron_bodyids(self, selection_dict: Optional[dict] = None):
         '''
         Get the neuron Body-IDs from the nodes dataframe based on a selection dictionary.
         '''
         nodes = self.get_nodes(type='body_id')
         return get_nodes_data.get_neuron_bodyids(selection_dict, nodes)
     
-    def get_neuron_ids(self, selection_dict: dict = None) -> list[int]:
+    def get_neuron_ids(self, selection_dict: Optional[dict] = None) -> list[UID]:
         '''
         Get the neuron IDs from the nodes dataframe as loaded in the initial
         dataset, based on a selection dictionary.
@@ -755,8 +764,8 @@ class Connections:
     
     def get_dataframe(
             self,
-            specific_start_uids: list[int] = None,
-            specific_end_uids: list[int] = None
+            specific_start_uids: Optional[list[int]] = None,
+            specific_end_uids: Optional[list[int]] = None
             ):
         '''
         Get the connections table.
@@ -779,7 +788,7 @@ class Connections:
     def get_graph(
             self,
             weight_type: str = 'eff_weight',
-            syn_threshold: int = None
+            syn_threshold: Optional[int] = None
             ):
         '''
         Get the graph of the connections.
@@ -812,7 +821,7 @@ class Connections:
     
     def get_adjacency_matrix(
             self,
-            type_: str = "syn_count",
+            type_: typing.Literal["norm", "unnorm", "syn_count"] = "syn_count",
             hops: int = 1,
             intermediates: bool = True
         ):
@@ -831,7 +840,7 @@ class Connections:
             return matrix_utils.connections_up_to_n_hops(mat_, hops)
         return matrix_utils.connections_at_n_hops(mat_, hops)
 
-    def get_cmatrix(self, type_: str = 'norm'): # cmatrix object
+    def get_cmatrix(self, type_: typing.Literal['norm', 'unnorm', 'syn_count'] = 'norm'): # cmatrix object
         '''
         Returns the cmatrix object of the connections.
         By default, the normalized adjacency matrix is used.
@@ -847,7 +856,7 @@ class Connections:
     def get_nx_graph(
             self,
             hops: int = 1,
-            nodes: list[int] = None,
+            nodes: Optional[list[int]] = None,
             ):
         '''
         Get the effective graph up to n hops.
@@ -895,7 +904,7 @@ class Connections:
             self,
             start_id: int,
             end_id: int,
-            input_type: str = 'uid'
+            input_type: typing.Literal["uid", "body_id"] = 'uid'
             ):
         '''
         Get the number of synapses between two neurons.
@@ -905,8 +914,8 @@ class Connections:
                 (self.connections[':START_ID(Body-ID)'] == start_id)
                 & (self.connections[':END_ID(Body-ID)'] == end_id)
                 ]
-            # drop subdivion duplicates in the post synaptic neuron
-            # (from duplucation policy in neuron splitting)
+            # drop subdivision duplicates in the post synaptic neuron
+            # (from duplication policy in neuron splitting)
             table = table.drop_duplicates(
                 subset=[
                     ':START_ID(Body-ID)','subdivision_start',':END_ID(Body-ID)'
@@ -955,7 +964,7 @@ class Connections:
         else:
             return all[uid]
 
-    def get_neurons_in_neuropil(self, neuropil: str, side: str = None):
+    def get_neurons_in_neuropil(self, neuropil: str, side: Optional[str] = None):
         '''
         Get the uids of neurons in a given neuropil.
         If a side is given, only the neurons on that side are considered.
@@ -998,7 +1007,7 @@ class Connections:
         if input_type == 'uid':
             nid = neuron_id
         elif input_type == 'body_id':
-            nid = self.get_uids_from_bodyid(neuron_id)[0]
+            nid = self.get_uid_from_bodyid(neuron_id)[0]
         else:
             raise ValueError(
                 f"Class Connections \
@@ -1049,11 +1058,11 @@ class Connections:
         if input_type == 'uid':
             nid = neuron_id
         elif input_type == 'body_id':
-            nid = self.get_uids_from_bodyid(neuron_id)[0]
+            nid = self.get_uid_from_bodyid(neuron_id)[0]
         else:
             raise ValueError(
-                f"Class Connections ::: > get_neurons_upstream_of():\
-                Unknown input type {input_type}"
+                f"Class Connections \
+                ::: > get_neurons_downstream_of(): Unknown input type {input_type}"
                 )
         
         # Get the upstream neurons
@@ -1072,8 +1081,8 @@ class Connections:
                 f"Class Connections ::: > get_neurons_upstream_of():\
                 Unknown output type {output_type}"
                 )
-           
-    def get_bodyids_from_uids(self, uids):
+        
+    def get_bodyids_from_uids(self, uids: UID | list[UID | int]) -> list[BodyId]:
         '''
         Get the body ids from the uids.
         '''
@@ -1083,11 +1092,17 @@ class Connections:
             uids = list(uids)
         return self.__convert_uid_to_neuron_ids(uids, output_type='body_id')
 
-    def get_uids_from_bodyid(self, body_id: int):
+    def get_uid_from_bodyid(self, body_id: get_nodes_data.BodyId | int) -> UID:
         '''
         Get the uids from the body id.
         '''
-        return self.__get_uids_from_bodyids([body_id])
+        return self.__get_uids_from_bodyids([body_id])[0]
+    
+    def get_uids_from_bodyids(self, body_ids: list[BodyId | int]) -> list[UID]:
+        '''
+        Get the uids from the body id.
+        '''
+        return self.__get_uids_from_bodyids(body_ids)
 
     def get_out_degree(self, uid: int):
         '''
@@ -1134,7 +1149,7 @@ class Connections:
     def reorder_neurons(
             self,
             by: str = "list",
-            order: list[int] = None,
+            order: Optional[list[int]] = None,
             order_type: str = "uid",
             ):
         '''
@@ -1174,7 +1189,7 @@ class Connections:
         self.connections = connections
         return
     
-    def set_graph(self, graph: nx.DiGraph = None):
+    def set_graph(self, graph: Optional[nx.DiGraph] = None):
         if graph is None:
             self.__build_graph()
         else:
@@ -1199,7 +1214,7 @@ class Connections:
    # --- computations
     def __compute_n_hops(self, n: int, initialize_graph: bool = False):
         '''
-        Compute the n-hop adjacency matrix and matching effctive connections graph.
+        Compute the n-hop adjacency matrix and matching effective connections graph.
         '''
         #TODO: edit such that it creates a new Connections object instead
         # compute the n-hop adjacency matrix
@@ -1222,9 +1237,9 @@ class Connections:
     def paths_length_n(
             self,
             n: int,
-            source: list[int],
-            target: list[int],
-            syn_threshold: int = None,):
+            source: UID | int | list[UID | int],
+            target: UID | int | list[UID | int],
+            syn_threshold: Optional[int] = None,):
         '''
         Get the graph with all the paths of length n between two sets of nodes.
 
@@ -1327,12 +1342,12 @@ class Connections:
     
     def display_graph(
             self,
-            pos: dict = None,
+            pos: Optional[dict] = None,
             method: str = "circular",
             title: str = "test",
             label_nodes: bool = False,
-            syn_threshold: int = None,
-            ax: plt.Axes = None,
+            syn_threshold: Optional[int] = None,
+            ax: Optional[matplotlib.axes.Axes] = None,
             save: bool = True,
             return_pos: bool = False,
         ):
@@ -1341,7 +1356,8 @@ class Connections:
         '''
         if ax is None:
             _, ax = plt.subplots(figsize=FIGSIZE, dpi=DPI)
-        # restict the number of edges visualised to the threshold weight
+        assert ax is not None # needed for type hinting
+        # restrict the number of edges visualised to the threshold weight
         graph_ = nx_utils.threshold_graph(self.graph, syn_threshold)
 
         if pos is None:
@@ -1380,7 +1396,7 @@ class Connections:
             self,
             attribute = 'exitNerve:string',
             center = None,
-            syn_threshold: int = None,
+            syn_threshold: Optional[int] = None,
             title:str = "test",
             save: bool = True,
             ):
@@ -1407,7 +1423,7 @@ class Connections:
         '''
         # ensures the attribute is present in the graph
         _ = self.__get_node_attributes(attribute) 
-        # restict the number of edges visualised to the threshold weight
+        # restrict the number of edges visualised to the threshold weight
         graph_ = nx_utils.threshold_graph(self.graph, syn_threshold)
 
         #  use the nx library to plot the graph grouped by the attribute
@@ -1454,7 +1470,7 @@ class Connections:
             self,
             x: list[int],
             y: list[int],
-            sorting: str = None,
+            sorting: Optional[SortingStyle | NeuronAttribute] = None,
             title:str = "test",
             ):
         '''
@@ -1481,17 +1497,14 @@ class Connections:
         '''
         graph_ = self.get_graph()
         # ensure that the sorting parameter is in the nodes of the graph
-        if sorting not in [
-            None,'degree','betweenness','from_index','input_clustering',
-            'centrality','output_clustering'
-            ]:
+        if sorting in typing.get_args(NeuronAttribute):
             _ = self.__get_node_attributes(sorting)
 
         if sorting == 'from_index':
             z = [node for node in self.graph.nodes
                 if not node in x and not node in y]
             sort_list_nodes = self.adjacency['lookup']['uid'].to_list()
-            # reorder x,y,z by the order of the adjacency matrix indexings
+            # reorder x,y,z by the order of the adjacency matrix indexing
             x_ = [n for n in sort_list_nodes if n in x]
             y_ = [n for n in sort_list_nodes if n in y]
             z_ = [n for n in sort_list_nodes if n in z]
@@ -1512,9 +1525,9 @@ class Connections:
         self,
         x: list[int],
         y: list[int],
-        x_sorting: str = 'degree',
-        y_sorting: str = 'exitNerve:string', 
-        z_sorting: str = 'input_clustering',
+        x_sorting: SortingStyle | NeuronAttribute | None = 'degree',
+        y_sorting: SortingStyle | NeuronAttribute | None = 'exitNerve:string', 
+        z_sorting: SortingStyle | NeuronAttribute | None = 'input_clustering',
         title: str = "test",
         ):
         '''
@@ -1546,11 +1559,11 @@ class Connections:
             center_nodes:list[int],
             target_nodes:list[int],
             attribute:str,
-            syn_threshold: int = None,
+            syn_threshold: Optional[int] = None,
             label_nodes: bool = False,
             title:str = "test",
             save: bool = True,
-            ax: plt.Axes = None,
+            ax: Optional[matplotlib.axes.Axes] = None,
             return_pos: bool = False,
         ):
         '''
@@ -1588,11 +1601,11 @@ class Connections:
             self,
             input_nodes:list[int],
             output_nodes:list[int],
-            syn_threshold: int = None,
+            syn_threshold: Optional[int] = None,
             label_nodes: bool = False,
             title:str = "test",
             save: bool = True,
-            ax: plt.Axes = None,
+            ax: Optional[matplotlib.axes.Axes] = None,
             return_pos: bool = False,
     ):
         '''
@@ -1625,11 +1638,14 @@ class Connections:
         neurons: set[int],
         attribute: str = 'class:string',
         ylabel: str = '# neurons',
-        ax=None
+        ax: Optional[matplotlib.axes.Axes]=None,
         ):
         '''
         Draw a bar plot of the attribute of the neurons in the set.
         '''
+        if ax is None:
+            _, ax = plt.subplots(figsize=FIGSIZE, dpi=DPI)
+        assert ax is not None # needed for type hinting
         # Get the attribute values
         values = []
         for uid in neurons:
@@ -1656,8 +1672,8 @@ class Connections:
 
     def list_neuron_properties(
             self,
-            neurons: list[int],
-            input_type: str = 'uid'
+            neurons: list[int | BodyId | UID],
+            input_type: typing.Literal["uid", "body_id"] = 'uid'
             ):
         '''
         List the properties of the neurons in the list in a dataframe.
@@ -1684,7 +1700,7 @@ class Connections:
         if input_type == 'uid':
             nodes = list(neurons)
         elif input_type == 'body_id':
-            nodes = self.get_uids_from_bodyid(neurons)
+            nodes = self.get_uids_from_bodyids(neurons)
         else:
             raise ValueError(
                 f"Class Connections ::: > \

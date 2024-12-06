@@ -2,11 +2,12 @@
 Module containing utility functions for processing matrices.
 '''
 
+import typing
 import numpy as np
 import scipy as sc
 import scipy.cluster.hierarchy as sch
 
-def connections_up_to_n_hops(matrix, n):
+def connections_up_to_n_hops(matrix, n: int):
     """
     input: (sparse) matrix
 
@@ -24,7 +25,7 @@ def connections_up_to_n_hops(matrix, n):
         return_mat += return_mat @ matrix
     return return_mat
 
-def connections_at_n_hops(matrix, n):
+def connections_at_n_hops(matrix, n: int):
     """
     input: (sparse) matrix
 
@@ -48,7 +49,7 @@ def connections_at_n_hops(matrix, n):
 
 def generate_random(matrix):
     """
-    Generates a random matrix by shuffeling the elements of the matrix in
+    Generates a random matrix by shuffling the elements of the matrix in
     argument
     """
     rng = np.random.default_rng()
@@ -62,7 +63,7 @@ def generate_random(matrix):
 def density(matrix):
     """
     input: sparse matrix
-    output: number of existing edges divided by edges on a fully-comnected
+    output: number of existing edges divided by edges on a fully-connected
     graph of identical size
     """
     mat = matrix
@@ -77,11 +78,11 @@ def select_subset_matrix(matrix, sub_indices):
     mat = mat_tmp[:, sub_indices]
     return mat
 
-def connection_degree_n_hops(matrix, n, dn_indices=[]):
+def connection_degree_n_hops(matrix, n: int, dn_indices=[]):
     """
     inputs:
         sparse matrix
-        number of maximimal hops (n)
+        number of maximal hops (n)
         indices to evaluate
     output:
         array of size n with densities for increasing number of hops allowed
@@ -173,7 +174,7 @@ def convert_bodyid_to_index(bodyid, lookup, allow_empty=True):
         return indices[0]
     return indices
 
-def count_nonzero(matrix, sign=None):
+def count_nonzero(matrix, sign: typing.Literal["positive","negative"] | None=None):
     """
     input: sparse matrix
 
@@ -193,7 +194,7 @@ def count_nonzero(matrix, sign=None):
         neg_mat.data = neg_mat.data < 0
         return neg_mat.count_nonzero()
 
-def sum_weights(matrix, sign=None):
+def sum_weights(matrix, sign: typing.Literal["positive","negative","absolute"] | None=None):
     """
     input: sparse matrix
 
@@ -216,7 +217,7 @@ def sum_weights(matrix, sign=None):
         neg_mat.data = neg_mat.data * (neg_mat.data < 0)
         return neg_mat.sum()
     
-def build_distance_matrix(matrix, method='pearson'):
+def build_distance_matrix(matrix, method:typing.Literal["cosine_in", "cosine_out", "cosine", "euclidean"]):
     """
     input: sparse matrix
     output: similarity matrix

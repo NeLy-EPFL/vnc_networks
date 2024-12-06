@@ -147,7 +147,7 @@ def venn_t3_subbranches(n_clusters: int = 3):
     # Draw a Venn diagram for the branches of each neuron
     mnd_bodyids = get_neuron_bodyids({'type:string': 'MDN'})
     for mdn_bid in mnd_bodyids:
-        single_mdn_uids = VNC.get_uids_from_bodyid(mdn_bid)
+        single_mdn_uids = VNC.get_uid_from_bodyid(mdn_bid)
         single_mdn_uids = [
             uid for uid in single_mdn_uids
             if not '-1' in VNC.get_node_label(uid)

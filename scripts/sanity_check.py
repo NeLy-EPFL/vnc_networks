@@ -24,9 +24,9 @@ down_VNC_graph = VNC.get_neurons_downstream_of(
     )
 
 print(f'Downstream VNC graph (total {len(down_VNC_graph)})')
-uid_mdn_0 = full_VNC.get_uids_from_bodyid(mdn_0)[0]
+uid_mdn_0 = full_VNC.get_uid_from_bodyid(mdn_0)[0]
 uids_down_VNC_graph = [
-    full_VNC.get_uids_from_bodyid(bodyid)[0] for bodyid in down_VNC_graph
+    full_VNC.get_uid_from_bodyid(bodyid)[0] for bodyid in down_VNC_graph
     ]
 edges_to_keep = [(uid_mdn_0, bodyid) for bodyid in uids_down_VNC_graph]
 specific_subgraph = VNC.subgraph(edges = edges_to_keep)
