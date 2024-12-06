@@ -58,6 +58,7 @@ def draw_graph(
 
     if ax is None:
         _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
+    assert ax is not None # needed for type hinting
 
     if pos is None:
         if pos_nx_method == nx.kamada_kawai_layout:

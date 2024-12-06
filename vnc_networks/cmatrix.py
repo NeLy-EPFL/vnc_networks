@@ -17,6 +17,7 @@ import scipy as sc
 import scipy.cluster.hierarchy as sch
 import pandas as pd
 import os
+import matplotlib.axes
 import matplotlib.pyplot as plt
 import numpy as np
 import copy
@@ -377,7 +378,7 @@ class CMatrix:
         '''
         return self.lookup
         
-    def get_uids(self, sub_indices: Optional[list] = None, axis: typing.Literal["row", "column"] = 'row') -> list:
+    def get_uids(self, sub_indices: Optional[list[int]] = None, axis: typing.Literal["row", "column"] = 'row') -> list:
         """
         Returns the uids of the nodes of the adjacency matrix.
 
@@ -795,7 +796,7 @@ class CMatrix:
         matrix = cmatrix_copy.get_matrix()
         non_zero_rows = set(matrix.nonzero()[0])
         upstream_uids = cmatrix_copy.get_uids(
-            sub_indices=non_zero_rows,
+            sub_indices=list(non_zero_rows),
             axis='row'
             )
         return upstream_uids
@@ -970,6 +971,23 @@ class CMatrix:
         title_ = os.path.join(params.PLOT_DIR, title + "_spy.pdf")
         plt.savefig(title_)
         return
+    
+    @typing.overload
+    def imshow(
+            self,
+            title:str='test',
+            vmax:Optional[float]=None,
+            cmap=params.diverging_heatmap,
+            savefig:typing.Literal[True]=True,
+        ) -> None: ...
+    @typing.overload
+    def imshow(
+            self,
+            title:str='test',
+            vmax:Optional[float]=None,
+            cmap=params.diverging_heatmap,
+            savefig:typing.Literal[False]=False,
+        ) -> tuple[matplotlib.axes.Axes, str]: ...
     
     def imshow(
             self,

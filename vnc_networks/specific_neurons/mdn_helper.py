@@ -44,7 +44,7 @@ def get_subdivided_mdns(VNC: Connections,
     '''
     Get the uids of MDNs split by neuropil and side.
     neuropil format and side format are flexible to account for different
-    naming conventions accross the dataset.
+    naming conventions across the dataset.
     '''
     if neuropil in ['LegNp(T1)', 'T1', 'f', 'fl']:
         neuropil_ = 'LegNp(T1)'
