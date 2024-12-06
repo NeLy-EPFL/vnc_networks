@@ -1,6 +1,7 @@
 '''
 Helper functions for making networkx graphs look nice and standardized.
 '''
+import typing
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
@@ -21,9 +22,34 @@ import params
 
 #--- CODE ---#
 
+@typing.overload
 def draw_graph(
     G: nx.Graph | nx.DiGraph,
-    pos: Optional[dict] = None,
+    pos: Optional[typing.Mapping] = None,
+    pos_nx_method=nx.circular_layout,
+    ax: Optional[matplotlib.axes.Axes] = None,
+    node_size: int = params.NODE_SIZE,
+    return_pos: typing.Literal[False] = False,
+    label_nodes: bool = False,
+    add_legend: bool = True,
+    connection_style="arc3,rad=0.1",
+) -> matplotlib.axes.Axes: ...
+@typing.overload
+def draw_graph(
+    G: nx.Graph | nx.DiGraph,
+    pos: Optional[typing.Mapping] = None,
+    pos_nx_method=nx.circular_layout,
+    ax: Optional[matplotlib.axes.Axes] = None,
+    node_size: int = params.NODE_SIZE,
+    return_pos: typing.Literal[True] = True,
+    label_nodes: bool = False,
+    add_legend: bool = True,
+    connection_style="arc3,rad=0.1",
+) -> tuple[matplotlib.axes.Axes, dict]: ...
+
+def draw_graph(
+    G: nx.Graph | nx.DiGraph,
+    pos: Optional[typing.Mapping] = None,
     pos_nx_method=nx.circular_layout,
     ax: Optional[matplotlib.axes.Axes] = None,
     node_size: int = params.NODE_SIZE,
@@ -559,6 +585,27 @@ def draw_graph_grouped_by_attribute(
         )
     return ax
 
+
+@typing.overload
+def draw_graph_concentric_by_attribute(
+    graph: nx.DiGraph,
+    attribute: str,
+    center_nodes: list[int],
+    target_nodes: list[int],
+    ax: Optional[matplotlib.axes.Axes] = None,
+    return_pos: typing.Literal[False] = False,
+    label_nodes: bool = False,
+    ) -> matplotlib.axes.Axes: ...
+@typing.overload
+def draw_graph_concentric_by_attribute(
+    graph: nx.DiGraph,
+    attribute: str,
+    center_nodes: list[int],
+    target_nodes: list[int],
+    ax: Optional[matplotlib.axes.Axes] = None,
+    return_pos: typing.Literal[True] = True,
+    label_nodes: bool = False,
+    ) -> tuple[matplotlib.axes.Axes, dict]: ...
 def draw_graph_concentric_by_attribute(
     graph: nx.DiGraph,
     attribute: str,
@@ -567,7 +614,7 @@ def draw_graph_concentric_by_attribute(
     ax: Optional[matplotlib.axes.Axes] = None,
     return_pos: bool = False,
     label_nodes: bool = False,
-    ):
+    ) -> matplotlib.axes.Axes | tuple[matplotlib.axes.Axes, dict]:
     '''
     Represent the graph with 3 concentric circles.
     center_nodes are on a center circle, typically input neurons.
@@ -666,6 +713,7 @@ def draw_graph_concentric_by_attribute(
     # --- draw the graph ---
     if ax is None:
         fig, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
+    assert ax is not None, # needed for type hinting
     edge_norm = max([np.abs(graph.edges[e]["weight"]) for e in graph.edges]) / 5
     widths = [np.abs(graph.edges[e]["weight"]) / edge_norm for e in graph.edges]
     edge_colors = define_edge_colors(graph)
@@ -711,6 +759,24 @@ def draw_graph_concentric_by_attribute(
         return ax, positions
     return ax   
 
+@typing.overload
+def draw_graph_in_out_center_circle(
+    graph: nx.DiGraph,
+    top_nodes: list[int],
+    bottom_nodes: list[int],
+    ax: Optional[matplotlib.axes.Axes] = None,
+    return_pos: typing.Literal[False] = False,
+    label_nodes: bool = False,
+    ) -> matplotlib.axes.Axes: ...
+@typing.overload
+def draw_graph_in_out_center_circle(
+    graph: nx.DiGraph,
+    top_nodes: list[int],
+    bottom_nodes: list[int],
+    ax: Optional[matplotlib.axes.Axes] = None,
+    return_pos: typing.Literal[True] = True,
+    label_nodes: bool = False,
+    ) -> tuple[matplotlib.axes.Axes, dict]: ...
 def draw_graph_in_out_center_circle(
     graph: nx.DiGraph,
     top_nodes: list[int],
@@ -718,7 +784,7 @@ def draw_graph_in_out_center_circle(
     ax: Optional[matplotlib.axes.Axes] = None,
     return_pos: bool = False,
     label_nodes: bool = False,
-    ):
+    ) -> matplotlib.axes.Axes | tuple[matplotlib.axes.Axes, dict]:
     '''
     Represent the graph with an upper and lower rows of nodes,
     and a central circle.

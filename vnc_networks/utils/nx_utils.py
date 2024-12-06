@@ -9,6 +9,7 @@ def remove_inhibitory_connections(graph: nx.DiGraph) -> nx.DiGraph:
     Remove inhibitory connections from the graph.
     """
     graph_ = graph.copy()
+    assert isinstance(graph_, nx.DiGraph) # for type hinting
     edges_to_remove = []
     for edge in graph_.edges():
         if graph_.edges[edge]["weight"] < 0:
@@ -21,6 +22,7 @@ def remove_excitatory_connections(graph: nx.DiGraph) -> nx.DiGraph:
     Remove excitatory connections from the graph.
     """
     graph_ = graph.copy()
+    assert isinstance(graph_, nx.DiGraph) # for type hinting
     edges_to_remove = []
     for edge in graph_.edges():
         if graph_.edges[edge]["weight"] > 0:
@@ -153,6 +155,7 @@ def threshold_graph(graph: nx.DiGraph, threshold: Optional[int] = None):
     Threshold the graph by removing edges with a weight below the threshold.
     """
     graph_ = graph.copy()
+    assert isinstance(graph_, nx.DiGraph) # for type hinting
     if threshold is None:
         return graph_
     else:
