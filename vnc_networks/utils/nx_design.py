@@ -713,7 +713,7 @@ def draw_graph_concentric_by_attribute(
     # --- draw the graph ---
     if ax is None:
         fig, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
-    assert ax is not None, # needed for type hinting
+    assert ax is not None # needed for type hinting
     edge_norm = max([np.abs(graph.edges[e]["weight"]) for e in graph.edges]) / 5
     widths = [np.abs(graph.edges[e]["weight"]) / edge_norm for e in graph.edges]
     edge_colors = define_edge_colors(graph)

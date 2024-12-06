@@ -679,7 +679,7 @@ class Connections:
     def subgraph(
             self,
             nodes: Optional[typing.Iterable[int]] = None,
-            edges: Optional[list[tuple[int]]] = None,
+            edges: Optional[list[tuple[UID,UID]] | list[tuple[int,int]]] = None,
             ):
         '''
         Copy operator of the Connections class that returns a new object
