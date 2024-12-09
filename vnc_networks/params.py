@@ -10,7 +10,7 @@ import seaborn as sns
 
 # --- Where to find the raw data sets --- #
 # MANC traced
-RAW_DATA_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent, "manc_datasets")
+RAW_DATA_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent.parent, "manc_datasets")
 MANC_RAW_DIR = os.path.join(RAW_DATA_DIR, "manc-traced-adjacencies-v1.0")
 NODES_FILE = os.path.join(MANC_RAW_DIR, "traced-neurons.csv")
 CONNECTIONS_FILE = os.path.join(MANC_RAW_DIR, "traced-connections-per-roi.csv")
@@ -23,13 +23,13 @@ NEUPRINT_SYNAPSSET_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_SynapseSet_to
 NEUPRINT_SYNAPSE_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Synapses_manc_v1.ftr")
 
 # --- Where to save the processed data sets --- #
-PROCESSED_DATA_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent, "data", "manc_processed")
+PROCESSED_DATA_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent.parent, "data", "manc_processed2")
 
 # --- Where to save the preprocessed data sets --- #
-PREPROCESSING_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent, "preprocessing")
+PREPROCESSING_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent.parent, "preprocessing")
 NEURON_DIR = os.path.join(PREPROCESSING_DIR, "neurons")
 os.makedirs(NEURON_DIR, exist_ok=True)
-CONNECTION_DIR = os.path.join(PREPROCESSING_DIR, "connections")
+CONNECTION_DIR = os.path.join(PREPROCESSING_DIR, "connections2")
 os.makedirs(CONNECTION_DIR, exist_ok=True)
 
 # --- Where to save the figures --- #
