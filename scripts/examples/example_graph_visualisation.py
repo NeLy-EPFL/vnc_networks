@@ -4,12 +4,10 @@ author: femke.hurtak@epfl.ch
 Script to load the MANC dataset and save it in a usable format.
 """
 
-import pandas as pd
 import matplotlib.pyplot as plt
-
-from get_nodes_data import get_neurons_from_class, get_neuron_bodyids, load_data_neuron
+import pandas as pd
 from connections import Connections
-
+from get_nodes_data import get_neuron_bodyids, get_neurons_from_class, load_data_neuron
 
 # MDNs = get_neuron_ids({'type:string': 'MDN'})
 DNxn050 = get_neuron_bodyids({"systematicType:string": "DNxn050"})  # MDN R

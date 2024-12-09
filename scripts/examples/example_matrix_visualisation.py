@@ -1,5 +1,5 @@
-from get_nodes_data import get_neurons_from_class, get_neuron_bodyids
 from connections import Connections
+from get_nodes_data import get_neuron_bodyids, get_neurons_from_class
 
 # Load neurons
 neurons_pre = get_neuron_bodyids({'type:string': 'MDN'})

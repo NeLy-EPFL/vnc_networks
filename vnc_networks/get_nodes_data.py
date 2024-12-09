@@ -2,8 +2,9 @@
 This module provides functions to get the data of the neurons from the dataset.
 """
 
-from typing import Optional
 import typing
+from typing import Optional
+
 import pandas as pd
 import params
 from params import BodyId, NeuronAttribute, NeuronClass

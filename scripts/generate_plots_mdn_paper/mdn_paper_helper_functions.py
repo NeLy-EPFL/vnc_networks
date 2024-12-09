@@ -2,12 +2,12 @@
 Helper functions for generating plots for the MDN paper.
 """
 
-import matplotlib.pyplot as plt
-
-from specific_neurons import mdn_helper
-import params
 import typing
 from typing import Optional
+
+import matplotlib.pyplot as plt
+import params
+from specific_neurons import mdn_helper
 
 
 def graph_from_mdn_to_muscle(

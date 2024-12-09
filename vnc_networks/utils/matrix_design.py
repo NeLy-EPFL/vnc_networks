@@ -3,11 +3,11 @@ Module for matrix visualization.
 """
 
 from typing import Optional
-import matplotlib.pyplot as plt
-import matplotlib.axes
-import scipy as sc
 
+import matplotlib.axes
+import matplotlib.pyplot as plt
 import params
+import scipy as sc
 import utils.plots_design as plots_design
 
 

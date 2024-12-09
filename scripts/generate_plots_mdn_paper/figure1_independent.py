@@ -6,24 +6,22 @@ in the VNC. This is done by splitting the MDNs according to their synapse
 locations.
 """
 
+import copy
 import os
 from typing import Optional
-from matplotlib import pyplot as plt
-import pandas as pd
-from tqdm import tqdm
-import copy
-import numpy as np
 
+import numpy as np
+import pandas as pd
+import params
 import specific_neurons.mdn_helper as mdn_helper
 import specific_neurons.motor_neurons_helper as mns_helper
-from utils import plots_design
-from utils import matrix_design
-import params
-from params import NeuronAttribute
 from connections import Connections
-from neuron import Neuron
 from get_nodes_data import get_neuron_bodyids
-
+from matplotlib import pyplot as plt
+from neuron import Neuron
+from params import NeuronAttribute
+from tqdm import tqdm
+from utils import matrix_design, plots_design
 
 FOLDER_NAME = "Figure_1_independent"
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)

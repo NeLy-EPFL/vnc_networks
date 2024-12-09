@@ -5,19 +5,18 @@ Show how oscillations and coordinated movements are generated in T3.
 """
 
 import os
+
 import matplotlib.pyplot as plt
+import mdn_paper_helper_functions as paper_funcs
+import networkx as nx
 import numpy as np
 import pandas as pd
-import networkx as nx
-
 import params
-import mdn_paper_helper_functions as paper_funcs
 import specific_neurons.mdn_helper as mdn_helper
 import specific_neurons.motor_neurons_helper as mns_helper
-import utils.nx_design as nx_design
 import utils.matrix_design as matrix_design
+import utils.nx_design as nx_design
 import utils.nx_utils as nx_utils
-
 
 FOLDER_NAME = "Figure_5_t3_oscillations"
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)

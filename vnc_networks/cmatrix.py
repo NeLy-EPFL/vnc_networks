@@ -11,21 +11,21 @@ The lookup table is used to convert between body ids and matrix indices. This
 conversion is kept internally to the class.
 """
 
-from typing import Optional
-import typing
-import scipy as sc
-import scipy.cluster.hierarchy as sch
-import pandas as pd
+import copy
 import os
+import typing
+from typing import Optional
+
 import matplotlib.axes
 import matplotlib.pyplot as plt
 import numpy as np
-import copy
-
+import pandas as pd
 import params
-from params import UID, BodyId
-import utils.matrix_utils as matrix_utils
+import scipy as sc
+import scipy.cluster.hierarchy as sch
 import utils.matrix_design as matrix_design
+import utils.matrix_utils as matrix_utils
+from params import UID, BodyId
 
 
 class CMatrix:

@@ -8,22 +8,21 @@ by using the dataset "Neuprint_Synapse_Connections_manc_v1.ftr" which
 has two columns: ':START_ID(Syn-ID)' and ':END_ID(Syn-ID)'.
 """
 
+import os
+import pickle
 import typing
+from typing import Optional
+
 import matplotlib.axes
 import matplotlib.colors
-import pandas as pd
 import matplotlib.pyplot as plt
-import pickle
-import os
 import numpy as np
-from sklearn.cluster import KMeans
-
-
+import pandas as pd
 import params
-from params import BodyId, NeuronAttribute
-from typing import Optional
-from get_nodes_data import load_data_neuron
 import utils.plots_design as plot_design
+from get_nodes_data import load_data_neuron
+from params import BodyId, NeuronAttribute
+from sklearn.cluster import KMeans
 
 NEURON_BASE_ATTRIBUTES: list[NeuronAttribute] = [
     "systematicType:string",

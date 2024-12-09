@@ -2,10 +2,10 @@
 Helper functions regarding the ensemble of all motor neurons in the VNC.
 """
 
-from connections import Connections
 import typing
 from typing import Optional
 
+from connections import Connections
 from params import UID
 
 

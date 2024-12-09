@@ -29,19 +29,19 @@ MDNs -> motor neurons within n hops.
 """
 
 import os
-from typing import Optional
 import typing
-import matplotlib.pyplot as plt
-from tqdm import tqdm
-import pandas as pd
+from typing import Optional
 
-from connections import Connections
+import matplotlib.pyplot as plt
+import pandas as pd
 import params
-from params import NeuronAttribute
-from utils import plots_design
-import specific_neurons.mdn_helper as mdn_helper
 import specific_neurons.all_neurons_helper as all_neurons_helper
+import specific_neurons.mdn_helper as mdn_helper
 import specific_neurons.motor_neurons_helper as mns_helper
+from connections import Connections
+from params import NeuronAttribute
+from tqdm import tqdm
+from utils import plots_design
 
 FOLDER_NAME = "explo_graphs"
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)

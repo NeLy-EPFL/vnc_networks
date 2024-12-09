@@ -2,8 +2,9 @@
 Module containing utility functions for processing nx graphs.
 """
 
-import networkx as nx
 from typing import Optional
+
+import networkx as nx
 
 
 def remove_inhibitory_connections(graph: nx.DiGraph) -> nx.DiGraph:

@@ -3,20 +3,19 @@ Helper functions for making networkx graphs look nice and standardized.
 """
 
 import typing
+from collections import Counter
+from collections.abc import Mapping
+from typing import Optional
+
+import matplotlib.axes
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-from collections import Counter
-from collections.abc import Mapping
+import params
+import utils.nx_utils as nx_utils
 from matplotlib.lines import Line2D
 from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.axes
-from typing import Optional
-
-
-import params
 from params import UID
-import utils.nx_utils as nx_utils
 from utils.math_utils import sigmoid
 
 # --- Constants ---#

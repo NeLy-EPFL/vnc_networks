@@ -13,19 +13,19 @@ Specific use case: MDN|Ti to MNs|Ti, get a quantification of how much
 innervation there is and whether T1 is more linear than T3.
 """
 
-import typing
-import numpy as np
-import matplotlib.pyplot as plt
-import os
 import copy
 import multiprocessing as mp
+import os
+import typing
 
-import specific_neurons.all_neurons_helper as all_neurons_helper
-import specific_neurons.motor_neurons_helper as mns_helper
-import specific_neurons.mdn_helper as mdn_helper
-import utils.matrix_utils as matrix_utils
-import utils.matrix_design as matrix_design
+import matplotlib.pyplot as plt
+import numpy as np
 import params
+import specific_neurons.all_neurons_helper as all_neurons_helper
+import specific_neurons.mdn_helper as mdn_helper
+import specific_neurons.motor_neurons_helper as mns_helper
+import utils.matrix_design as matrix_design
+import utils.matrix_utils as matrix_utils
 
 FOLDER_NAME = "explo_exc-inhib"
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)

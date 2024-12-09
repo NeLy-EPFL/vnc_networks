@@ -3,6 +3,7 @@ Module containing utility functions for processing matrices.
 """
 
 import typing
+
 import numpy as np
 import scipy as sc
 import scipy.cluster.hierarchy as sch

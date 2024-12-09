@@ -2,8 +2,9 @@
 Helper functions regarding the ensemble of all neurons in the VNC.
 """
 
-from connections import Connections
 from typing import Optional
+
+from connections import Connections
 from params import BodyId
 
 

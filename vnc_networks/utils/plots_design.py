@@ -3,16 +3,17 @@ Helper functions for making plots look nice.
 """
 
 import typing
-import numpy as np
+import warnings
+
+import matplotlib.axes
+import matplotlib.colorbar
+import matplotlib.colors
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import params
 import seaborn as sns
-import pandas as pd
-import warnings
 from matplotlib_venn import venn3
-import matplotlib.colors
-import matplotlib.colorbar
-import matplotlib.axes
 
 
 def make_nice_spines(ax: matplotlib.axes.Axes, linewidth=params.LINEWIDTH):

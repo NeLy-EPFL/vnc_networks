@@ -4,15 +4,15 @@ Functions specific to working with MDNs to avoid copying code.
 
 import os
 import typing
-import matplotlib.pyplot as plt
-
-import neuron
-from neuron import Neuron
-from connections import Connections
-import get_nodes_data
-import params
-from params import BodyId
 from typing import Optional
+
+import get_nodes_data
+import matplotlib.pyplot as plt
+import neuron
+import params
+from connections import Connections
+from neuron import Neuron
+from params import BodyId
 
 FOLDER_NAME = "MDN_specific"
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)

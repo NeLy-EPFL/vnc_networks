@@ -5,10 +5,11 @@ File containing parameters for the project.
 """
 
 import os
+import typing
 from pathlib import Path
+
 import numpy as np
 import seaborn as sns
-import typing
 
 # --- Where to find the raw data sets --- #
 # MANC traced

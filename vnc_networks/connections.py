@@ -20,29 +20,27 @@ connections.initialize()
 ```
 """
 
-from collections.abc import Mapping
-import typing
-import pandas as pd
-import numpy as np
-import networkx as nx
-import matplotlib.pyplot as plt
-import matplotlib.axes
 import os
-import seaborn as sns
 import pickle
-
-
-import params
-from params import BodyId, UID, NeuronAttribute
-import get_nodes_data
-import utils.nx_design as nx_design
-import utils.matrix_utils as matrix_utils
-import utils.nx_utils as nx_utils
-import utils.plots_design as plots_design
-import cmatrix
-from neuron import Neuron
+import typing
+from collections.abc import Mapping
 from typing import Optional
 
+import cmatrix
+import get_nodes_data
+import matplotlib.axes
+import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
+import pandas as pd
+import params
+import seaborn as sns
+import utils.matrix_utils as matrix_utils
+import utils.nx_design as nx_design
+import utils.nx_utils as nx_utils
+import utils.plots_design as plots_design
+from neuron import Neuron
+from params import UID, BodyId, NeuronAttribute
 
 ## ---- Types ---- ##
 SortingStyle = typing.Literal[

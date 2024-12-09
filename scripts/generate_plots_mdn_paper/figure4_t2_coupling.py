@@ -5,11 +5,10 @@ Distinguish between MDN drive to T2 muslces and sensory feedback from other legs
 """
 
 import os
+
 import matplotlib.pyplot as plt
-
-import params
 import mdn_paper_helper_functions as paper_funcs
-
+import params
 
 FOLDER_NAME = "Figure_4_t2_coupling"
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)

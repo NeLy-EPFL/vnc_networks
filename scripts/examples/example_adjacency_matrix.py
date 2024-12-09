@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-
 import specific_neurons.mdn_helper as mdn_helper
 
 if __name__ == "__main__":
