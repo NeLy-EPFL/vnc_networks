@@ -563,7 +563,9 @@ class Connections:
                     "subdivision_start_name"
                 ]
 
-    def __build_adjacency_matrices(self, nodelist: Optional[list[int]] = None):
+    def __build_adjacency_matrices(
+        self, nodelist: Optional[list[UID] | list[int]] = None
+    ):
         """
         Create a dictionary with relevant connectivity matrices
         and the index ordering table.
@@ -1180,7 +1182,7 @@ class Connections:
         """
         return self.__get_uids_from_bodyids(body_ids)
 
-    def get_out_degree(self, uid: int):
+    def get_out_degree(self, uid: UID | int):
         """
         Get the out degree of a node.
         """
@@ -1225,9 +1227,9 @@ class Connections:
 
     def reorder_neurons(
         self,
-        by: str = "list",
-        order: Optional[list[int]] = None,
-        order_type: str = "uid",
+        by: typing.Literal["list"] = "list",
+        order: Optional[list[UID] | list[int]] = None,
+        order_type: typing.Literal["index", "uid"] = "uid",
     ):
         """
         Reorder the neurons in the adjacency matrices and the corresponding lookup table.
@@ -1242,7 +1244,7 @@ class Connections:
             Warning: the list type is given by the order_type parameter.
         order_type: str
             Type of the order list.
-            Can be 'body_id' for neuron IDs or 'index' for the adjacency matrix index.
+            Can be 'uid' for neuron IDs or 'index' for the adjacency matrix index.
         """
         match by:
             case "list":
