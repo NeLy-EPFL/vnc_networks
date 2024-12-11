@@ -2,16 +2,23 @@
 Helper functions for making networkx graphs look nice and standardized.
 """
 
+# needed so we can use Connections as a type (when Connections imports this file)
+from __future__ import annotations
+
 import typing
 from collections import Counter
 from collections.abc import Mapping
 from typing import Optional
 
+import connections
+import get_nodes_data
 import matplotlib.axes
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+import pandas as pd
 import params
+import pyvis.network
 import utils.nx_utils as nx_utils
 from matplotlib.lines import Line2D
 from mpl_toolkits.mplot3d import Axes3D
@@ -145,6 +152,145 @@ def draw_graph(
     return ax
 
 
+def display_interactive_graph(
+    connections: connections.Connections,
+    output_file: str = "visualisation.html",
+    window_height: int = 1000,
+):
+    """
+    Display the graph in interactive browser window using pyvis. This saves an HTML file and opens it in the browser.
+
+    Parameters
+    ----------
+    connections : Connections
+        Connections object.
+    output_file : str, optional
+        Name to save the plot HTML file as, by default "visualisation.html"
+    window_height : int, optional
+        How high the interactive window should be, by default 1000 px
+    """
+    # copy the graph because we're going to add a bunch of attributes to it
+    # so they appear in the interactive visualisation
+    g = connections.graph.copy()
+    assert isinstance(g, nx.DiGraph)  # needed for type hinting
+    graph_bodyids = connections.get_bodyids_from_uids(list(g.nodes))
+    neurons_data = get_nodes_data.load_data_neuron_set(
+        graph_bodyids,
+        [
+            ":ID(Body-ID)",
+            "instance:string",
+            "type:string",
+            "systematicType:string",
+            "somaSide:string",
+            "rootSide:string",
+            "class:string",
+        ],
+    )
+
+    def neuron_data_row_to_label(row: pd.Series):
+        if (
+            row["type:string"] is not None
+            and row["type:string"] != row["systematicType:string"]
+        ):
+            return f"{row["systematicType:string"]} [{row["type:string"]}]"
+        else:
+            return f"{row["systematicType:string"]}"
+
+    def neuron_data_row_to_title(row: pd.Series):
+        return f"bodyID: {row[":ID(Body-ID)"]}\n" + "\n".join(
+            [
+                f"{field}: {row[f'{field}:string']}"
+                for field in [
+                    "type",
+                    "systematicType",
+                    "class",
+                    "somaSide",
+                    "rootSide",
+                ]
+                if row[f"{field}:string"] is not None
+            ]
+        )
+
+    # This is the text that is written next to each node
+    node_labels = {
+        connections.get_first_uid_from_bodyid(
+            row[":ID(Body-ID)"]
+        ): neuron_data_row_to_label(row)
+        for _, row in neurons_data.iterrows()
+    }
+    nx.set_node_attributes(g, node_labels, "label")
+
+    # This is the text that is shown when hovering over a node (more detailed)
+    node_titles = {
+        connections.get_first_uid_from_bodyid(
+            row[":ID(Body-ID)"]
+        ): neuron_data_row_to_title(row)
+        for _, row in neurons_data.iterrows()
+    }
+    nx.set_node_attributes(g, node_titles, "title")
+
+    # set node colour based on neuron class
+    nx.set_node_attributes(
+        g,
+        {node: colour for node, colour in zip(g.nodes, define_node_colors(g))},
+        "color",
+    )
+    # set edge weight based on number of synapses
+    nx.set_edge_attributes(
+        g,
+        {
+            edge: np.sqrt(weight)
+            for edge, weight in nx.get_edge_attributes(g, "syn_count").items()
+        },
+        "weight",
+    )
+    # set edge color based on neurotransmitter type
+    nx.set_edge_attributes(
+        g,
+        {edge: colour for edge, colour in zip(g.edges, define_edge_colors(g))},
+        "color",
+    )
+    # when hovering over an edge, get more details about number of synapses and neurotransmitter type
+    nx.set_edge_attributes(
+        g,
+        {
+            edge: f"{syn_count} synapses ({nt})"
+            for (edge, syn_count), nt in zip(
+                nx.get_edge_attributes(g, "syn_count").items(),
+                nx.get_edge_attributes(g, "predictedNt:string").values(),
+            )
+        },
+        "title",
+    )
+    # I'm not really convinced that this works, but it should make nodes with more synapses closer together
+    nx.set_edge_attributes(
+        g,
+        {
+            edge: 3 * max(1, 100 - weight)
+            for edge, weight in nx.get_edge_attributes(g, "syn_count").items()
+        },
+        "length",
+    )
+
+    # relabel the nodes so we can filter the nodes in the plot by their type / id
+    g = nx.relabel_nodes(
+        g,
+        {
+            node_id: f"{node_label}-{node_id}"
+            for node_id, node_label in nx.get_node_attributes(g, "label").items()
+        },
+    )
+    net = pyvis.network.Network(
+        f"{window_height}px",
+        directed=True,
+        select_menu=True,
+        filter_menu=True,
+        cdn_resources="in_line",  # so everything is stored in one HTML file which you can visualise on different computers
+    )
+    net.from_nx(g)  # Create directly from nx graph
+    net.show(output_file)
+
+
 def add_edge_legend(
     ax: matplotlib.axes.Axes,
     weights: list,
@@ -183,6 +329,29 @@ def define_edge_colors(graph: nx.DiGraph):
     Define the colors of the edges based on the neurotransmitter type.
     If the neurotransmitter type is not defined, the color is
     based on the sign of the weight.
+
+    Examples
+    --------
+    >>> connections = Connections()
+    >>> connections.initialize()
+    >>> dng11 = connections.get_neuron_ids(
+    ...     {
+    ...         "class:string": "descending neuron",
+    ...         "type:string": "DNg11",
+    ...         "rootSide:string": "LHS",
+    ...     }
+    ... )
+    >>> T1L_motor_neurons = connections.get_neuron_ids(
+    ...     {
+    ...         "class:string": "motor neuron",
+    ...         "somaNeuromere:string": "T1",
+    ...         "somaSide:string": "LHS",
+    ...     }
+    ... )
+    >>> g = connections.paths_length_n(2, dng11, T1L_motor_neurons)
+    >>> nx_design.display_interactive_graph(
+    ...     connections.subgraph(list(g.nodes), list(g.edges))
+    ... )
     """
     edges = graph.edges(data=True)
     edge_colors = []
