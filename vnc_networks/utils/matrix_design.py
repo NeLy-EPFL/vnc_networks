@@ -1,17 +1,18 @@
 """
 Module for matrix visualization.
 """
-from typing import Optional
-import matplotlib.pyplot as plt
-import matplotlib.axes
-import scipy as sc
-import numpy as np
 
+from typing import Optional
+
+import matplotlib.axes
+import matplotlib.pyplot as plt
 import params
+import scipy as sc
 import utils.plots_design as plots_design
 
-def spy(matrix, title:Optional[str]=None):
-    '''
+
+def spy(matrix, title: Optional[str] = None):
+    """
     Visualizes the sparsity pattern of a matrix.
 
     Parameters
@@ -20,13 +21,14 @@ def spy(matrix, title:Optional[str]=None):
         The matrix to visualize.
     title : str, optional
         The title of the plot. The default is None.
-    '''
+    """
     _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
     plt.spy(matrix, markersize=0.1)
     ax = plots_design.make_nice_spines(ax)
     if title is not None:
         plt.title(title)
     return ax
+
 
 def imshow(
     matrix,
@@ -46,7 +48,7 @@ def imshow(
     """
     if ax is None:
         _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
-    assert ax is not None # just for the type hinting to work properly
+    assert ax is not None  # just for the type hinting to work properly
     if sc.sparse.issparse(matrix):
         matrix_ = matrix.todense()
     else:
@@ -73,7 +75,7 @@ def imshow(
     if col_labels is not None:
         ax.set_xticks(range(len(col_labels)), labels=col_labels)
     ax = plots_design.make_nice_spines(ax)
-    
+
     # colorbar
     cbar = plt.colorbar(c, ax=ax)
     cbar.set_label("connection strength")

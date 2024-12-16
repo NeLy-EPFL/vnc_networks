@@ -3,14 +3,13 @@ author: femke.hurtak@epfl.ch
 
 Script to load the MANC dataset and save it in a usable format.
 """
-from neuron import Neuron
+import matplotlib.pyplot as plt
+import params
+import seaborn as sns
 from connections import Connections
 from get_nodes_data import get_neuron_bodyids
-import params
-
 from matplotlib_venn import venn3
-import matplotlib.pyplot as plt
-import seaborn as sns
+from neuron import Neuron
 
 MDNs = []
 neurons_pre = get_neuron_bodyids({'type:string': 'MDN'})
