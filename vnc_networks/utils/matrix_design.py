@@ -1,15 +1,18 @@
 """
 Module for matrix visualization.
 """
-import matplotlib.pyplot as plt
-import scipy as sc
-import numpy as np
 
+from typing import Optional
+
+import matplotlib.axes
+import matplotlib.pyplot as plt
 import params
+import scipy as sc
 import utils.plots_design as plots_design
 
-def spy(matrix, title:str=None):
-    '''
+
+def spy(matrix, title: Optional[str] = None):
+    """
     Visualizes the sparsity pattern of a matrix.
 
     Parameters
@@ -18,7 +21,7 @@ def spy(matrix, title:str=None):
         The matrix to visualize.
     title : str, optional
         The title of the plot. The default is None.
-    '''
+    """
     _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
     plt.spy(matrix, markersize=0.1)
     ax = plots_design.make_nice_spines(ax)
@@ -26,17 +29,18 @@ def spy(matrix, title:str=None):
         plt.title(title)
     return ax
 
+
 def imshow(
     matrix,
-    title: str = None,
-    vmax: float = None,
-    vmin: float = None,
+    title: str,
+    vmax: Optional[float] = None,
+    vmin: Optional[float] = None,
     cmap=params.diverging_heatmap,
-    ax: plt.Axes = None,
+    ax: Optional[matplotlib.axes.Axes] = None,
     xlabel: str = "postsynaptic neuron",
     ylabel: str = "presynaptic neuron",
-    row_labels: list = None,
-    col_labels: list = None,
+    row_labels: Optional[list] = None,
+    col_labels: Optional[list] = None,
     save: bool = False,
 ):
     """
@@ -44,6 +48,7 @@ def imshow(
     """
     if ax is None:
         _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
+    assert ax is not None  # just for the type hinting to work properly
     if sc.sparse.issparse(matrix):
         matrix_ = matrix.todense()
     else:
@@ -51,6 +56,7 @@ def imshow(
     # Set the maximum value to the maximum absolute value if not provided
     if vmax is None:
         vmax = max(abs(matrix_.min()), matrix_.max())
+    assert vmax is not None
     if vmin is None:
         vmin = -1 * vmax
     c = ax.imshow(
@@ -69,7 +75,7 @@ def imshow(
     if col_labels is not None:
         ax.set_xticks(range(len(col_labels)), labels=col_labels)
     ax = plots_design.make_nice_spines(ax)
-    
+
     # colorbar
     cbar = plt.colorbar(c, ax=ax)
     cbar.set_label("connection strength")

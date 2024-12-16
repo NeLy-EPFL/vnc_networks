@@ -4,8 +4,9 @@ author: femke.hurtak@epfl.ch
 Helping script for working with multiprocessing
 """
 
-import time
+# import time
 import multiprocessing as mp
+
 
 def queue_wrapping(function, result_queue, **kwargs):
     """
@@ -33,7 +34,7 @@ def run_function_with_timeout(target, args, time_limit):
     """
     success = False
     while not success:
-        start_time = time.time()
+        # start_time = time.time()
 
         # Create a Queue to get the return value from the function
         result_queue = mp.Queue()
@@ -63,4 +64,3 @@ def run_function_with_timeout(target, args, time_limit):
             success = True  # Set to True to break out of the while loop
             break
     return result
-

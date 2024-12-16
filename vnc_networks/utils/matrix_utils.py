@@ -1,12 +1,15 @@
-'''
+"""
 Module containing utility functions for processing matrices.
-'''
+"""
+
+import typing
 
 import numpy as np
 import scipy as sc
 import scipy.cluster.hierarchy as sch
 
-def connections_up_to_n_hops(matrix, n):
+
+def connections_up_to_n_hops(matrix, n: int):
     """
     input: (sparse) matrix
 
@@ -24,7 +27,8 @@ def connections_up_to_n_hops(matrix, n):
         return_mat += return_mat @ matrix
     return return_mat
 
-def connections_at_n_hops(matrix, n):
+
+def connections_at_n_hops(matrix, n: int):
     """
     input: (sparse) matrix
 
@@ -41,14 +45,15 @@ def connections_at_n_hops(matrix, n):
 
     if n == 1:
         return matrix
-    elif n%2 == 0:
+    elif n % 2 == 0:
         return connections_at_n_hops(matrix @ matrix, n // 2)
     else:
         return matrix @ connections_at_n_hops(matrix @ matrix, n // 2)
 
+
 def generate_random(matrix):
     """
-    Generates a random matrix by shuffeling the elements of the matrix in
+    Generates a random matrix by shuffling the elements of the matrix in
     argument
     """
     rng = np.random.default_rng()
@@ -59,15 +64,17 @@ def generate_random(matrix):
     arr = arr.reshape((n, m))
     return sc.sparse.csr_matrix(arr)
 
+
 def density(matrix):
     """
     input: sparse matrix
-    output: number of existing edges divided by edges on a fully-comnected
+    output: number of existing edges divided by edges on a fully-connected
     graph of identical size
     """
     mat = matrix
     den = mat.nnz / np.prod(mat.shape)
     return den
+
 
 def select_subset_matrix(matrix, sub_indices):
     """
@@ -77,11 +84,12 @@ def select_subset_matrix(matrix, sub_indices):
     mat = mat_tmp[:, sub_indices]
     return mat
 
-def connection_degree_n_hops(matrix, n, dn_indices=[]):
+
+def connection_degree_n_hops(matrix, n: int, dn_indices=[]):
     """
     inputs:
         sparse matrix
-        number of maximimal hops (n)
+        number of maximal hops (n)
         indices to evaluate
     output:
         array of size n with densities for increasing number of hops allowed
@@ -97,6 +105,7 @@ def connection_degree_n_hops(matrix, n, dn_indices=[]):
             degree.append(density(dn_mat))
     return degree
 
+
 def cluster_matrix_hierarchical(matrix):
     """
     inputs: scipy sparse correlation matrix
@@ -109,15 +118,14 @@ def cluster_matrix_hierarchical(matrix):
     # if the matrix is a scipy sparse matrix, convert to dense
     if sc.sparse.issparse(matrix):
         matrix = matrix.todense()
-    dendrogram = sch.dendrogram(
-        sch.linkage(matrix, method="ward"), no_plot=True
-    )
+    dendrogram = sch.dendrogram(sch.linkage(matrix, method="ward"), no_plot=True)
     # get the order of the indices
     order = dendrogram["leaves"]
     # reorder the matrix
     clustered = matrix[order, :]
     clustered = clustered[:, order]
     return clustered, order
+
 
 def convert_index_to_bodyid(index, lookup):
     """
@@ -131,13 +139,11 @@ def convert_index_to_bodyid(index, lookup):
         index = [index]
     else:
         return_as_int = False
-    bodyids = [
-        lookup.loc[lookup["index"] == id].body_id.values[0]
-        for id in index
-        ]
+    bodyids = [lookup.loc[lookup["index"] == id].body_id.values[0] for id in index]
     if return_as_int:
         return bodyids[0]
     return bodyids
+
 
 def convert_bodyid_to_index(bodyid, lookup, allow_empty=True):
     """
@@ -173,12 +179,13 @@ def convert_bodyid_to_index(bodyid, lookup, allow_empty=True):
         return indices[0]
     return indices
 
-def count_nonzero(matrix, sign=None):
+
+def count_nonzero(matrix, sign: typing.Literal["positive", "negative"] | None = None):
     """
     input: sparse matrix
 
     output: number of non-zero elements
-    sign: if None, count all non-zero elements. 
+    sign: if None, count all non-zero elements.
     If 'positive', count only positive elements.
     If 'negative', count only negative elements.
     """
@@ -193,12 +200,15 @@ def count_nonzero(matrix, sign=None):
         neg_mat.data = neg_mat.data < 0
         return neg_mat.count_nonzero()
 
-def sum_weights(matrix, sign=None):
+
+def sum_weights(
+    matrix, sign: typing.Literal["positive", "negative", "absolute"] | None = None
+):
     """
     input: sparse matrix
 
     output: sum of all weights
-    sign: if None, sum all weights. 
+    sign: if None, sum all weights.
     If 'absolute', sum the absolute value of all weights.
     If 'positive', sum only positive weights.
     If 'negative', sum only negative weights.
@@ -215,53 +225,41 @@ def sum_weights(matrix, sign=None):
         neg_mat = matrix.copy()
         neg_mat.data = neg_mat.data * (neg_mat.data < 0)
         return neg_mat.sum()
-    
-def build_distance_matrix(matrix, method='pearson'):
+
+
+def build_distance_matrix(
+    matrix, method: typing.Literal["cosine_in", "cosine_out", "cosine", "euclidean"]
+):
     """
     input: sparse matrix
     output: similarity matrix
     """
     match method:
-        case 'cosine_in': # cosine similarity of the input vectors
+        case "cosine_in":  # cosine similarity of the input vectors
             # the vectors are the columns of the matrix, i.e. all i to each j
             columns = matrix.todense().T
-            sim_mat = sc.spatial.distance.cdist(
-                columns,
-                columns,
-                'cosine'
-                )
-        case 'cosine_out': # cosine similarity of the output vectors
+            sim_mat = sc.spatial.distance.cdist(columns, columns, "cosine")
+        case "cosine_out":  # cosine similarity of the output vectors
             # the vectors are the rows of the matrix, i.e. all j to each i
             rows = matrix.todense()
-            sim_mat = sc.spatial.distance.cdist(
-                rows,
-                rows,
-                'cosine'
-                )
-        case 'cosine': # cosine similarity of the input and output vectors
+            sim_mat = sc.spatial.distance.cdist(rows, rows, "cosine")
+        case "cosine":  # cosine similarity of the input and output vectors
             # create vectors that are for each i the concatenation of the row and column vectors
             matrix = matrix.todense()
             matrix = np.concatenate((matrix, matrix.T), axis=1)
-            sim_mat = sc.spatial.distance.cdist(
-                matrix,
-                matrix,
-                'cosine'
-                )
-        case 'euclidean':
+            sim_mat = sc.spatial.distance.cdist(matrix, matrix, "cosine")
+        case "euclidean":
             matrix = matrix.todense()
             matrix = np.concatenate((matrix, matrix.T), axis=1)
-            sim_mat = sc.spatial.distance.cdist(
-                matrix,
-                matrix,
-                'euclidean'
-                )
+            sim_mat = sc.spatial.distance.cdist(matrix, matrix, "euclidean")
         case _:
             raise ValueError(f"Method {method} not recognized.")
-    
+
     # correct for numerical errors
     # if the values are very close to 0, set them to 0
     sim_mat[sim_mat < 1e-10] = 0
     return sc.sparse.csr_matrix(sim_mat)
+
 
 def markov_clustering(matrix, inflation=2, iterations=100):
     """

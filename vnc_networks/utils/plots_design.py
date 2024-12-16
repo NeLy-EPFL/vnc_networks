@@ -1,17 +1,22 @@
-'''
+"""
 Helper functions for making plots look nice.
-'''
-import numpy as np
-import matplotlib as mpl
+"""
+
+import typing
+import warnings
+
+import matplotlib.axes
+import matplotlib.colorbar
+import matplotlib.colors
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import params
 import seaborn as sns
-import pandas as pd
-import warnings
 from matplotlib_venn import venn3
 
 
-def make_nice_spines(ax, linewidth=params.LINEWIDTH):
+def make_nice_spines(ax: matplotlib.axes.Axes, linewidth=params.LINEWIDTH):
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["left"].set_position(("outward", 2 * linewidth))
@@ -29,8 +34,9 @@ def make_nice_spines(ax, linewidth=params.LINEWIDTH):
     ax = set_ticks(ax)
     return ax
 
-def make_nice_cbar(cbar, linewidth=params.LINEWIDTH):
-    cbar.outline.set_linewidth(0.5*linewidth)
+
+def make_nice_cbar(cbar: matplotlib.colorbar.Colorbar, linewidth=params.LINEWIDTH):
+    cbar.outline.set_linewidth(0.5 * linewidth)
     cbar.ax.tick_params(width=linewidth)
     cbar.ax.tick_params(length=2.5 * linewidth)
     cbar.ax.tick_params(labelsize=params.LABEL_SIZE)
@@ -38,7 +44,8 @@ def make_nice_cbar(cbar, linewidth=params.LINEWIDTH):
     cbar.ax.yaxis.label.set_size(params.LABEL_SIZE)
     return cbar
 
-def make_axis_disappear(ax):
+
+def make_axis_disappear(ax: matplotlib.axes.Axes):
     sides = ["top", "left", "right", "bottom"]
     for side in sides:
         ax.spines[side].set_visible(False)
@@ -46,49 +53,51 @@ def make_axis_disappear(ax):
         ax.set_xticks([])
         ax.set_yticks([])
 
-def set_ticks(ax, n_ticks:int = 5):
+
+def set_ticks(ax: matplotlib.axes.Axes, n_ticks: int = 5):
     """
     Set the number of ticks on the axis.
     """
-    start,stop = ax.get_xlim()
+    start, stop = ax.get_xlim()
     xticks = np.linspace(start, stop, n_ticks)
     xticks = [int(x) for x in xticks]
     ax.set_xticks(xticks)
-    start,stop = ax.get_ylim()
+    start, stop = ax.get_ylim()
     yticks = np.linspace(start, stop, n_ticks)
     yticks = [int(y) for y in yticks]
     ax.set_yticks(yticks)
     return ax
 
+
 def scatter_xyz_2d(
-        X,
-        Y,
-        Z,
-        ax,
-        cmap=params.red_heatmap,
-        marker='o',
-        z_label='Z',
-        discrete_coloring: bool=False,
-        ):
+    X,
+    Y,
+    Z,
+    ax: matplotlib.axes.Axes,
+    cmap: str | matplotlib.colors.Colormap | typing.Any = params.red_heatmap,
+    marker="o",
+    z_label="Z",
+    discrete_coloring: bool = False,
+):
     """
     Scatter plot in 2D with Z as the color.
     """
     if discrete_coloring:
         unique_z = np.unique(Z)
         n_c = len(unique_z)
-        colors = sns.color_palette(palette = cmap, n_colors = n_c)
-        #cmap = mpl.colors.ListedColormap(colors)
+        colors = sns.color_palette(palette=cmap, n_colors=n_c)
+        # cmap = mpl.colors.ListedColormap(colors)
         color_map = dict(zip(unique_z, colors))
-        df = pd.DataFrame({'X':X, 'Y':Y, 'Z':Z})
+        df = pd.DataFrame({"X": X, "Y": Y, "Z": Z})
         plt.scatter(
-            df['X'],
-            df['Y'],
-            c=df['Z'].map(color_map),
-            #cmap=cmap,
+            df["X"],
+            df["Y"],
+            c=df["Z"].map(color_map),
+            # cmap=cmap,
             marker=marker,
             alpha=0.8,
-            )
-        '''
+        )
+        """
         plt.legend(
             [plt.Line2D(
                 [0],
@@ -104,8 +113,8 @@ def scatter_xyz_2d(
             title_fontsize=params.LABEL_SIZE,
             fontsize=params.LABEL_SIZE,
             )
-        '''
-        
+        """
+
         with warnings.catch_warnings():
             # suppress warnings from matplotlib, as plotting empty lists with
             # a label will raise a user warning
@@ -115,42 +124,45 @@ def scatter_xyz_2d(
                 ax.legend(
                     fontsize=params.LABEL_SIZE,
                     title=z_label,
-                    title_fontsize=params.LABEL_SIZE
-                    )
-            
+                    title_fontsize=params.LABEL_SIZE,
+                )
+
     else:
-        ax.scatter(X, Y, c=Z, cmap=cmap, marker=marker,alpha=0.8)
+        ax.scatter(X, Y, c=Z, cmap=cmap, marker=marker, alpha=0.8)
         cbar = plt.colorbar(
             ax.collections[0],
             ax=ax,
-            orientation='vertical',
+            orientation="vertical",
             label=z_label,
-            )
+        )
         cbar = make_nice_cbar(cbar)
 
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
     ax = make_nice_spines(ax)
     plt.tight_layout()
     return ax
 
+
 def scatter_xy(
-        Y,
-        X: list = None,
-        ax: plt.Axes = None,
-        marker='o',
-        color=params.DARKGREY,
-        alpha=0.8,
-        xlabel='X',
-        ylabel='Y',
-        ):
+    Y,
+    X: typing.Optional[list | np.ndarray] = None,
+    ax: typing.Optional[matplotlib.axes.Axes] = None,
+    marker="o",
+    color=params.DARKGREY,
+    alpha=0.8,
+    xlabel="X",
+    ylabel="Y",
+):
     """
     Scatter plot in 2D.
     """
     if ax is None:
         _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
+    assert ax is not None  # needed for type hinting
     if X is None:
         X = np.arange(len(Y))
+    assert X is not None  # needed for type hinting
 
     ax.scatter(X, Y, c=color, marker=marker, alpha=alpha)
     ax.set_xlabel(xlabel)
@@ -162,13 +174,13 @@ def scatter_xy(
 
 
 def venn_3(
-        sets: list,
-        set_labels: list[str] = ['','',''],
-        ax: plt.Axes = None,
-        colors=params.custom_palette[:3],
-        alpha=0.8,
-        title: str = '',
-        ):
+    sets: list,
+    set_labels: list[str] = ["", "", ""],
+    ax: typing.Optional[matplotlib.axes.Axes] = None,
+    colors=params.custom_palette[:3],
+    alpha=0.8,
+    title: str = "",
+):
     """
     Plot a 3-way Venn diagram.
 
@@ -178,7 +190,7 @@ def venn_3(
         List of sets to compare. Must be a list of 3 sets/lists.
     set_labels : list[str], optional
         Labels for the sets, by default None
-    ax : plt.Axes, optional
+    ax : matplotlib.axes.Axes, optional
         Axis to plot on, by default None
     colors : list, optional
         List of colors to use for the sets, by default params.custom_palette[:3]
@@ -189,20 +201,21 @@ def venn_3(
 
     Returns
     -------
-    plt.Axes
-        Axis with the Venn diagram.    
+    matplotlib.axes.Axes
+        Axis with the Venn diagram.
     """
     if len(sets) != 3:
-        raise ValueError('Must provide 3 sets to compare')
+        raise ValueError("Must provide 3 sets to compare")
     if ax is None:
         _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
+    assert ax is not None  # needed for type hinting
 
-    v = venn3(
+    venn3(
         sets,
         set_labels,
         ax=ax,
         set_colors=colors,
         alpha=alpha,
-        )
+    )
     ax.set_title(title)
     return ax
