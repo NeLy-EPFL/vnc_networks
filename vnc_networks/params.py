@@ -23,13 +23,13 @@ NEUPRINT_SYNAPSSET_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_SynapseSet_to
 NEUPRINT_SYNAPSE_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Synapses_manc_v1.ftr")
 
 # --- Where to save the processed data sets --- #
-PROCESSED_DATA_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent.parent, "data", "manc_processed2")
+PROCESSED_DATA_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent, "data", "manc_processed")
 
 # --- Where to save the preprocessed data sets --- #
-PREPROCESSING_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent.parent, "preprocessing")
+PREPROCESSING_DIR = os.path.join(Path(__name__).absolute().parent.parent.parent, "preprocessing")
 NEURON_DIR = os.path.join(PREPROCESSING_DIR, "neurons")
 os.makedirs(NEURON_DIR, exist_ok=True)
-CONNECTION_DIR = os.path.join(PREPROCESSING_DIR, "connections2")
+CONNECTION_DIR = os.path.join(PREPROCESSING_DIR, "connections")
 os.makedirs(CONNECTION_DIR, exist_ok=True)
 
 # --- Where to save the figures --- #
