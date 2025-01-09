@@ -116,7 +116,11 @@ class CMatrix:
         self.lookup = lookup
         return
 
-    def __restrict_row_indices(self, indices: list, allow_empty: bool = True):
+    def __restrict_row_indices(
+            self,
+            indices: list,
+            allow_empty: bool = True,
+        ):
         """
         Restricts the adjacency matrix to a subset of indices.
 
@@ -310,11 +314,17 @@ class CMatrix:
         Reorder the indexing of the lookup table according to the order.
         The order of indices given as arguments will be mapped to [0,1,2,...].
         """
+        if len(order) != self.matrix.shape[0]:
+            raise ValueError("The order must have the same length as the matrix.")
+        
         lookup = self.get_lookup().copy()
-        mapping: dict[int | float, int | float] = dict(zip(order, range(len(order))))
-        mapping[np.nan] = np.nan
-        # sort he column 'row_index' according to the order
-        lookup["row_index"] = lookup["row_index"].map(mapping).astype(int)
+        def __mapping(_x: int, _order: list[int]):
+            if _x in _order:
+                return _order.index(_x)
+            return np.nan
+        # sort the column 'row_index' according to the order
+        old_order = lookup["row_index"].tolist()
+        lookup["row_index"] = [__mapping(x,order) for x in old_order]
         self.lookup = lookup
         return
 
@@ -323,11 +333,17 @@ class CMatrix:
         Reorder the indexing of the lookup table according to the order.
         The order of indices given as arguments will be mapped to [0,1,2,...].
         """
+        if len(order) != self.matrix.shape[1]:
+            raise ValueError("The order must have the same length as the matrix.")
+        
         lookup = self.get_lookup().copy()
-        mapping: dict[int | float, int | float] = dict(zip(order, range(len(order))))
-        mapping[np.nan] = np.nan
+        def __mapping(_x: int, _order: list[int]):
+            if _x in _order:
+                return _order.index(_x)
+            return np.nan
         # sort he column 'column_index' according to the order
-        lookup["column_index"] = lookup["column_index"].map(mapping)
+        old_order = lookup["column_index"].tolist()
+        lookup["column_index"] = [__mapping(x,order) for x in old_order]
         self.lookup = lookup
         return
 
@@ -486,6 +502,7 @@ class CMatrix:
         column_ids: Optional[list] = None,
         allow_empty: bool = True,
         input_type: typing.Literal["uid", "body_id"] = "body_id",
+        keep_initial_order: bool = True,
     ):
         """
         Restricts the adjacency matrix and lookup table to a subset of uids,
@@ -506,6 +523,9 @@ class CMatrix:
             The type of the input ids. The default is 'body_id'. It will cover all uids
             that have the matching 'body_id' in the lookup.
             Otherwise, the input is 'uid'.
+        keep_initial_order : bool, optional
+            If False, the rows and columns are sorted according to the input order.
+            The default is True, where the order is hte same as the existing matrix.
         """
         if row_ids is None and column_ids is None:
             return
@@ -526,9 +546,26 @@ class CMatrix:
         # restrict the data to the indices
         self.__restrict_row_indices(row_indices)
         self.__restrict_column_indices(column_indices)
+        
+        # reorder the matrix and lookup if necessary
+        if not keep_initial_order:
+            # Get the updated indices
+            row_indices = self.get_row_indices( #
+                row_ids, allow_empty=allow_empty, input_type=input_type
+            )
+            column_indices = self.get_column_indices(
+                column_ids,
+                allow_empty=allow_empty,
+                input_type=input_type,
+            )
+            # reorder the matrix and lookup
+            self.matrix = self.get_matrix()[row_indices, :][:, column_indices]
+            self.__reorder_row_indexing(row_indices)
+            self.__reorder_column_indexing(column_indices)
+
         return
 
-    def restrict_nodes(self, nodes: list, allow_empty: bool = True):
+    def restrict_nodes(self, nodes: list[UID], allow_empty: bool = True):
         """
         Restricts the adjacency matrix to a subset of nodes (uids).
 
