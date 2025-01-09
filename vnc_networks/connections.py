@@ -40,7 +40,7 @@ import utils.nx_design as nx_design
 import utils.nx_utils as nx_utils
 import utils.plots_design as plots_design
 from neuron import Neuron
-from params import UID, BodyId, NeuronAttribute
+from params import UID, BodyId, NeuronAttribute, SelectionDict
 
 ## ---- Types ---- ##
 SortingStyle = typing.Literal[
@@ -775,7 +775,7 @@ class Connections:
         ]
         return self.subgraph(traced_nodes)
 
-    def get_neuron_bodyids(self, selection_dict: Optional[dict] = None):
+    def get_neuron_bodyids(self, selection_dict: Optional[SelectionDict] = None):
         """
         Get the neuron Body-IDs from the nodes dataframe based on a selection dictionary.
         """
@@ -784,9 +784,7 @@ class Connections:
 
     def get_neuron_ids(
         self,
-        selection_dict: Optional[
-            dict[NeuronAttribute, str | int | float | bool | BodyId]
-        ] = None,
+        selection_dict: Optional[SelectionDict] = None,
     ) -> list[UID]:
         """
         Get the neuron IDs from the nodes dataframe as loaded in the initial
@@ -1104,12 +1102,27 @@ class Connections:
                 ::: > get_neurons_downstream_of(): Unknown output type {output_type}"
             )
 
+    @typing.overload
+    def get_neurons_upstream_of(
+        self,
+        neuron_id: int,
+        input_type: typing.Literal["uid", "body_id"] = "uid",
+        output_type: typing.Literal["uid"] = "uid",
+    ) -> list[UID]: ...
+    @typing.overload
+    def get_neurons_upstream_of(
+        self,
+        neuron_id: int,
+        input_type: typing.Literal["uid", "body_id"] = "uid",
+        output_type: typing.Literal["body_id"] = "body_id",
+    ) -> list[BodyId]: ...
+
     def get_neurons_upstream_of(
         self,
         neuron_id: int,
         input_type: typing.Literal["uid", "body_id"] = "uid",
         output_type: typing.Literal["uid", "body_id"] = "uid",
-    ):
+    ) -> list[UID] | list[BodyId]:
         """
         Get the neurons upstream of a given neuron, based on the graph.
 

@@ -251,6 +251,9 @@ NeuronClass = typing.Literal[
 ]
 """Possible values for neuron class (the `"class:string"` parameter) in the MANC v1.0 connectome."""
 
+SelectionDict = dict[NeuronAttribute, str | int | float | bool | BodyId]
+"""Dictionary for selecting subsets of neurons based on different `NeuronAttribute`s."""
+
 
 # --- Parameters for the network representation --- #
 NT_TYPES = {

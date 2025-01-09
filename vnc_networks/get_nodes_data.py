@@ -7,13 +7,11 @@ from typing import Optional
 
 import pandas as pd
 import params
-from params import BodyId, NeuronAttribute, NeuronClass
+from params import BodyId, NeuronAttribute, NeuronClass, SelectionDict
 
 
 def get_neuron_bodyids(
-    selection_dict: Optional[
-        dict[NeuronAttribute, str | int | float | bool | BodyId]
-    ] = None,
+    selection_dict: Optional[SelectionDict] = None,
     nodes: Optional[list[BodyId] | list[int]] = None,
 ) -> list[BodyId]:
     """
