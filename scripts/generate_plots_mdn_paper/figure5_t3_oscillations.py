@@ -634,6 +634,8 @@ def focus_specific_neurons_effective(
     )
     plt.tight_layout()
     title = "specific_neurons_inh_effective"
+    for neuron in focus_neurons:
+        title += f"_{neuron}"
     plt.savefig(os.path.join(FOLDER, title + ".pdf"))
     plt.close()
 
@@ -653,8 +655,7 @@ def print_name_neurons(focus_neurons):
 
 def control_t3_motor_neuron_clusters():
     """
-    Cluster motor neurons based on all their inputs, not the ones from the MDN
-    induced graph.
+    Cluster motor neurons based on all their inputs in T3.
     """
     # Data loading
     full_VNC = mdn_helper.get_vnc_split_MDNs_by_neuropil(
@@ -748,9 +749,9 @@ if __name__ == "__main__":
     # focus_strongest_inhibitors_t3(min_degree=5)
     # focus_strongest_inhibitors_t3_effective(min_degree=5)
     # central_inhibitors = [267449,345370,291605,84314]
-    # secondary_inhibitors = [123784,158676,229541,246719]
-    # focus_specific_neurons_effective(central_inhibitors)
+    secondary_inhibitors = [123784,158676,229541,246719] # control 'motor primitive clusters'
+    focus_specific_neurons_effective(secondary_inhibitors)
     # print_name_neurons(central_inhibitors)
     # control_t3_motor_neuron_clusters()
-    compare_mn_clusters_control_vs_mdnl2()
+    # compare_mn_clusters_control_vs_mdnl2()
     pass
