@@ -11,7 +11,11 @@ import scipy as sc
 import utils.plots_design as plots_design
 
 
-def spy(matrix, title: Optional[str] = None):
+def spy(
+        matrix,
+        title: Optional[str] = None,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        ):
     """
     Visualizes the sparsity pattern of a matrix.
 
@@ -22,8 +26,9 @@ def spy(matrix, title: Optional[str] = None):
     title : str, optional
         The title of the plot. The default is None.
     """
-    _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
-    plt.spy(matrix, markersize=0.1)
+    if ax is None:
+        _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
+    plt.spy(matrix, markersize=0.1, aspect="auto")
     ax = plots_design.make_nice_spines(ax)
     if title is not None:
         plt.title(title)
