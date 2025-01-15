@@ -10,7 +10,6 @@ neurons_post = get_neuron_bodyids(
 )
 # Load dataset
 connections = Connections() # entire dataset
-connections.initialize()
 
 # Compute second order connections
 cmatrix = connections.get_cmatrix(type_='norm')

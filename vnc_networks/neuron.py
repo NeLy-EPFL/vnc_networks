@@ -187,7 +187,7 @@ class Neuron:
                 columns=[column_name, ":ID(Syn-ID)"],
             )[synapses_we_care_about]
             synapses_in_roi = roi_column.loc[
-                roi_column[column_name], ":ID(Syn-ID)"
+                roi_column[column_name] == True, ":ID(Syn-ID)"
             ].values  # type: ignore
             self.synapse_df.loc[
                 self.synapse_df["syn_id"].isin(synapses_in_roi), "neuropil"
@@ -204,12 +204,20 @@ class Neuron:
         locations = self.synapse_df["location:point{srid:9157}"].values
         X, Y, Z = [], [], []
         for loc in locations:
-            pos = eval(loc)  # read loc as a dict, use of x,y,z under the hood
+            name = loc.replace('x','"x"').replace('y','"y"').replace('z','"z"')
+            try:
+                pos = eval(name)  # read loc as a dict, use of x,y,z under the hood
+            except TypeError:
+                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
+                print(f'Type Error in reading location for {name}')
+            except NameError:
+                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
+                print(f'Name Error in reading location for {name}')
             if not isinstance(pos, dict):
-                pos = {0: np.nan, 1: np.nan, 2: np.nan}
-            X.append(pos[0])
-            Y.append(pos[1])
-            Z.append(pos[2])
+                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
+            X.append(pos["x"])
+            Y.append(pos["y"])
+            Z.append(pos["z"])
         self.synapse_df["X"] = X
         self.synapse_df["Y"] = Z
         self.synapse_df["Z"] = Y
@@ -446,8 +454,8 @@ class Neuron:
         plt.get_cmap()
         X, Y, Z = self.get_synapse_distribution(threshold=threshold)
         if ax is None:
-            fig, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)[1]
-        assert ax is not None  # needed for type hinting
+            _, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
+        #assert ax is not None  # needed for type hinting
         if color_by is None:
             plot_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax, cmap=cmap)
         else:
@@ -474,8 +482,12 @@ class Neuron:
                 discrete_coloring=discrete_coloring,
             )
         if savefig:
+            name = os.path.join(
+                params.PLOT_DIR,
+                f"synapse_distribution_{self.bodyId}_color_by_{color_by}.pdf",
+                )
             plt.savefig(
-                f"{params.PLOT_DIR}/synapse_distribution_{self.bodyId}_{color_by}.pdf"
+                name,
             )
         return ax
 

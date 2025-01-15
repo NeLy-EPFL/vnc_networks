@@ -15,11 +15,9 @@ from connections import Connections
 neurons_pre = get_neurons_from_class('sensory neuron')
 neurons_post = get_neurons_from_class('motor neuron')
 connections = Connections(neurons_pre, `neurons_post`)
-# connections.set_nt_weights({"acetylcholine": +1, "gaba": -1, "glutamate": -1, "unknown": 0, None: 0})
-connections.initialize()
 ```
 """
-
+import copy
 import os
 import pickle
 import typing
@@ -62,9 +60,13 @@ DPI = 300
 class Connections:
     def __init__(
         self,
+        from_file: Optional[str] = None,
         neurons_pre: Optional[list[int] | list[BodyId]] = None,
         neurons_post: Optional[list[int] | list[BodyId]] = None,
-        from_file: Optional[str] = None,
+        nt_weights: Optional[Mapping[str, int]] = params.NT_WEIGHTS,
+        split_neurons: Optional[list[Neuron]] = None,
+        not_connected: Optional[list[BodyId] | list[int]] = None,
+        keep_only_traced_neurons: Optional[bool] = True,
     ):
         """
         If no neurons_post are given, the class assumes the same neurons as pre-synaptic.
@@ -88,10 +90,36 @@ class Connections:
                 self.neurons_post = self.neurons_pre
             else:
                 self.neurons_post = (neurons_post,)
-            self.nt_weights = params.NT_WEIGHTS
+            self.nt_weights = nt_weights
             self.subgraphs = {}
 
+        self.__initialize(split_neurons, not_connected)
+
+        if keep_only_traced_neurons: 
+            # this is computationally not optimal but makes the dataset a lot cleaner.
+            # TODO: implement this as the dataset is created, by loading 
+            # node data seuentially.
+            self.get_connections_with_only_traced_neurons()
+
     # private methods
+    def __initialize(
+        self,
+        split_neurons: Optional[list[Neuron]] = None,
+        not_connected: Optional[list[BodyId] | list[int]] = None,  # body ids
+    ):
+        if split_neurons is not None and not_connected is not None:
+            for neuron in split_neurons:
+                neuron.clear_not_connected(not_connected)
+        self.__get_connections()
+        self.__remove_connections_between(not_connected=not_connected)
+        self.__compute_effective_weights_in_connections()
+        self.__split_neurons_in_connections(split_neurons)
+        self.__map_uid()
+        self.__name_neurons(split_neurons)
+        self.__build_graph()
+        self.__build_adjacency_matrices()
+        return
+
     def __load(self, name: str):
         """
         Import the object from a pickle file.
@@ -661,29 +689,10 @@ class Connections:
             return nx.get_node_attributes(self.graph, attribute)
 
     # public methods
-    # --- initialize
-    def initialize(
-        self,
-        split_neurons: Optional[list[Neuron]] = None,
-        not_connected: Optional[list[BodyId] | list[int]] = None,  # body ids
-    ):
-        if split_neurons is not None and not_connected is not None:
-            for neuron in split_neurons:
-                neuron.clear_not_connected(not_connected)
-        self.__get_connections()
-        self.__remove_connections_between(not_connected=not_connected)
-        self.__compute_effective_weights_in_connections()
-        self.__split_neurons_in_connections(split_neurons)
-        self.__map_uid()
-        self.__name_neurons(split_neurons)
-        self.__build_graph()
-        self.__build_adjacency_matrices()
-        return
-
     # --- copy
     def subgraph(
         self,
-        nodes: Optional[typing.Iterable[int]] = None,
+        nodes: Optional[typing.Iterable[UID] | typing.Iterable[int]] = None,
         edges: Optional[list[tuple[UID, UID]] | list[tuple[int, int]]] = None,
     ):
         """
@@ -707,7 +716,16 @@ class Connections:
         Connections
             New Connections object with the subgraph.
         """
-        # Get the connections
+        # copy the original object
+        new_connection_obj = copy.deepcopy(self)
+
+        if nodes is None and edges is None:
+            return new_connection_obj 
+
+        # recompute all the attributes inside from the subset
+        new_connection_obj.empty()
+
+        # Identify the connections to keep
         connections_ = self.get_dataframe()
         if nodes is not None:
             connections_ = connections_[
@@ -715,10 +733,7 @@ class Connections:
                 & connections_["end_uid"].isin(nodes)
             ]
         else:
-            if edges is None:
-                raise ValueError(
-                    "At least one of `nodes` and `edges` needs to be specified to create a subgraph"
-                )
+            # edges is necessarily not None. otherwise already returned above
             # get all the elements present in the tuples edges
             nodes = list(set([x for y in edges for x in y]))
         if edges is not None:
@@ -728,13 +743,14 @@ class Connections:
                     rows_to_drop.append(index)
             connections_ = connections_.drop(rows_to_drop)
 
-        # Initialize the new object
-        neurons_pre_ = connections_["start_uid"].to_list()
-        neurons_post_ = connections_["end_uid"].to_list()
-        subgraph_ = Connections(
-            neurons_pre_,
-            neurons_post_,
-        )
+        # Update the neuron list fields
+        new_connection_obj.neurons_pre_ = connections_[
+            ":START_ID(Body-ID)"
+            ].to_list()
+        new_connection_obj.neurons_post_ = connections_[
+            ":END_ID(Body-ID)"
+            ].to_list()
+        
 
         # update the effective weights
         connections_ = connections_.drop(
@@ -743,16 +759,16 @@ class Connections:
                 "eff_weight_norm",
             ]
         )
-        subgraph_.set_connections(connections_)
-        subgraph_.__compute_effective_weights_in_connections(ids="uid")
+        new_connection_obj.set_connections(connections_)
+        new_connection_obj.__compute_effective_weights_in_connections(ids="uid")
 
         # Subset the uids, keeps the names
-        subgraph_.uid = self.uid.loc[self.uid["uid"].isin(nodes)].copy()
+        new_connection_obj.uid = copy.deepcopy(self.uid.loc[self.uid["uid"].isin(nodes)])
         # Initialize the graph
-        subgraph_.set_graph()
+        new_connection_obj.set_graph()
         # Initialize the adjacency matrices
-        subgraph_.set_adjacency_matrices()
-        return subgraph_
+        new_connection_obj.set_adjacency_matrices()
+        return new_connection_obj
 
     def subgraph_from_paths(
             self,
@@ -1972,3 +1988,14 @@ class Connections:
         filename = os.path.join(params.CONNECTION_DIR, name + ".txt")
         with open(filename, "wb") as f:
             pickle.dump(self.__dict__, f)
+
+    # --- clearing
+    def empty(self):
+        """
+        Empty the connections object.
+        """
+        self.graph = None
+        self.connections = None
+        self.adjacency = None
+        self.subgraphs = {}
+        return

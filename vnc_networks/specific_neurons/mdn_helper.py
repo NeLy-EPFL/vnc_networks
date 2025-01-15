@@ -118,11 +118,10 @@ def get_vnc_split_MDNs_by_neuropil(
             neuron_name = neuron.split_neuron_by_neuropil(neuron_id)
             MDN = Neuron(from_file=neuron_name)
             MDNs.append(MDN)
-        VNC = Connections()  # full VNC
-        VNC.initialize(
+        VNC = Connections(
             split_neurons=MDNs,
             not_connected=not_connected,
-        )  # split MDNs according to the synapse data
+            )  # full VNC, split MDNs according to the synapse data
         VNC.save(name="VNC_split_MDNs_by_neuropil")
     return VNC
 
@@ -212,13 +211,9 @@ def get_connectome_with_MDN_t3_branches(n_clusters: int = 3):
             MDN = Neuron(from_file=f"mdn_{mdn_bodyids[i]}_T3_synapses_split")
             MDNs.append(MDN)
         # === create the connections
-        VNC_full = Connections()
-        VNC_full.initialize(
+        VNC_full = Connections(
             split_neurons=MDNs,  # split the MDNs according to the synapse data
             not_connected=mdn_bodyids,  # exclude connections from MDNs to MDNs
         )
-        VNC = (
-            VNC_full.get_connections_with_only_traced_neurons()
-        )  # remove neurons not fully traced
         VNC.save(name=connectome_name)  # for later use
     return VNC

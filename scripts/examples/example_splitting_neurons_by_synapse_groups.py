@@ -31,14 +31,14 @@ for i in range(4):
 
 
 
-VNC = Connections()  # full VNC
-VNC.initialize(split_neurons=MDNs)  # split MDNs according to the synapse data
+VNC = Connections(split_neurons=MDNs)  # full VNC
 VNC.save(name='VNC_split_MDNs_by_neuropil')  # if you want to reuse it later
 #connections = VNC.get_connections()
 
 
 #VNC = Connections(from_file='VNC_split_MDNs_by_neuropil')  # load the split VNC
-mdn_connections = VNC.subgraph(nodes=neurons_pre)
+mdn_uids = VNC.get_neuron_ids({'type:string': 'MDN'})
+mdn_connections = VNC.subgraph(nodes=mdn_uids)
 mdn_connections.display_graph(label_nodes=True, title='MDN-MDN-per-neuropil')
 
 '''

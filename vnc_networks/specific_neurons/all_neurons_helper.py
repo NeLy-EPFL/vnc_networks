@@ -14,7 +14,6 @@ def get_full_vnc(not_connected: Optional[list[BodyId] | list[int]] = None):
         print("Loaded full VNC Connections object.")
     except FileNotFoundError:
         print("Creating full VNC Connections object...")
-        VNC = Connections()
-        VNC.initialize(not_connected=not_connected)
+        VNC = Connections(not_connected=not_connected)
         VNC.save(name="full_VNC")
     return VNC

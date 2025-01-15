@@ -15,7 +15,6 @@ DNxn049 = get_neuron_bodyids({"systematicType:string": "DNxn049"})  # MDN L
 
 # list(set(t1).union(neurons_pre))
 connections = Connections()  # entire dataset
-connections.initialize()  # initialize the graph
 # merge nodes that are very similar
 connections.merge_nodes(connections.get_uids_from_bodyids(DNxn050))
 connections.merge_nodes(connections.get_uids_from_bodyids(DNxn049))
