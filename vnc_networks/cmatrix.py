@@ -500,8 +500,8 @@ class CMatrix:
         self,
         row_ids: Optional[list] = None,
         column_ids: Optional[list] = None,
-        allow_empty: bool = True,
-        input_type: typing.Literal["uid", "body_id"] = "body_id",
+        allow_empty: Optional[bool] = True,
+        input_type: typing.Literal["uid", "body_id"] = "uid",
         keep_initial_order: bool = True,
     ):
         """
@@ -520,9 +520,7 @@ class CMatrix:
             If False, raises an error if the uids are not found in the lookup.
             The default is True.
         input_type : str, optional
-            The type of the input ids. The default is 'body_id'. It will cover all uids
-            that have the matching 'body_id' in the lookup.
-            Otherwise, the input is 'uid'.
+            The type of the input ids. The default is 'uid'.
         keep_initial_order : bool, optional
             If False, the rows and columns are sorted according to the input order.
             The default is True, where the order is hte same as the existing matrix.
@@ -685,22 +683,37 @@ class CMatrix:
             self.__reorder_column_indexing(order=order)
         return
 
-    def hierarchical_clustering(self):
+    def hierarchical_clustering(self, cutoff: float = 0.5):
         """
         Clusters the adjacency matrix using hierarchical clustering.
+        Here the clustering problem is seen as a representation of vector n in
+        feature space m. Therefore similar connections to similar neurons
+        yields a small effective distance and therefore clusering. 
+        If applied to distance/similarity matrix, use the similarity
+        representation of the matrix given the input type.
         """
         matrix_ = self.get_matrix()
         matrix_ = matrix_.todense()
-        linkage = sch.linkage(matrix_, method="ward")
-        dendrogram = sch.dendrogram(linkage, no_plot=True)
+
+        # Compute the linkage matrix
+        Z = sch.linkage(matrix_, method="ward")
+
+        # Compute the clusters
+        labels = sch.fcluster(Z, t=cutoff, criterion="distance")
+        clusters = defaultdict(list) # Group points by their cluster labels
+        for idx, label in enumerate(labels):
+            clusters[label].append(idx)
+        clusters = list(clusters.values())
+
+        # Reorder the matrix and indexing
+        dendrogram = sch.dendrogram(Z, no_plot=True)
         order = dendrogram["leaves"]
-        # reorder the matrix and indexing
         self.matrix = self.get_matrix()[order, :][:, order]
         self.__reorder_row_indexing(order=order)
         self.__reorder_column_indexing(order=order)
-        return
+        return clusters
 
-    def markov_clustering(self, inflation: int = 2, iterations: int = 100):
+    def markov_clustering(self, inflation: int = 3, iterations: int = 100):
         """
         Applies the Markov clustering algorithm to the matrix.
 
@@ -717,8 +730,9 @@ class CMatrix:
         clusters : list
             The list of clusters detected in the matrix.
         """
+        matrix = np.array(self.get_matrix().todense())
         clusters = matrix_utils.markov_clustering(
-            self.get_matrix().todense(), inflation=inflation, iterations=iterations
+            matrix, inflation=inflation, iterations=iterations
         )
         new_order = [i for c in clusters for i in c]
         self.matrix = self.get_matrix()[new_order, :][:, new_order]
@@ -884,9 +898,7 @@ class CMatrix:
                 raise ValueError(
                     'The in_out parameter must be either "both", "in" or "out".'
                 )
-        new_cmatrix = self.build_distance_matrix(method="cosine")
-        # conversion of distance to similarity through exp(-distance)
-        new_cmatrix.matrix.data = np.exp(-new_cmatrix.matrix.data)
+        new_cmatrix.matrix = 1 - new_cmatrix.matrix
         return new_cmatrix
 
     def detect_clusters(
@@ -941,27 +953,28 @@ class CMatrix:
         # restrict the similarity matrix to the subset of nodes
         if cluster_on_subset is not None:
             new_cmatrix.restrict_nodes(cluster_on_subset)
+            print("Warning: the cmatrix is reduced to the subset clustered on.")
 
         # cluster the similarity matrix
         match method:  # to be completed
             case "hierarchical_linkage":
                 # convert distance to similarity
-                new_cmatrix.matrix.data = np.exp(
-                    -new_cmatrix.matrix.data
-                )  
+                dense_ = new_cmatrix.matrix.todense()
+                dense_ = 1 - dense_
+                new_cmatrix.matrix = sc.sparse.csr_matrix(dense_)
                 # hierarchical clustering, returns the tree level clusters
-                clusters = new_cmatrix.hierarchical_clustering()
+                clusters = new_cmatrix.hierarchical_clustering(cutoff=cutoff)
             case "markov":
                 # convert distance to similarity
-                new_cmatrix.matrix.data = np.exp(
-                    -new_cmatrix.matrix.data
-                )  
+                dense_ = new_cmatrix.matrix.todense()
+                dense_ = 1 - dense_
+                new_cmatrix.matrix = sc.sparse.csr_matrix(dense_)  
                 clusters = new_cmatrix.markov_clustering()
             case "hierarchical":
                 # convert distance to similarity
-                new_cmatrix.matrix.data = np.exp(
-                    -new_cmatrix.matrix.data
-                )
+                dense_ = new_cmatrix.matrix.todense()
+                dense_ = 1 - dense_
+                new_cmatrix.matrix = sc.sparse.csr_matrix(dense_)
                 # hierarchical clustering, returns the clusters obtained by 
                 # scanning the sorted matrix for the cutoff value
                 _ = new_cmatrix.hierarchical_clustering()
@@ -995,7 +1008,7 @@ class CMatrix:
                 # density-based clustering
                 # Apply DBSCAN clustering
                 db = DBSCAN(metric='precomputed', eps=cutoff, min_samples=2)
-                distance_matrix = new_cmatrix.get_matrix().todense()
+                distance_matrix = np.array(new_cmatrix.get_matrix().todense())
                 labels = db.fit_predict(distance_matrix)
                 
                 # Group points by their cluster labels
@@ -1074,6 +1087,7 @@ class CMatrix:
     def imshow(
         self,
         title: str = "test",
+        vmin: Optional[float] = None,
         vmax: Optional[float] = None,
         cmap=params.diverging_heatmap,
         ax: matplotlib.axes.Axes | None = None,
@@ -1083,6 +1097,7 @@ class CMatrix:
     def imshow(
         self,
         title: str = "test",
+        vmin: Optional[float] = None,
         vmax: Optional[float] = None,
         cmap=params.diverging_heatmap,
         ax: matplotlib.axes.Axes | None = None,
@@ -1092,10 +1107,12 @@ class CMatrix:
     def imshow(
         self,
         title: str = "test",
+        vmin: Optional[float] = None,
         vmax: Optional[float] = None,
         cmap=params.diverging_heatmap,
         ax: matplotlib.axes.Axes | None = None,
         savefig: bool = True,
+        snippet_up_to: int | None = None,
     ):
         """
         Visualises the adjacency matrix with a colorbar.
@@ -1104,16 +1121,28 @@ class CMatrix:
         ----------
         title : str, optional
             The title of the visualisation. The default is None.
+        vmin : float, optional
+            The minimum value of the colorbar. The default is None.
         vmax : float, optional
             The maximum value of the colorbar. The default is None.
         cmap : str, optional
             The colormap of the visualisation. The default is params.blue_heatmap.
+        ax : matplotlib.axes.Axes, optional
+            The axes on which to plot the visualisation. The default is None.
+        savefig : bool, optional
+            If True, saves the figure. The default is True.
+        snippet_up_to : int, optional
+            The maximum number of rows and columns to display. The default is None.
         """
         if ax is None:
-            _, ax = plt.subplots(1, 1, figsize=params.FIG_SIZE)
+            _, ax = plt.subplots(1, 1, figsize=params.FIGSIZE)
+        mat = self.get_matrix()
+        if snippet_up_to is not None:
+            mat = mat[:snippet_up_to,:][:, :snippet_up_to]
         ax = matrix_design.imshow(
-            self.get_matrix(),
+            mat,
             title=title,
+            vmin=vmin,
             vmax=vmax,
             cmap=cmap,
             ax=ax,

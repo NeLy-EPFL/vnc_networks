@@ -33,19 +33,13 @@ def get_length_n_t3_connections(n_hops: int = 2):
     mdns = mdn_helper.get_subdivided_mdns(VNC, neuropil="hl", side="RHS")
     target_neurons = mns_helper.get_leg_motor_neurons(VNC, leg="h", side="RHS")
 
-    l2_graph = VNC.paths_length_n(n_hops, mdns, target_neurons)
-    # get the connections object with nodes involved in paths of length 2
-    l2_connections = VNC.subgraph(
-        nodes=l2_graph.nodes(),
+    # Get the connections
+    subconnections = VNC.subgraph_from_paths(
+        source=mdns,
+        target=target_neurons,
+        n_hops=n_hops,
+        keep_edges='intermediate',
     )
-    graph = l2_connections.get_graph()
-    edges = graph.edges()
-    # get the edges that are not from target to target
-    edges = [edge for edge in edges if not all([uid in target_neurons for uid in edge])]
-    subconnections = l2_connections.subgraph(
-        edges=edges
-    )  # all nodes involved in the path, new Connections object
-
     return subconnections
 
 
@@ -142,7 +136,7 @@ def cluster_t3_graph(n_hops: int = 2):
     # Cluster based on connectivity similarity
     t3_cmatrix = subconnections.get_cmatrix(type_="unnorm")
     t3_sim, uid_clusters, index_clusters = t3_cmatrix.detect_clusters(
-        distance="cosine",
+        distance="cosine_in",
         method="hierarchical",
         cutoff=0.5,
         cluster_size_cutoff=2,
@@ -184,6 +178,12 @@ def cluster_t3_graph(n_hops: int = 2):
             pass
     plt.tight_layout()
     plt.savefig(os.path.join(FOLDER, "clusters_as_graph.pdf"))
+    plt.close()
+
+    # Plot the matrix with the clusters but subset on motor neurons only
+    t3_sim.restrict_from_to(target_neurons, target_neurons, input_type="uid")
+    ax, _ = t3_sim.imshow(savefig=False, title="Clustered T3 motor neurons")
+    plt.savefig(os.path.join(FOLDER, "clustered_t3_matrix_mns.pdf"))
     plt.close()
 
     # Save the clusters as csv file
@@ -735,22 +735,22 @@ def compare_mn_clusters_control_vs_mdnl2():
 
 
 if __name__ == "__main__":
-    # show_length2_t3()
-    # hind_leg_muscles_graph(muscle_ = 'Tr flexor')
-    # cluster_file = cluster_t3_graph(n_hops=2) # to run only once
-    # cluster_file = os.path.join(FOLDER, 'clusters.csv')
-    # display_l2_t3_graph_with_clusters(cluster_file)
-    # motor_neuron_clusters_file = display_l2_t3_to_motor_neuron_clusters(
-    #    cluster_file
-    #    )
-    # motor_neuron_clusters_file = os.path.join(FOLDER, 'motor_clusters.csv')
-    # intersection_upstream_motor_neuron_pools(motor_neuron_clusters_file)
-    # t3_nttype_interneurons(nt_type='gaba', n_hops=2, min_degree=5)
-    # focus_strongest_inhibitors_t3(min_degree=5)
-    # focus_strongest_inhibitors_t3_effective(min_degree=5)
-    # central_inhibitors = [267449,345370,291605,84314]
-    secondary_inhibitors = [123784,158676,229541,246719] # control 'motor primitive clusters'
-    focus_specific_neurons_effective(secondary_inhibitors)
+    show_length2_t3()
+    hind_leg_muscles_graph(muscle_ = 'Tr flexor')
+    cluster_file = cluster_t3_graph(n_hops=2) # to run only once
+    cluster_file = os.path.join(FOLDER, 'clusters.csv')
+    display_l2_t3_graph_with_clusters(cluster_file)
+    motor_neuron_clusters_file = display_l2_t3_to_motor_neuron_clusters(
+       cluster_file
+       )
+    motor_neuron_clusters_file = os.path.join(FOLDER, 'motor_clusters.csv')
+    intersection_upstream_motor_neuron_pools(motor_neuron_clusters_file)
+    t3_nttype_interneurons(nt_type='gaba', n_hops=2, min_degree=5)
+    focus_strongest_inhibitors_t3(min_degree=5)
+    focus_strongest_inhibitors_t3_effective(min_degree=5)
+    #central_inhibitors = [267449,345370,291605,84314]
+    #secondary_inhibitors = [123784,158676,229541,246719] # control 'motor primitive clusters'
+    #focus_specific_neurons_effective(secondary_inhibitors)
     # print_name_neurons(central_inhibitors)
     # control_t3_motor_neuron_clusters()
     # compare_mn_clusters_control_vs_mdnl2()

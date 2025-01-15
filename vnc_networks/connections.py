@@ -754,6 +754,67 @@ class Connections:
         subgraph_.set_adjacency_matrices()
         return subgraph_
 
+    def subgraph_from_paths(
+            self,
+            source: UID | int | list[UID] | list[int],
+            target: UID | int | list[UID] | list[int],
+            n_hops: int,
+            keep_edges: typing.Literal[
+                'direct', 'intermediate', 'all'
+                ] = 'intermediate',
+        ):
+        """
+        Get the subgraph as new Connections object between a source node and a
+        list of target nodes, up to n hops.
+
+        Parameters
+        ----------
+        source: int or list[int]
+            Source node(s) to consider.
+        target: int or list[int]
+            Target node(s) to consider.
+        n_hops: int
+            Number of hops to consider.
+        keep_edges: str
+            Type of edges to keep in the subgraph.
+            Can be 'direct' (only edges directly involved in length n paths),
+            'intermediate' (all edges between nodes in length n path except for
+            edges between different target nodes), or 'all'.
+
+        Returns
+        -------
+        Connections
+            New Connections object with the subgraph.
+        """
+        graph_ = self.paths_length_n(n_hops, source, target)
+
+        match keep_edges:
+            case 'direct':
+                return self.subgraph(
+                    nodes = graph_.nodes(),
+                    edges = graph_.edges()
+                    )
+            case 'intermediate':
+                # get edges that are not between target nodes
+                edges_to_keep = [
+                    e for e in graph_.edges()
+                    if not (e[0] in target and e[1] in target)
+                ]
+                return self.subgraph(
+                    nodes = graph_.nodes(),
+                    edges = edges_to_keep
+                    )
+            case 'all':
+                return self.subgraph(
+                    nodes = graph_.nodes(),
+                    )
+            case _:
+                raise ValueError(
+                    f"Class Connections::: > \
+                    subgraph_from_paths(): Unknown keep_edges type {keep_edges}"
+                )
+                return 
+
     # --- getters
     def get_connections_with_only_traced_neurons(self):
         """

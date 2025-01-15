@@ -232,22 +232,46 @@ def build_distance_matrix(
 ):
     """
     input: sparse matrix
-    output: similarity matrix
+    output: distance matrix
     """
+    def _remove_nans(matrix):
+        """
+        input: matrix
+        output: matrix without NaNs
+        For Cosine distance, if a vector has norm 0 then the value is NaN. 
+        Design choice: set NaNs to 1 if they are off the diagonal, and to 0 if 
+        they are on the diagonal so that that entry is similar to itself only.
+        """
+        # set NaNs to 1 if they are off the diagonal
+        nan_indices = np.isnan(matrix)
+        nan_indices[np.diag_indices_from(nan_indices)] = False
+        matrix[nan_indices] = 1
+        # set NaNs to 0 if they are on the diagonal
+        matrix[np.isnan(matrix)] = 0
+        return matrix
+
     match method:
         case "cosine_in":  # cosine similarity of the input vectors
             # the vectors are the columns of the matrix, i.e. all i to each j
             columns = matrix.todense().T
             sim_mat = sc.spatial.distance.cdist(columns, columns, "cosine")
+            sim_mat = _remove_nans(sim_mat)
         case "cosine_out":  # cosine similarity of the output vectors
             # the vectors are the rows of the matrix, i.e. all j to each i
             rows = matrix.todense()
             sim_mat = sc.spatial.distance.cdist(rows, rows, "cosine")
+            sim_mat = _remove_nans(sim_mat)
         case "cosine":  # cosine similarity of the input and output vectors
-            # create vectors that are for each i the concatenation of the row and column vectors
-            matrix = matrix.todense()
-            matrix = np.concatenate((matrix, matrix.T), axis=1)
-            sim_mat = sc.spatial.distance.cdist(matrix, matrix, "cosine")
+            # the vectors are the columns of the matrix, i.e. all i to each j
+            columns = matrix.todense().T
+            sim_mat = sc.spatial.distance.cdist(columns, columns, "cosine")
+            sim_mat = _remove_nans(sim_mat)
+            # the vectors are the rows of the matrix, i.e. all j to each i
+            rows = matrix.todense()
+            new_sim_mat = sc.spatial.distance.cdist(rows, rows, "cosine")
+            new_sim_mat = _remove_nans(new_sim_mat)
+            sim_mat += new_sim_mat
+            sim_mat /= 2
         case "euclidean":
             matrix = matrix.todense()
             matrix = np.concatenate((matrix, matrix.T), axis=1)
