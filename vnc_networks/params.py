@@ -14,19 +14,21 @@ import seaborn as sns
 # --- Where to find the raw data sets --- #
 # MANC traced
 RAW_DATA_DIR = os.path.join(Path(__file__).absolute().parent.parent, "data_dump")
-MANC_RAW_DIR = os.path.join(
-    RAW_DATA_DIR, "manc", "v1.0", "manc-traced-adjacencies-v1.0"
-)
-NODES_FILE = os.path.join(MANC_RAW_DIR, "traced-neurons.csv")
-CONNECTIONS_FILE = os.path.join(MANC_RAW_DIR, "traced-connections.csv")
+#MANC_RAW_DIR = os.path.join(
+#    RAW_DATA_DIR, "manc", "v1.0", "manc-traced-adjacencies-v1.0"
+#)
+#NODES_FILE = os.path.join(MANC_RAW_DIR, "traced-neurons.csv")
+#CONNECTIONS_FILE = os.path.join(MANC_RAW_DIR, "traced-connections.csv")
 # MANC neuprint
-NEUPRINT_RAW_DIR = os.path.join(
-    RAW_DATA_DIR, "manc", "v1.0", "neuprint_manc_v1.0", "neuprint_manc_v1.0_ftr"
-)
-NEUPRINT_NODES_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neurons_manc_v1.ftr")
-NEUPRINT_CONNECTIONS_FILE = os.path.join(
-    NEUPRINT_RAW_DIR, "Neuprint_Neuron_Connections_manc_v1.ftr"
-)
+#NEUPRINT_RAW_DIR = os.path.join(
+#    RAW_DATA_DIR, "manc", "v1.0", "neuprint_manc_v1.0", "neuprint_manc_v1.0_ftr"
+#)
+#NEUPRINT_NODES_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neurons_manc_v1.ftr")
+#NEUPRINT_CONNECTIONS_FILE = os.path.join(
+#    NEUPRINT_RAW_DIR, "Neuprint_Neuron_Connections_manc_v1.ftr"
+#)
+
+'''
 NEUPRINT_NEURON_SYNAPSESET_FILE = os.path.join(
     NEUPRINT_RAW_DIR, "Neuprint_Neuron_to_SynapseSet_manc_v1.ftr"
 )
@@ -34,7 +36,7 @@ NEUPRINT_SYNAPSESET_FILE = os.path.join(
     NEUPRINT_RAW_DIR, "Neuprint_SynapseSet_to_Synapses_manc_v1.ftr"
 )
 NEUPRINT_SYNAPSE_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Synapses_manc_v1.ftr")
-
+'''
 # --- Where to save the processed data sets --- #
 PROCESSED_DATA_DIR = os.path.join(Path(__file__).absolute().parent.parent, "data")
 
@@ -122,6 +124,7 @@ BodyId = typing.NewType("BodyId", int)
 UID = typing.NewType("UID", int)
 """Unique ID of a neuron in the connections object. Note that this will not match a neuron's `BodyId`"""
 
+'''
 NeuronAttribute = typing.Literal[
     ":ID(Body-ID)",
     "bodyId:long",
@@ -233,6 +236,7 @@ NeuronAttribute = typing.Literal[
     "mVAC(T3)(L):boolean",
     "mVAC(T3)(R):boolean",
 ]
+'''
 """All attributes for a neuron in the MANC v1.0 data, in `"name:type"` format. Note that parameters of type `point{srid:9157}` will be loaded as strings (eg. `"{x:24406,y:11337,z:26827}"`)"""
 
 NeuronClass = typing.Literal[
@@ -251,8 +255,8 @@ NeuronClass = typing.Literal[
 ]
 """Possible values for neuron class (the `"class:string"` parameter) in the MANC v1.0 connectome."""
 
-SelectionDict = dict[NeuronAttribute, str | int | float | bool | BodyId]
-"""Dictionary for selecting subsets of neurons based on different `NeuronAttribute`s."""
+#SelectionDict = dict[NeuronAttribute, str | int | float | bool | BodyId]
+#"""Dictionary for selecting subsets of neurons based on different `NeuronAttribute`s."""
 
 
 # --- Parameters for the network representation --- #

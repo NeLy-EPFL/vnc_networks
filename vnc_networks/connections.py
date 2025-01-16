@@ -37,8 +37,9 @@ import utils.matrix_utils as matrix_utils
 import utils.nx_design as nx_design
 import utils.nx_utils as nx_utils
 import utils.plots_design as plots_design
+from connectome_reader import ConnectomeReader
 from neuron import Neuron
-from params import UID, BodyId, NeuronAttribute, SelectionDict
+from params import UID, BodyId #, NeuronAttribute, SelectionDict
 
 ## ---- Types ---- ##
 SortingStyle = typing.Literal[
@@ -50,6 +51,9 @@ SortingStyle = typing.Literal[
     "output_clustering",
 ]
 
+NeuronAttribute = typing.Literal[""] # will be updated as a function of the connectome reader
+SelectionDict = dict[NeuronAttribute, str | int | float | bool | BodyId]
+
 ## ---- Constants ---- ##
 FIGSIZE = (8, 8)
 DPI = 300
@@ -60,6 +64,7 @@ DPI = 300
 class Connections:
     def __init__(
         self,
+        CR: Optional[ConnectomeReader] = ConnectomeReader('MANCv1.0'),
         from_file: Optional[str] = None,
         neurons_pre: Optional[list[int] | list[BodyId]] = None,
         neurons_post: Optional[list[int] | list[BodyId]] = None,
@@ -69,19 +74,24 @@ class Connections:
         keep_only_traced_neurons: Optional[bool] = True,
     ):
         """
+        By default, work with MANC v1.0 connectome.
         If no neurons_post are given, the class assumes the same neurons as pre-synaptic.
         If no neurons_pre are given, the class considers all connections defined in the database.
 
         If not used as a standalone class, the initialize() method should be called after instantiation.
         """
+        update_data_types(CR)
+
+        # load data
         if from_file is not None:
             self.__load(from_file)
         else:
+            self.CR = CR
             if neurons_pre is None:
                 neurons_ = pd.read_feather(
-                    params.NEUPRINT_NODES_FILE, columns=[":ID(Body-ID)"]
+                    CR.nodes_file, columns=[CR.BodyId]
                 )
-                neurons_pre_ = neurons_[":ID(Body-ID)"].to_list()
+                neurons_pre_ = neurons_[CR.BodyId].to_list()
 
             else:
                 neurons_pre_ = neurons_pre
@@ -100,6 +110,7 @@ class Connections:
             # TODO: implement this as the dataset is created, by loading 
             # node data seuentially.
             self.get_connections_with_only_traced_neurons()
+    
 
     # private methods
     def __initialize(
@@ -132,16 +143,16 @@ class Connections:
     def __get_connections(self):
         connections_ = pd.read_feather(
             params.NEUPRINT_CONNECTIONS_FILE,
-            columns=[":START_ID(Body-ID)", "weightHR:int", ":END_ID(Body-ID)"],
+            columns=[self.CR.start_bid, self.CR.syn_count, self.CR.end_bid],
         )
         # filter out only the connections relevant here
         connections_ = connections_[
-            connections_[":START_ID(Body-ID)"].isin(self.neurons_pre)
-            & connections_[":END_ID(Body-ID)"].isin(self.neurons_post)
+            connections_[self.CR.start_bid].isin(self.neurons_pre)
+            & connections_[self.CR.end_bid].isin(self.neurons_post)
         ]
 
         # rename synapse count column explicitly and filter
-        connections_["syn_count"] = connections_["weightHR:int"]
+        connections_["syn_count"] = connections_[self.CR.syn_count]
         connections_ = connections_[connections_["syn_count"] >= params.SYNAPSE_CUTOFF]
 
         # add relevant information for the processing steps
@@ -149,20 +160,20 @@ class Connections:
         ## add the neurotransmitter type to the connections
         nttypes = get_nodes_data.load_data_neuron_set(
             self.neurons_pre,
-            ["predictedNt:string"],
+            [self.CR.nt_type],
         )
         connections_ = pd.merge(
             connections_,
             nttypes,
-            left_on=":START_ID(Body-ID)",
-            right_on=":ID(Body-ID)",
+            left_on=self.CR.start_bid,
+            right_on=self.CR.BodyId,
             how="left",
             suffixes=("", ""),
         )
 
-        connections_ = connections_.drop(columns=[":ID(Body-ID)"])
+        connections_ = connections_.drop(columns=[self.CR.BodyId])
         weight_vec = np.array(
-            [self.nt_weights[x] for x in connections_["predictedNt:string"]]
+            [self.nt_weights[x] for x in connections_[self.CR.nt_type]]
         )
         connections_["eff_weight"] = connections_["syn_count"] * weight_vec
 
@@ -177,7 +188,7 @@ class Connections:
         Compute the effective weights of the connections.
         """
         if ids == "body_id":
-            grouping_on = ":END_ID(Body-ID)"
+            grouping_on = self.CR.end_bid
         elif ids == "uid":
             grouping_on = "end_uid"
         else:
@@ -216,8 +227,8 @@ class Connections:
             return
         self.connections = self.connections[
             ~(
-                (self.connections[":START_ID(Body-ID)"].isin(not_connected))
-                & (self.connections[":END_ID(Body-ID)"].isin(not_connected))
+                (self.connections[self.CR.start_bid].isin(not_connected))
+                & (self.connections[self.CR.end_bid].isin(not_connected))
             )
         ]
 
@@ -257,8 +268,8 @@ class Connections:
                 )
             # get the data for the neuron pair before splitting
             template = self.connections[
-                (self.connections[":START_ID(Body-ID)"] == split_body_id)
-                & (self.connections[":END_ID(Body-ID)"] == end_body_id)
+                (self.connections[self.CR.start_bid] == split_body_id)
+                & (self.connections[self.CR.end_bid] == end_body_id)
             ].copy()
             # duplicate the template len(subdivisions_) times
             new_connections_ = pd.concat(
@@ -293,8 +304,8 @@ class Connections:
                 [
                     self.connections[  # remove the initial entry
                         ~(
-                            (self.connections[":START_ID(Body-ID)"] == split_body_id)
-                            & (self.connections[":END_ID(Body-ID)"] == end_body_id)
+                            (self.connections[self.CR.start_bid] == split_body_id)
+                            & (self.connections[self.CR.end_bid] == end_body_id)
                         )
                     ],
                     new_connections_,  # add the new entries
@@ -304,12 +315,12 @@ class Connections:
 
         # --- Manage the splitting as post-synaptic neuron
         relevant_inputs = self.connections[
-            self.connections[":END_ID(Body-ID)"] == split_body_id
-        ][":START_ID(Body-ID)"].unique()
+            self.connections[self.CR.end_bid] == split_body_id
+        ][self.CR.start_bid].unique()
         for start_body_id in relevant_inputs:
             template = self.connections[
-                (self.connections[":START_ID(Body-ID)"] == start_body_id)
-                & (self.connections[":END_ID(Body-ID)"] == split_body_id)
+                (self.connections[self.CR.start_bid] == start_body_id)
+                & (self.connections[self.CR.end_bid] == split_body_id)
             ].copy()
             # duplicate the template for each existing subdivision
             new_connections_ = pd.concat(
@@ -327,8 +338,8 @@ class Connections:
                 [
                     self.connections[
                         ~(
-                            (self.connections[":START_ID(Body-ID)"] == start_body_id)
-                            & (self.connections[":END_ID(Body-ID)"] == split_body_id)
+                            (self.connections[self.CR.start_bid] == start_body_id)
+                            & (self.connections[self.CR.end_bid] == split_body_id)
                         )
                     ],
                     new_connections_,
@@ -374,13 +385,13 @@ class Connections:
         unique_objects = list(
             set(
                 zip(
-                    self.connections[":START_ID(Body-ID)"],
+                    self.connections[self.CR.start_bid],
                     self.connections["subdivision_start"],
                 )
             ).union(
                 set(
                     zip(
-                        self.connections[":END_ID(Body-ID)"],
+                        self.connections[self.CR.end_bid],
                         self.connections["subdivision_end"],
                     )
                 )
@@ -398,11 +409,11 @@ class Connections:
         )
         # add uids to the connections table
         self.connections["start_uid"] = self.__convert_neuron_ids_to_uid(
-            self.connections[[":START_ID(Body-ID)", "subdivision_start"]].values,
+            self.connections[[self.CR.start_bid, "subdivision_start"]].values,
             input_type="table",
         )
         self.connections["end_uid"] = self.__convert_neuron_ids_to_uid(
-            self.connections[[":END_ID(Body-ID)", "subdivision_end"]].values,
+            self.connections[[self.CR.end_bid, "subdivision_end"]].values,
             input_type="table",
         )
         return
@@ -513,7 +524,7 @@ class Connections:
             target="end_uid",
             edge_attr=[
                 "syn_count",  # absolute synapse count
-                "predictedNt:string",
+                "nt_type",
                 "eff_weight",  # signed synapse count (nt weighted)
                 "syn_count_norm",  # input normalized synapse count
                 "eff_weight_norm",  # input normalized signed synapse count
@@ -549,9 +560,9 @@ class Connections:
             "body_id",
             "node_label",
         ]
-        _ = self.__get_node_attributes("class:string")
+        _ = self.__get_node_attributes(self.CR.class_1)
         nx.set_node_attributes(
-            self.graph, nx.get_node_attributes(self.graph, "class:string"), "node_class"
+            self.graph, nx.get_node_attributes(self.graph, self.CR.class_1), "node_class"
         )
         self.__defined_attributes_in_graph.append("node_class")
 
@@ -565,17 +576,17 @@ class Connections:
         """
         names = get_nodes_data.load_data_neuron_set(  # retrieve data
             ids=list(self.uid["body_id"].values),
-            attributes=["systematicType:string"],
+            attributes=[self.CR.name],
         )
         self.uid = pd.merge(
             self.uid,
             names,
             left_on="body_id",
-            right_on=":ID(Body-ID)",
+            right_on=self.CR.BodyId,
             how="left",
         )
-        self.uid = self.uid.drop(columns=":ID(Body-ID)")
-        self.uid = self.uid.rename(columns={"systematicType:string": "node_label"})
+        self.uid = self.uid.drop(columns=self.CR.BodyId)
+        self.uid = self.uid.rename(columns={self.CR.name: "node_label"})
 
         if split_neurons is None:
             return
@@ -673,7 +684,7 @@ class Connections:
                 )
                 attr_mapping = {
                     body_id: value  # map body id to attribute value
-                    for body_id, value in zip(attr[":ID(Body-ID)"], attr[attribute])
+                    for body_id, value in zip(attr[self.CR.BodyId], attr[attribute])
                 }
                 attr_list = {
                     node: attr_mapping[body_id]  # map node to attribute value
@@ -745,10 +756,10 @@ class Connections:
 
         # Update the neuron list fields
         new_connection_obj.neurons_pre_ = connections_[
-            ":START_ID(Body-ID)"
+            self.CR.start_bid
             ].to_list()
         new_connection_obj.neurons_post_ = connections_[
-            ":END_ID(Body-ID)"
+            self.CR.end_bid
             ].to_list()
         
 
@@ -835,22 +846,25 @@ class Connections:
     def get_connections_with_only_traced_neurons(self):
         """
         Remove the neurons in the graph for which the field "status:string"
-        is not "Traced".
+        is not "Traced". This can only be done on datastes where the status
+        field is present.
 
         Returns
         -------
         Connections
             New Connections object with only the traced neurons.
         """
-        neuron_tracing_status = self.get_node_attribute(
-            self.get_nodes(), "status:string"
-        )
-        traced_nodes = [
-            node
-            for node, status in zip(self.get_nodes(), neuron_tracing_status)
-            if status == "Traced"
-        ]
-        return self.subgraph(traced_nodes)
+        if self.CR.exists_tracing_status():
+            neuron_tracing_status = self.get_node_attribute(
+                self.get_nodes(), self.CR.tracing_status
+            )
+            traced_nodes = [
+                node
+                for node, status in zip(self.get_nodes(), neuron_tracing_status)
+                if status == "Traced"
+            ]
+            return self.subgraph(traced_nodes)
+        return self
 
     def get_neuron_bodyids(self, selection_dict: Optional[SelectionDict] = None):
         """
@@ -1045,13 +1059,13 @@ class Connections:
         """
         if input_type == "body_id":
             table = self.connections[
-                (self.connections[":START_ID(Body-ID)"] == start_id)
-                & (self.connections[":END_ID(Body-ID)"] == end_id)
+                (self.connections[self.CR.start_bid] == start_id)
+                & (self.connections[self.CR.end_bid] == end_id)
             ]
             # drop subdivision duplicates in the post synaptic neuron
             # (from duplication policy in neuron splitting)
             table = table.drop_duplicates(
-                subset=[":START_ID(Body-ID)", "subdivision_start", ":END_ID(Body-ID)"]
+                subset=[self.CR.start_bid, "subdivision_start", self.CR.end_bid]
             )
             nb_synapses = table["syn_count"].sum()
         elif input_type == "uid":
@@ -1105,14 +1119,14 @@ class Connections:
         if side is not None:
             return self.get_neuron_ids(
                 {
-                    "somaSide:string": side,
-                    "somaNeuromere:string": neuropil,
+                    self.CR.side: side,
+                    self.CR.neuropil: neuropil,
                 }
             )
         else:
             return self.get_neuron_ids(
                 {
-                    "somaNeuromere:string": neuropil,
+                    self.CR.neuropil: neuropil,
                 }
             )
 
@@ -1600,7 +1614,7 @@ class Connections:
 
     def display_graph_per_attribute(
         self,
-        attribute: NeuronAttribute = "exitNerve:string",
+        attribute: Optional[NeuronAttribute] = None,
         center: Optional[list[UID] | list[int] | str] = None,
         syn_threshold: Optional[int] = None,
         title: str = "test",
@@ -1627,6 +1641,8 @@ class Connections:
         -------
         None
         """
+        if attribute is None:
+            attribute = self.CR.nerve
         # ensures the attribute is present in the graph
         _ = self.__get_node_attributes(attribute)
         # restrict the number of edges visualised to the threshold weight
@@ -1730,8 +1746,8 @@ class Connections:
         x: list[UID] | list[int],
         y: list[UID] | list[int],
         x_sorting: SortingStyle | NeuronAttribute | None = "degree",
-        y_sorting: SortingStyle | NeuronAttribute | None = "exitNerve:string",
-        z_sorting: SortingStyle | NeuronAttribute | None = "input_clustering",
+        y_sorting: SortingStyle | NeuronAttribute | None = "degree",
+        z_sorting: SortingStyle | NeuronAttribute | None = "degree",
         title: str = "test",
     ):
         """
@@ -1998,4 +2014,15 @@ class Connections:
         self.connections = None
         self.adjacency = None
         self.subgraphs = {}
+        self.uid = None
         return
+    
+
+# --- External functions
+def update_data_types(self, CR: ConnectomeReader):
+    """
+    Update the data types used in the class based on the ConnectomeReader.
+    """
+    NeuronAttribute = CR.NeuronAttribute
+    SelectionDict = CR.SelectionDict
+    return
