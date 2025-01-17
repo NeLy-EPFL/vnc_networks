@@ -239,6 +239,7 @@ NeuronAttribute = typing.Literal[
 '''
 """All attributes for a neuron in the MANC v1.0 data, in `"name:type"` format. Note that parameters of type `point{srid:9157}` will be loaded as strings (eg. `"{x:24406,y:11337,z:26827}"`)"""
 
+'''
 NeuronClass = typing.Literal[
     "sensory neuron",
     "motor neuron",
@@ -254,7 +255,7 @@ NeuronClass = typing.Literal[
     "efferent ascending",
 ]
 """Possible values for neuron class (the `"class:string"` parameter) in the MANC v1.0 connectome."""
-
+'''
 #SelectionDict = dict[NeuronAttribute, str | int | float | bool | BodyId]
 #"""Dictionary for selecting subsets of neurons based on different `NeuronAttribute`s."""
 
@@ -268,6 +269,7 @@ NT_TYPES = {
     None: {"color": LIGHTGREY, "linestyle": "-"},
     np.nan: {"color": LIGHTGREY, "linestyle": "-"},
 }
+'''
 NEURON_CLASSES: dict[NeuronClass, dict[typing.Literal["color"], str]] = {
     "sensory neuron": {"color": LIGHTORANGE},
     "sensory ascending": {"color": LIGHTORANGE},
@@ -282,3 +284,4 @@ NEURON_CLASSES: dict[NeuronClass, dict[typing.Literal["color"], str]] = {
     "Glia": {"color": LIGHTGREY},
     "TBD": {"color": LIGHTGREY},
 }
+'''

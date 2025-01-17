@@ -5,9 +5,11 @@ Class defining the methods and labels to read different connectomes.
 
 import os
 import typing
+from typing import Optional
 
+import pandas as pd
 import params
-from params import UID, BodyId
+from params import BodyId
 
 
 # --- Parent class --- #
@@ -69,8 +71,6 @@ class ConnectomeReader:
 
 
     # ----- public methods -----
-
-    # - information -
     def exists_tracing_status(self):
         """
         Identify if 'tracing_status' is a field in the connectome
@@ -98,6 +98,123 @@ class ConnectomeReader:
             ]
         return list_node_attributes
     
+    def get_neuron_bodyids(
+        self,
+        selection_dict: Optional[dict] = None,
+        nodes: Optional[list[BodyId] | list[int]] = None,
+    ) -> list[BodyId]:
+        """
+        Get the Ids of the neurons in the dataset.
+        Select (keep) according to the selection_dict.
+        Different criteria are treated as 'and' conditions.
+        """
+        columns_to_read = (
+            {self.BodyId}.union(selection_dict.keys())
+            if selection_dict is not None
+            else {self.BodyId}
+        )
+        # verify if the naming is fine: all elements of 'columns_to_read' are NeuronAttributes
+        if not all([col in self.NeuronAttribute for col in columns_to_read]):
+            raise ValueError(
+                "ConnectomeReader::get_neuron_bodyids() \
+                Some attributes of the selction_dict are not in the dataset."
+                )
+        
+        neurons = pd.read_feather(self.nodes_file, columns=list(columns_to_read))
+        if selection_dict is not None:
+            for key in selection_dict:
+                neurons = neurons[neurons[key] == selection_dict[key]]
+        if nodes is not None:
+            neurons = neurons[neurons[self.BodyId].isin(nodes)]
+        return list(neurons[self.BodyId].values)
+
+    def get_neurons_from_class(self, class_: str) -> list[BodyId]:
+        """
+        Get the bodyids of neurons of a certain class (e.g. sensory).
+        """
+        # verify if the class is indeed a neuron class for this dataset
+        if class_ not in self.NeuronClass:
+            raise ValueError(
+                f"ConnectomeReader::get_neurons_from_class().\
+                The neuron class [{class_}] is not in the dataset."
+                )
+        return self.get_neuron_bodyids({self.class_1: class_})
+
+    def load_data_neuron(
+        self, id_: BodyId | int, attributes: Optional[list[str]] = None
+    ) -> pd.DataFrame:
+        """
+        Load the data of a neuron with a certain id.
+        
+        Parameters
+        ----------
+        id : BodyId | int
+            The id of the neuron.
+
+        Returns
+        -------
+        pandas.DataFrame
+            The data of the neuron.
+        """
+        # Verify naming
+        if not all([col in self.NeuronAttribute for col in attributes]):
+            raise ValueError(
+                "ConnectomeReader::load_data_neuron() \
+                Some attributes are not in the dataset."
+                )
+        
+        # Load data
+        columns_to_read = list(
+            {self.BodyId}.union(attributes)
+            if attributes is not None
+            else {self.BodyId}
+        )
+        neurons = pd.read_feather(self.nodes_file, columns=columns_to_read)
+        if attributes is not None:
+            return neurons[neurons[self.BodyId] == id_][columns_to_read]
+        else:
+            return neurons[neurons[self.BodyId] == id_]
+
+    def load_data_neuron_set(
+        self, ids: list[BodyId] | list[int], attributes: Optional[list[str]] = None
+    ) -> pd.DataFrame:
+        """
+        Load the data of a set of neurons with certain ids.
+
+        Parameters
+        ----------
+        ids : list
+            The bodyids of the neurons.
+
+        Returns
+        -------
+        pandas.DataFrame
+            The data of the neurons.
+        """
+        # Verify naming
+        if not all([col in self.NeuronAttribute for col in attributes]):
+            raise ValueError(
+                "ConnectomeReader::load_data_neuron() \
+                Some attributes are not in the dataset."
+                )
+        
+        # Load data
+        columns_to_read = list(
+            {self.BodyId}.union(attributes)
+            if attributes is not None
+            else {self.BodyId}
+        )
+        neurons = pd.read_feather(self.nodes_file, columns=columns_to_read)
+        
+        if attributes is not None:
+            return neurons[neurons[self.BodyId].isin(ids)][columns_to_read]
+        return neurons[neurons[self.BodyId].isin(ids)]
+
+    def get_possible_columns(self) -> list[str]:
+        """
+        Get the possible columns of the dataset.
+        """
+        return list(typing.get_args(self.NeuronAttribute))
 
 # --- Specific classes --- #
 class MANC_v_1_0(ConnectomeReader):
@@ -105,6 +222,28 @@ class MANC_v_1_0(ConnectomeReader):
         super().__init__('MANCv1.0')
         
     # ----- overwritten methods -----
+    # --- additions
+    def __define_data_types(self):
+        """
+        Add the specific typing for Neuron classes.
+        """
+        super().__define_data_types()
+        self.NeuronClass = typing.Literal[
+            "sensory neuron",
+            "motor neuron",
+            "efferent neuron",
+            "sensory ascending",
+            "TBD",
+            "intrinsic neuron",
+            "ascending neuron",
+            "descending neuron",
+            "Glia",
+            "Sensory TBD",
+            "Interneuron TBD",
+            "efferent ascending",
+        ]
+
+    # --- replacements
     def _load_specific_namefields(self):
         """
         Need to define the fields that are common to all connectomes.
@@ -238,7 +377,6 @@ class MANC_v_1_0(ConnectomeReader):
             "mVAC(T3)(L):boolean",
             "mVAC(T3)(R):boolean",
         ]
-
             
     def _load_specific_directories(self):
         """
@@ -267,8 +405,19 @@ class FAFB_v_630(ConnectomeReader):
     def __init__(self, connectome_name):
         super().__init__('FAFBv630') # 2nd argument is useless, only for compatibility
         
-
     # ----- overwritten methods -----
+    # --- additions
+    def __define_data_types(self):
+        """
+        Add the specific typing for Neuron classes.
+        """
+        super().__define_data_types()
+        self.NeuronClass = typing.Literal[ # TODO: fill
+            "",
+        ]
+        raise NotImplementedError("Define the NeuronClass for FAFBv630.")
+    
+    # --- replacements
     def _load_specific_namefields(self):
         """
         Need to define the fields that are common to all connectomes.

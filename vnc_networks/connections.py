@@ -12,9 +12,16 @@ Each such created neuron has a unique identifier associated (uid).
 Use the following code to initialize the class:
 ```
 from connections import Connections
-neurons_pre = get_neurons_from_class('sensory neuron')
-neurons_post = get_neurons_from_class('motor neuron')
-connections = Connections(neurons_pre, `neurons_post`)
+from connectome_reader import ConnectomeReader
+
+connectome_reader = ConnectomeReader('MANCv1.0')
+neurons_pre = connectome_reader.get_neurons_from_class('sensory neuron')
+neurons_post = connectome_reader.get_neurons_from_class('motor neuron')
+connections = Connections(
+    neurons_pre = neurons_pre,
+    neurons_post = neurons_post,
+    CR = connectome_reader,
+    )
 ```
 """
 import copy
@@ -25,7 +32,6 @@ from collections.abc import Mapping
 from typing import Optional
 
 import cmatrix
-import get_nodes_data
 import matplotlib.axes
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -39,7 +45,7 @@ import utils.nx_utils as nx_utils
 import utils.plots_design as plots_design
 from connectome_reader import ConnectomeReader
 from neuron import Neuron
-from params import UID, BodyId #, NeuronAttribute, SelectionDict
+from params import UID, BodyId
 
 ## ---- Types ---- ##
 SortingStyle = typing.Literal[
@@ -158,7 +164,7 @@ class Connections:
         # add relevant information for the processing steps
 
         ## add the neurotransmitter type to the connections
-        nttypes = get_nodes_data.load_data_neuron_set(
+        nttypes = self.CR.load_data_neuron_set(
             self.neurons_pre,
             [self.CR.nt_type],
         )
@@ -574,7 +580,7 @@ class Connections:
         to synapses in the neuropil T1 and A2 to synapses in T2, the graph
         will have nodes A1 = 'A_T1' and A2 = 'A_T2'.
         """
-        names = get_nodes_data.load_data_neuron_set(  # retrieve data
+        names = self.CR.load_data_neuron_set(  # retrieve data
             ids=list(self.uid["body_id"].values),
             attributes=[self.CR.name],
         )
@@ -678,7 +684,7 @@ class Connections:
                 print(f"Attribute {attribute} not found in the graph. Adding it.")
                 nodes = self.get_nodes(type="uid")  # uids
                 body_ids = self.get_nodes(type="body_id")
-                attr = get_nodes_data.load_data_neuron_set(  # retrieve data
+                attr = self.CR.load_data_neuron_set(  # retrieve data
                     ids=body_ids,
                     attributes=[attribute],
                 )
@@ -871,7 +877,7 @@ class Connections:
         Get the neuron Body-IDs from the nodes dataframe based on a selection dictionary.
         """
         nodes = self.get_nodes(type="body_id")
-        return get_nodes_data.get_neuron_bodyids(selection_dict, nodes)
+        return self.CR.get_neuron_bodyids(selection_dict, nodes)
 
     def get_neuron_ids(
         self,
@@ -882,7 +888,7 @@ class Connections:
         dataset, based on a selection dictionary.
         """
         nodes = self.get_nodes(type="body_id")
-        body_ids = get_nodes_data.get_neuron_bodyids(selection_dict, nodes)
+        body_ids = self.CR.get_neuron_bodyids(selection_dict, nodes)
         return self.__get_uids_from_bodyids(body_ids)
 
     def get_neurons_pre(self):
@@ -1268,13 +1274,13 @@ class Connections:
             uids = list(uids)
         return self.__convert_uid_to_neuron_ids(uids, output_type="body_id")
 
-    def get_first_uid_from_bodyid(self, body_id: get_nodes_data.BodyId | int) -> UID:
+    def get_first_uid_from_bodyid(self, body_id: BodyId | int) -> UID:
         """
         Get the first uid (if there are more than one) corresponding to a body id.
         """
         return self.__get_uids_from_bodyids([body_id])[0]
 
-    def get_uids_from_bodyid(self, body_id: get_nodes_data.BodyId | int) -> list[UID]:
+    def get_uids_from_bodyid(self, body_id: BodyId | int) -> list[UID]:
         """
         Get the uids corresponding to a body id.
         """
@@ -1942,7 +1948,7 @@ class Connections:
         List the attributes present in the nodes dataframe.
         """
         all_attributes = self.__defined_attributes_in_graph
-        from_dataset = get_nodes_data.get_possible_columns()
+        from_dataset = self.CR.get_possible_columns()
         all_attributes.extend(from_dataset)
         all_attributes = np.unique(all_attributes)
         return all_attributes
