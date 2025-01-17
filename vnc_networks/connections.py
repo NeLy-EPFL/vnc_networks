@@ -60,17 +60,11 @@ SortingStyle = typing.Literal[
 NeuronAttribute = typing.Literal[""] # will be updated as a function of the connectome reader
 SelectionDict = dict[NeuronAttribute, str | int | float | bool | BodyId]
 
-## ---- Constants ---- ##
-FIGSIZE = (8, 8)
-DPI = 300
-
 ## ---- Classes ---- ##
-
-
 class Connections:
     def __init__(
         self,
-        CR: Optional[ConnectomeReader] = ConnectomeReader('MANCv1.0'),
+        CR: Optional[ConnectomeReader] = ConnectomeReader('MANC','v1.0'),
         from_file: Optional[str] = None,
         neurons_pre: Optional[list[int] | list[BodyId]] = None,
         neurons_post: Optional[list[int] | list[BodyId]] = None,
@@ -1514,7 +1508,7 @@ class Connections:
         """
         Display the adjacency matrix.
         """
-        plt.figure(figsize=FIGSIZE, dpi=DPI)
+        plt.figure(figsize=params.FIGSIZE, dpi=params.DPI)
         match method:
             case "spy":
                 plt.spy(self.get_adjacency_matrix(type_), markersize=0.1)
@@ -1581,7 +1575,7 @@ class Connections:
         Display the graph.
         """
         if ax is None:
-            _, ax = plt.subplots(figsize=FIGSIZE, dpi=DPI)
+            _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
         assert ax is not None  # needed for type hinting
         # restrict the number of edges visualised to the threshold weight
         graph_ = nx_utils.threshold_graph(self.graph, syn_threshold)
@@ -1919,15 +1913,17 @@ class Connections:
     def draw_bar_plot(
         self,
         neurons: typing.Iterable[UID] | typing.Iterable[int],
-        attribute: NeuronAttribute = "class:string",
+        attribute: Optional[NeuronAttribute] = None,
         ylabel: str = "# neurons",
         ax: Optional[matplotlib.axes.Axes] = None,
     ):
         """
         Draw a bar plot of the attribute of the neurons in the set.
         """
+        if attribute is None: # default value dependent on the CR
+            attribute = self.CR.class_1
         if ax is None:
-            _, ax = plt.subplots(figsize=FIGSIZE, dpi=DPI)
+            _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
         assert ax is not None  # needed for type hinting
         # Get the attribute values
         values = []

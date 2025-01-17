@@ -16,24 +16,27 @@ from params import BodyId
 class ConnectomeReader:
     def __new__(
             cls,
-            connectome_name: typing.Literal['MANCv1.0','FAFBv630'],
+            connectome_name: typing.Literal['MANC','FAFB'],
+            connectome_version: typing.Literal['v1.0', 'v1.2','v630','v783'],
         ):
         if cls is ConnectomeReader:  # Only redirect if creating an instance directly
             match connectome_name:
-                case 'MANCv1.0':
-                    return MANC_v_1_0('MANCv1.0')
-                case 'FAFBv630':
-                    return FAFB_v_630('FAFBv630')
+                case 'MANC':
+                    return MANC('MANC', connectome_version)
+                case 'FAFB':
+                    return FAFB('FAFB', connectome_version)
                 case _:
                     raise ValueError("Connectome not recognized.")
         return super().__new__(cls)
 
     def __init__(
             self,
-            connectome_name: typing.Literal['MANCv1.0','FAFBv630'],
+            connectome_name: typing.Literal['MANC','FAFB'],
+            connectome_version: typing.Literal['v1.0', 'v1.2','v630','v783'],
             ):
 
         self.connectome_name = connectome_name
+        self.connectome_version = connectome_version
         self.raw_data_dir = params.RAW_DATA_DIR
         # specific namefields
         self._load_specific_namefields()
@@ -217,13 +220,34 @@ class ConnectomeReader:
         return list(typing.get_args(self.NeuronAttribute))
 
 # --- Specific classes --- #
-class MANC_v_1_0(ConnectomeReader):
-    def __init__(self, connectome_name): # 2nd argument is useless, only for compatibility
-        super().__init__('MANCv1.0')
+
+# === MANC: Male Adult Neuronal Connectome
+class MANC(ConnectomeReader):
+    def __new__(
+            cls,
+            connectome_name: typing.Literal['MANC'],
+            connectome_version: typing.Literal['v1.0','v1.2'],
+        ):
+        if cls is MANC:  # Only redirect if creating an instance directly
+            match connectome_version:
+                case 'v1.0':
+                    return MANC_v_1_0('MANC', 'v1.0')
+                case 'v1.2':
+                    return MANC_v_1_2('MANC', 'v1.2')
+                case _:
+                    raise ValueError("Connectome not recognized.")
+        return super().__new__(cls, connectome_name, connectome_version)
+    
+    def __init__(
+            self,
+            connectome_name: typing.Literal['MANC'],
+            connectome_version: typing.Literal['v1.0','v1.2']
+            ): # 2nd argument is useless, only for compatibility
+        super().__init__('MANC', connectome_version)
         
     # ----- overwritten methods -----
     # --- additions
-    def __define_data_types(self):
+    def _define_data_types(self):
         """
         Add the specific typing for Neuron classes.
         """
@@ -399,11 +423,42 @@ class MANC_v_1_0(ConnectomeReader):
             "Neuprint_Neuron_Connections_manc_v1.ftr"
             )
 
+# Specific versions of MANC
+class MANC_v_1_0(MANC):
+    def __init__(
+            self,
+            connectome_name: typing.Literal['MANC'],
+            connectome_version: typing.Literal['v1.0'],
+            ):
+        super().__init__('MANC', 'v1.0')
 
+class MANC_v_1_2(MANC):
+    def __init__(self, connectome_name, connectome_version):
+        super().__init__('MANC', 'v1.2')
 
-class FAFB_v_630(ConnectomeReader):
-    def __init__(self, connectome_name):
-        super().__init__('FAFBv630') # 2nd argument is useless, only for compatibility
+# === FAFB: Female Adult Fly Brain
+class FAFB(ConnectomeReader):
+    def __new__(
+            cls,
+            connectome_name: typing.Literal['FAFB'],
+            connectome_version: typing.Literal['v630','v783'],
+        ):
+        if cls is FAFB:
+            match connectome_version:
+                case 'v630':
+                    return FAFB_v630('FAFB', 'v630')
+                case 'v783':
+                    return FAFB_v783('FAFB', 'v783')
+                case _:
+                    raise ValueError("Connectome not recognized.")
+        return super().__new__(cls, connectome_name, connectome_version)
+        
+    def __init__(
+            self,
+            connectome_name: typing.Literal['FAFB'],
+            connectome_version: typing.Literal['v630','v783'],
+            ):
+        super().__init__('FAFB', connectome_version) # 2nd argument is useless, only for compatibility
         
     # ----- overwritten methods -----
     # --- additions
@@ -476,11 +531,18 @@ class FAFB_v_630(ConnectomeReader):
             ""
             )
         
+# Specific versions of FAFB
+class FAFB_v630(FAFB):
+    def __init__(self, connectome_name, connectome_version):
+        super().__init__(connectome_name, connectome_version)
 
+class FAFB_v783(FAFB):
+    def __init__(self, connectome_name, connectome_version):
+        super().__init__(connectome_name, connectome_version)
 
 if __name__ == "__main__":
     # Test the class
-    manc = ConnectomeReader('MANCv1.0')
+    manc = ConnectomeReader('MANC', 'v1.0')
     if manc.exists_tracing_status():
         print("MANC has tracing status.")
                 
