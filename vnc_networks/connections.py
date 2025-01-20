@@ -45,7 +45,7 @@ import utils.nx_utils as nx_utils
 import utils.plots_design as plots_design
 from connectome_reader import ConnectomeReader
 from neuron import Neuron
-from params import UID, BodyId
+from params import UID, BodyId, NeuronAttribute, NeuronClass, SelectionDict
 
 ## ---- Types ---- ##
 SortingStyle = typing.Literal[
@@ -56,9 +56,6 @@ SortingStyle = typing.Literal[
     "centrality",
     "output_clustering",
 ]
-
-NeuronAttribute = typing.Literal[""] # will be updated as a function of the connectome reader
-SelectionDict = dict[NeuronAttribute, str | int | float | bool | BodyId]
 
 ## ---- Classes ---- ##
 class Connections:
@@ -80,7 +77,6 @@ class Connections:
 
         If not used as a standalone class, the initialize() method should be called after instantiation.
         """
-        update_data_types(CR)
 
         # load data
         if from_file is not None:
@@ -108,7 +104,7 @@ class Connections:
         if keep_only_traced_neurons: 
             # this is computationally not optimal but makes the dataset a lot cleaner.
             # TODO: implement this as the dataset is created, by loading 
-            # node data seuentially.
+            # node data sequentially.
             self.get_connections_with_only_traced_neurons()
     
 
@@ -142,7 +138,7 @@ class Connections:
 
     def __get_connections(self):
         connections_ = pd.read_feather(
-            params.NEUPRINT_CONNECTIONS_FILE,
+            self.CR.connections_file,
             columns=[self.CR.start_bid, self.CR.syn_count, self.CR.end_bid],
         )
         # filter out only the connections relevant here
@@ -560,9 +556,9 @@ class Connections:
             "body_id",
             "node_label",
         ]
-        _ = self.__get_node_attributes(self.CR.class_1)
+        _ = self.__get_node_attributes("class_1")
         nx.set_node_attributes(
-            self.graph, nx.get_node_attributes(self.graph, self.CR.class_1), "node_class"
+            self.graph, nx.get_node_attributes(self.graph, "class_1"), "node_class"
         )
         self.__defined_attributes_in_graph.append("node_class")
 
@@ -576,7 +572,7 @@ class Connections:
         """
         names = self.CR.load_data_neuron_set(  # retrieve data
             ids=list(self.uid["body_id"].values),
-            attributes=[self.CR.name],
+            attributes=["name"],
         )
         self.uid = pd.merge(
             self.uid,
@@ -586,7 +582,7 @@ class Connections:
             how="left",
         )
         self.uid = self.uid.drop(columns=self.CR.BodyId)
-        self.uid = self.uid.rename(columns={self.CR.name: "node_label"})
+        self.uid = self.uid.rename(columns={"name": "node_label"})
 
         if split_neurons is None:
             return
@@ -653,6 +649,11 @@ class Connections:
     ):
         """
         Get the node attributes for the graph.
+
+        The attribute is a generic attribute, not the specific ones defined in the
+        connectome reader. The conversion is done under the hood when calling
+        CR::load_data_neuron_set().
+
         If the attribute is not present, identify it in the nodes dataframe and add it to the graph.
         The attributes are then defined based on the initial neuron from which it is defined.
         For instance if a neuron A is subdivided in A1 and A2, the neurotransmitter type
@@ -861,7 +862,7 @@ class Connections:
             traced_nodes = [
                 node
                 for node, status in zip(self.get_nodes(), neuron_tracing_status)
-                if status == "Traced"
+                if status == self.CR.traced_entry
             ]
             return self.subgraph(traced_nodes)
         return self
@@ -1119,14 +1120,14 @@ class Connections:
         if side is not None:
             return self.get_neuron_ids(
                 {
-                    self.CR.side: side,
-                    self.CR.neuropil: neuropil,
+                    "side": side,
+                    "neuropil": neuropil,
                 }
             )
         else:
             return self.get_neuron_ids(
                 {
-                    self.CR.neuropil: neuropil,
+                    "neuropil": neuropil,
                 }
             )
 
@@ -1642,7 +1643,7 @@ class Connections:
         None
         """
         if attribute is None:
-            attribute = self.CR.nerve
+            attribute = "nerve"
         # ensures the attribute is present in the graph
         _ = self.__get_node_attributes(attribute)
         # restrict the number of edges visualised to the threshold weight
@@ -1921,7 +1922,7 @@ class Connections:
         Draw a bar plot of the attribute of the neurons in the set.
         """
         if attribute is None: # default value dependent on the CR
-            attribute = self.CR.class_1
+            attribute = "class_1"
         if ax is None:
             _, ax = plt.subplots(figsize=params.FIGSIZE, dpi=params.DPI)
         assert ax is not None  # needed for type hinting
@@ -1944,7 +1945,7 @@ class Connections:
         List the attributes present in the nodes dataframe.
         """
         all_attributes = self.__defined_attributes_in_graph
-        from_dataset = self.CR.get_possible_columns()
+        from_dataset = self.CR.list_possible_attributes()
         all_attributes.extend(from_dataset)
         all_attributes = np.unique(all_attributes)
         return all_attributes
@@ -2018,13 +2019,3 @@ class Connections:
         self.subgraphs = {}
         self.uid = None
         return
-    
-
-# --- External functions
-def update_data_types(self, CR: ConnectomeReader):
-    """
-    Update the data types used in the class based on the ConnectomeReader.
-    """
-    NeuronAttribute = CR.NeuronAttribute
-    SelectionDict = CR.SelectionDict
-    return

@@ -125,45 +125,65 @@ UID = typing.NewType("UID", int)
 """Unique ID of a neuron in the connections object. Note that this will not match a neuron's `BodyId`"""
 
 NeuronAttribute = typing.Literal[
-    "bodyId",
+    "bodyId", # common to all
     # connectivity
     "nb_pre_synapses",
     "nb_post_synapses",
     "nb_pre_neurons",
     "nb_post_neurons",
     "target",
+    "nerve",
+    "entry_nerve",
+    "exit_nerve",
     # function
-    "nt_type",
-    "nt_proba",
+    "nt_type", # common to all
+    "nt_proba", # common to all
     # classification
-    "class_1", # upper classification level
-    "class_2", # lower classification level
-    "name",
+    "class_1", # upper classification level, common to all
+    "class_2", # lower classification level, common to all
+    "name", # common to all
     # morphology
-    "side",
-    "neuropil",
-    "size",
+    "side", # common to all
+    "neuropil", # common to all
+    "size", # common to all
     "area",
     "length",
     "position",
     # genetics
-    "hemilineage",
+    "hemilineage", # common to all
     # tracing related
     "tracing_status",
 ]
+""" All the neuron attributes that can exit in any of the connectomes. 
+Specific entries might not have a value for all attributes. Translations are
+defined in the ConnectomeReader class for each instance of connectome. """
 
 NeuronClass = typing.Literal[
-    "sensory",
-    "sensory ascending",
+    # common types
     "ascending",
-    "motor",
     "descending",
-    "efferent",
-    "efferent ascending",
+    "motor",
+    "sensory",
+    # brain specific
+    "central",
+    "endocrine",
+    "optic",
+    "visual centrifugal",
+    "visual projection",
+    "other",
+    # VNC specific
     "intrinsic",
     "glia",
+    "sensory ascending",
+    "efferent",
+    "efferent ascending",
     "unknown",
+    "sensory_unknown",
+    "interneuron_unknown",
 ]
+
+SelectionDict = dict[NeuronAttribute, str | int | float | bool | BodyId]
+
 
 # --- Parameters for the network representation --- #
 NT_TYPES = {
