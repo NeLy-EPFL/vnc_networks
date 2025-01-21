@@ -14,29 +14,7 @@ import seaborn as sns
 # --- Where to find the raw data sets --- #
 # MANC traced
 RAW_DATA_DIR = os.path.join(Path(__file__).absolute().parent.parent, "data_dump")
-#MANC_RAW_DIR = os.path.join(
-#    RAW_DATA_DIR, "manc", "v1.0", "manc-traced-adjacencies-v1.0"
-#)
-#NODES_FILE = os.path.join(MANC_RAW_DIR, "traced-neurons.csv")
-#CONNECTIONS_FILE = os.path.join(MANC_RAW_DIR, "traced-connections.csv")
-# MANC neuprint
-#NEUPRINT_RAW_DIR = os.path.join(
-#    RAW_DATA_DIR, "manc", "v1.0", "neuprint_manc_v1.0", "neuprint_manc_v1.0_ftr"
-#)
-#NEUPRINT_NODES_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Neurons_manc_v1.ftr")
-#NEUPRINT_CONNECTIONS_FILE = os.path.join(
-#    NEUPRINT_RAW_DIR, "Neuprint_Neuron_Connections_manc_v1.ftr"
-#)
 
-'''
-NEUPRINT_NEURON_SYNAPSESET_FILE = os.path.join(
-    NEUPRINT_RAW_DIR, "Neuprint_Neuron_to_SynapseSet_manc_v1.ftr"
-)
-NEUPRINT_SYNAPSESET_FILE = os.path.join(
-    NEUPRINT_RAW_DIR, "Neuprint_SynapseSet_to_Synapses_manc_v1.ftr"
-)
-NEUPRINT_SYNAPSE_FILE = os.path.join(NEUPRINT_RAW_DIR, "Neuprint_Synapses_manc_v1.ftr")
-'''
 # --- Where to save the processed data sets --- #
 PROCESSED_DATA_DIR = os.path.join(Path(__file__).absolute().parent.parent, "data")
 
@@ -118,14 +96,14 @@ AXIS_OFFSET = 2
 LINEWIDTH = 2
 
 # --- New types used in the code --- #
-BodyId = typing.NewType("BodyId", int)
+BodyId = typing.NewType("BodyId", int) # always associated to a field 'body_id'
 """ID of a neuron body in the connectome. Ranges from 10000 to 841369768457 (MANC v1.0)"""
 
 UID = typing.NewType("UID", int)
 """Unique ID of a neuron in the connections object. Note that this will not match a neuron's `BodyId`"""
 
 NeuronAttribute = typing.Literal[
-    "bodyId", # common to all
+    "body_id", # common to all
     # connectivity
     "nb_pre_synapses",
     "nb_post_synapses",

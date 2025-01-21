@@ -81,6 +81,24 @@ class ConnectomeReader:
         #Dictionary for selecting subsets of neurons based on different `NeuronAttribute`s.
 
     # ----- public methods -----
+    def get_connections(self, columns: list[NeuronAttribute]):
+        """
+        Load the connections of the connectome.
+
+        Parameters
+        ----------
+        columns : list
+            The columns to load.
+        """
+        # translate to specific names
+        columns_to_read = [
+            self.sna(a) for a in columns
+        ]
+        df = pd.read_feather(self._connections_file, columns=columns_to_read)
+        # rename to generic names
+        df.columns = columns
+        return df
+
     def exists_tracing_status(self):
         """
         Identify if '_tracing_status' is a field in the connectome
@@ -90,26 +108,26 @@ class ConnectomeReader:
             return True
         return False
     
-    def node_base_attributes(self):
+    def node_base_attributes(self) -> list[NeuronAttribute]:
         """
         Returns a list of the base attributes that all nodes have, used
         to initialise a neuron::Neuron() object for instance.
         """
-        list_node_attributes: list[self.SpecificNeuronAttribute] = [
-                self.BodyId,
+        list_node_attributes: list[self.NeuronAttribute] = [
+                "body_id",
                 # function
-                self.nt_type,
-                self._nt_proba,
+                "nt_type",
+                "nt_proba",
                 # classification
-                self._class_1,
-                self._class_2,
-                self._name,
+                "class_1",
+                "class_2",
+                "name",
                 # morphology
-                self._side,
-                self._neuropil,
-                self._size,
+                "side",
+                "neuropil",
+                "size",
                 # genetics
-                self._hemilineage,
+                "hemilineage",
             ]
         return list_node_attributes
     
@@ -124,19 +142,24 @@ class ConnectomeReader:
         Different criteria are treated as 'and' conditions.
         """
         s_dict = self.specific_selection_dict(selection_dict)
-        columns_to_read = (
-            {self.BodyId}.union(s_dict.keys())
-            if s_dict is not None
-            else {self.BodyId}
-        )
+
+        # Identify columns to load
+        columns_to_read = [
+            self.sna(a) for a in selection_dict.keys()
+        ]
+        columns_to_write = selection_dict.keys()
+        if NeuronAttribute('body_id') not in selection_dict.keys():
+            columns_to_read.append(self._body_id) # specific name field
+            columns_to_write.append('body_id') # generic name field
         
-        neurons = pd.read_feather(self.nodes_file, columns=list(columns_to_read))
+        neurons = pd.read_feather(self._nodes_file, columns=list(columns_to_read))
         if s_dict is not None:
-            for key in s_dict:
+            for key in s_dict.keys():
                 neurons = neurons[neurons[key] == s_dict[key]]
         if nodes is not None:
-            neurons = neurons[neurons[self.BodyId].isin(nodes)]
-        return list(neurons[self.BodyId].values)
+            neurons = neurons[neurons[self._body_id].isin(nodes)]
+    
+        return list(neurons[self._body_id].values)
 
     def get_neurons_from_class(self, class_: NeuronClass) -> list[BodyId]:
         """
@@ -147,7 +170,9 @@ class ConnectomeReader:
         return self.get_neuron_bodyids({self.class_1: specific_class})
 
     def load_data_neuron(
-        self, id_: BodyId | int, attributes: Optional[list[str]] = None
+        self,
+        id_: BodyId | int,
+        attributes: Optional[list[NeuronAttribute]] = None,
     ) -> pd.DataFrame:
         """
         Load the data of a neuron with a certain id.
@@ -156,30 +181,30 @@ class ConnectomeReader:
         ----------
         id : BodyId | int
             The id of the neuron.
+        attributes : list
+            The attributes to load.
 
         Returns
         -------
         pandas.DataFrame
             The data of the neuron.
         """
-        # Verify naming
-        if not all([col in self.NeuronAttribute for col in attributes]):
-            raise ValueError(
-                "ConnectomeReader::load_data_neuron() \
-                Some attributes are not in the dataset."
-                )
-        
+        # Identify columns to load
+        columns_to_read = [
+            self.sna(a) for a in attributes
+        ]
+        columns_to_write = attributes
+        if NeuronAttribute('body_id') not in attributes:
+            columns_to_read.append(self._body_id) # specific name field
+            columns_to_write.append('body_id') # generic name field
+
         # Load data
-        columns_to_read = list(
-            {self.BodyId}.union(attributes)
-            if attributes is not None
-            else {self.BodyId}
-        )
-        neurons = pd.read_feather(self.nodes_file, columns=columns_to_read)
+        neurons = pd.read_feather(self._nodes_file, columns=columns_to_read)
+        # rename the columns to the generic names
+        neurons.columns = columns_to_write
         if attributes is not None:
-            return neurons[neurons[self.BodyId] == id_][columns_to_read]
-        else:
-            return neurons[neurons[self.BodyId] == id_]
+            return neurons[neurons['body_id'] == id_][columns_to_write]
+        return neurons[neurons['body_id'] == id_]
 
     def load_data_neuron_set(
         self,
@@ -201,29 +226,23 @@ class ConnectomeReader:
         pandas.DataFrame
             The data of the neurons.
         """
-        # Identify the names of columns to read
+        # Identify columns to load
         columns_to_read = [
-            self.specific_neuron_attribute(a) for a in attributes
-            ]
+            self.sna(a) for a in attributes
+        ]
         columns_to_write = attributes
-        if self.BodyId not in columns_to_read:
-            columns_to_read.append(self.BodyId)
-            columns_to_write.append(self.BodyId) # to keep the order, and only field that keeps its name
-        
+        if NeuronAttribute('body_id') not in attributes:
+            columns_to_read.append(self._body_id) # specific name field
+            columns_to_write.append('body_id') # generic name field
+
         # Load data
-        neurons = pd.read_feather(self.nodes_file, columns=columns_to_read)
+        neurons = pd.read_feather(self._nodes_file, columns=columns_to_read)
         # rename the columns to the generic names
         neurons.columns = columns_to_write
         
         if attributes is not None:
-            return neurons[neurons[self.BodyId].isin(ids)][columns_to_write]
-        return neurons[neurons[self.BodyId].isin(ids)]
-
-    def get_possible_columns(self) -> list[str]:
-        """
-        Get the possible columns of the dataset.
-        """
-        return list(typing.get_args(NeuronAttribute))
+            return neurons[neurons['body_id'].isin(ids)][columns_to_write]
+        return neurons[neurons['body_id'].isin(ids)]
 
     def specific_selection_dict(
             self,
@@ -236,10 +255,10 @@ class ConnectomeReader:
         """
         s_dict = self.SpecificSelectionDict() 
         for k, v in selection_dict.items():
-            s_dict[self.specific_neuron_attribute(k)] = v
+            s_dict[self.sna(k)] = v
         return s_dict
     
-    def specific_neuron_attribute(
+    def sna(
             self,
             generic_n_a: NeuronAttribute
             ) -> str:
@@ -251,12 +270,12 @@ class ConnectomeReader:
         Specific mappings can be added through overloaded methods.
         """
         mapping = {
-            self.BodyId: self.BodyId, # field that can be called directly
-            "bodyId": self.BodyId,
+            "body_id": self._body_id,
+            "start_bid": self._start_bid,
+            "end_bid": self._end_bid,
             # connectivity
             # function
-            self.nt_type: self.nt_type, # field that can be called directly
-            "nt_type": self.nt_type,
+            "nt_type": self._nt_type,
             "nt_proba": self._nt_proba,
             # classification
             "class_1": self._class_1, 
@@ -282,18 +301,24 @@ class ConnectomeReader:
         classes can be added through overloaded methods.
         """
         mapping = {
-            "sensory": self.sensory,
-            "sensory ascending": self.sensory_ascending,
-            "ascending": self.ascending,
-            "motor": self.motor,
-            "descending": self.descending,
-            "efferent": self.efferent,
-            "unknown": self.unknown,
+            "sensory": self._sensory,
+            "sensory ascending": self._sensory_ascending,
+            "ascending": self._ascending,
+            "motor": self._motor,
+            "descending": self._descending,
+            "efferent": self._efferent,
+            "unknown": self._unknown,
         }
         equivalent_name = mapping.get(generic_n_c)
         return self.SpecificNeuronClass(equivalent_name)
 
     def list_possible_attributes(self):
+        raise NotImplementedError('This should only be called on child instances.')
+    
+    def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
+        """
+        Get the synapses of a neuron.
+        """
         raise NotImplementedError('This should only be called on child instances.')
     
 # --- Specific classes --- #
@@ -327,15 +352,12 @@ class MANC(ConnectomeReader):
         """
         Need to define the attribute naming conventions.
         """
-
         # common to all
-        # public (necessary to initialise the connections object)
-        self.BodyId = ":ID(Body-ID)"
-        self.start_bid = "START_ID(Body-ID)"
-        self.end_bid = "END_ID(Body-ID)"
-        self.syn_count = "weightHR:int"
-        self.nt_type = "predictedNt:string"
-        # private (used for processing)
+        self._body_id = ":ID(Body-ID)"
+        self._start_bid = "START_ID(Body-ID)"
+        self._end_bid = "END_ID(Body-ID)"
+        self._syn_count = "weightHR:int"
+        self._nt_type = "predictedNt:string"
         self._nt_proba = "predictedNtProb:float"
         self._class_1 = "class:string"
         self._class_2 = "subclass:string"
@@ -344,15 +366,24 @@ class MANC(ConnectomeReader):
         self._neuropil = "somaNeuromere:string"
         self._hemilineage = "hemilineage:string"
         self._size = "size:long"
-        # specific to MANC -> need to add to ::specific_neuron_attribute()
+        # specific to MANC -> need to add to ::sna()
         self._tracing_status = "status:string"
         self._entry_nerve = "entryNerve:string"
         self._exit_nerve = "exitNerve:string"
         self._position = "position:point{srid:9157}"
+        # Synapse specific
+        self._start_synset_id = ":START_ID(SynSet-ID)"
+        self._end_synset_id = ":END_ID(SynSet-ID)"
+        self._start_syn_id = ":START_ID(Syn-ID)"
+        self._end_syn_id = ":END_ID(Syn-ID)"
+        self._syn_id = ":ID(Syn-ID)"
+        self._syn_location = "location:point{srid:9157}"
 
         self.SpecificNeuronAttribute = typing.Literal[
-            self.BodyId,
-            self.nt_type,
+            self._body_id,
+            self._start_bid,
+            self._end_bid,
+            self._nt_type,
             self._nt_proba,
             self._class_1,
             self._class_2,
@@ -366,6 +397,10 @@ class MANC(ConnectomeReader):
             self._exit_nerve,
             self._position,
         ]
+
+        # Add the bodyid naming to the neuron attributes, as this is a public
+        # attribute that can be called directly
+        NeuronAttribute = NeuronAttribute | typing.Literal[self.BodyId]
 
 
         # Existing fields in the MANC v1.0 for future reference
@@ -520,25 +555,90 @@ class MANC(ConnectomeReader):
         Need to define the directories that are common to all connectomes.
         """
         
-        self.connectome_dir = os.path.join(
+        self._connectome_dir = os.path.join(
             self.raw_data_dir,
             "manc",
             "v1.0",
             "neuprint_manc_v1.0",
             "neuprint_manc_v1.0_ftr",
         )
-        self.nodes_file = os.path.join(
-            self.raw_data_dir,
+        self._nodes_file = os.path.join(
+            self._connectome_dir,
             "Neuprint_Neurons_manc_v1.ftr"
             )
-        self.connections_file = os.path.join(
-            self.connectome_dir,
+        self._connections_file = os.path.join(
+            self._connectome_dir,
             "Neuprint_Neuron_Connections_manc_v1.ftr"
             )
+        
+        # unique to MANC
+        self._synapseset_file = os.path.join(
+            self._connectome_dir,
+            "Neuprint_SynapseSet_to_Synapses_manc_v1.ftr"
+        )
+        self._neuron_synapseset_file = os.path.join(
+            self._connectome_dir,
+            "Neuprint_Neuron_to_SynapseSet_manc_v1.ftr"
+        )
+        self._synapse_file = os.path.join(
+            self._connectome_dir,
+            "Neuprint_Synapses_manc_v1.ftr"
+        )
 
     # public methods
+    def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
+        """
+        Load the synapse ids for the neuron.
+        should define the columns ['synapse_id','start_id','end_id']
+        """
+        # neuron to synapse set
+        neuron_to_synapse = pd.read_feather(self._neuron_synapseset_file)
+        synset_list = neuron_to_synapse.loc[
+            neuron_to_synapse[self._start_bid] == body_id
+        ][self._end_synset_id].values
+
+        # synapse set to synapse
+        synapses = pd.read_feather(self._synapseset_file)
+        synapses = synapses.loc[synapses[self._start_synset_id].isin(synset_list)]
+        synapses.reset_index(drop=True, inplace=True)
+
+        # build a dataframe with columns 'syn_id', 'synset_id'
+        synapse_df = pd.DataFrame(
+            {
+                "synapse_id": synapses[self._end_syn_id],
+                "synset_id": synapses[self._start_synset_id],
+            }
+        )
+        synapse_df["start_id"] = synapse_df["synset_id"].apply(
+            lambda x: int(x.split("_")[0])
+        )  # body id of the presynaptic neuron
+        synapse_df["end_id"] = synapse_df["synset_id"].apply(
+            lambda x: int(x.split("_")[1])
+        )  # body id of the postsynaptic neuron
+        synapse_df["position"] = synapse_df["synset_id"].apply(
+            lambda x: x.split("_")[2]
+        )  # pre or post
+
+        # remove the synapses that belong to partner neurons
+        synapse_df = synapse_df[synapse_df["position"] == "pre"]
+        synapse_df.drop(columns=["position"], inplace=True)
+
+        return synapse_df
+        
+    def get_synapse_locations(self, synapse_ids: list[int]) -> pd.DataFrame:
+        """
+        Get the locations of the synapses.
+        """
+        data = pd.read_feather(
+            self._synapse_file,
+            columns = [self._syn_id, self._syn_location]
+            )
+        data = data.loc[data[self._syn_id].isin(synapse_ids)]
+        data.columns = ['synapse_id', 'location']
+        return data
+
     # --- additions
-    def specific_neuron_attribute(
+    def sna( # specific_neuron_attribute, abbreviated due to frequent use
             self,
             generic_n_a: NeuronAttribute
             ) -> str:
@@ -548,7 +648,7 @@ class MANC(ConnectomeReader):
         fails, it looks for specific attributes only defined in this connectome.
         """
         try:
-            converted_type = super().__specific_neuron_attribute(generic_n_a)
+            converted_type = super().__sna(generic_n_a)
         except KeyError:
             # look for specific attributes only defined in this connectome
             mapping = {
@@ -562,7 +662,7 @@ class MANC(ConnectomeReader):
                 converted_type = self.SpecificNeuronAttribute(new_attribute)
             except KeyError:
                 raise ValueError(
-                    f"ConnectomeReader::specific_neuron_attribute().\
+                    f"ConnectomeReader::sna().\
                     The attribute {generic_n_a} is not defined in {self.connectome_name}."
                     )
         return converted_type
@@ -654,11 +754,11 @@ class FAFB(ConnectomeReader):
         """
         
         # common to all
-        self.BodyId = "root_id"
-        self.start_bid = "pre_root_id"
-        self.end_bid = "post_root_id"
-        self.syn_count = "syn_count"
-        self.nt_type = "nt_type"
+        self._body_id = "root_id"
+        self._start_bid = "pre_root_id"
+        self._end_bid = "post_root_id"
+        self._syn_count = "syn_count"
+        self._nt_type = "nt_type"
         self._nt_proba = "nt_type_score"
         self._class_1 = "super_class"
         self._class_2 = "class"
@@ -666,7 +766,7 @@ class FAFB(ConnectomeReader):
         self._neuropil = "cell_type" # TODO: check, probably wrong
         self._hemilineage = "hemilineage"
         self._size = "size_nm"
-        # specific to FAFB -> need to add to ::specific_neuron_attribute()
+        # specific to FAFB -> need to add to ::sna()
         self._nerve = "nerve"
         self._area = "area_nm"
         self._length = "length_nm"
@@ -674,8 +774,10 @@ class FAFB(ConnectomeReader):
 
 
         self.NeuronAttribute = typing.Literal[
-            self.BodyId,
-            self.nt_type,
+            self._body_id,
+            self._start_bid,
+            self._end_bid,
+            self._syn_count,
             self._nt_proba,
             self._class_1,
             self._class_2,
@@ -724,22 +826,35 @@ class FAFB(ConnectomeReader):
         Need to define the directories that are common to all connectomes.
         """
         
-        self.connectome_dir = os.path.join(
+        self._connectome_dir = os.path.join(
             self.raw_data_dir,
             "",
         )
-        self.nodes_file = os.path.join(
-            self.raw_data_dir,
+        self._nodes_file = os.path.join(
+            self._connectome_dir,
             ""
             )
-        self.connections_file = os.path.join(
-            self.connectome_dir,
+        self._connections_file = os.path.join(
+            self._connectome_dir,
             ""
             )
         
     # public methods
         # --- additions
-    def specific_neuron_attribute(
+    def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
+        """
+        Load the synapse ids for the neuron.
+        should define the columns ['synapse_id','start_id','end_id']
+        """
+        raise NotImplementedError('Method not implemented yet on FAFB.')
+    
+    def get_synapse_locations(self, synapse_ids: list[int]) -> pd.DataFrame:
+        """
+        Get the locations of the synapses.
+        """
+        raise NotImplementedError('Method not implemented yet on FAFB.')
+
+    def sna(
             self,
             generic_n_a: NeuronAttribute
             ) -> str:
@@ -749,7 +864,7 @@ class FAFB(ConnectomeReader):
         fails, it looks for specific attributes only defined in this connectome.
         """
         try:
-            converted_type = super().__specific_neuron_attribute(generic_n_a)
+            converted_type = super().__sna(generic_n_a)
         except KeyError:
             # look for specific attributes only defined in this connectome
             mapping = {
@@ -763,7 +878,7 @@ class FAFB(ConnectomeReader):
                 converted_type = self.SpecificNeuronAttribute(new_attribute)
             except KeyError:
                 raise ValueError(
-                    f"ConnectomeReader::specific_neuron_attribute().\
+                    f"ConnectomeReader::sna().\
                     The attribute {generic_n_a} is not defined in {self.connectome_name}."
                     )
         return converted_type

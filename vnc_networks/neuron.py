@@ -21,34 +21,15 @@ import pandas as pd
 import params
 import utils.plots_design as plot_design
 from connectome_reader import ConnectomeReader
-from get_nodes_data import load_data_neuron
 from params import BodyId, NeuronAttribute
 from sklearn.cluster import KMeans
-
-''' # TODO: to rm
-NEURON_BASE_ATTRIBUTES: list[NeuronAttribute] = [
-    "systematicType:string",
-    "hemilineage:string",
-    "somaSide:string",
-    "class:string",
-    "subclass:string",
-    "group:int",
-    "cellBodyFiber:string",
-    "size:long",
-    "target:string",
-    "predictedNtProb:float",
-    "predictedNt:string",
-    "tag:string",
-    "status:string",  # 'Traced' or None
-]
-'''
 
 
 class Neuron:
     def __init__(
         self,
-        CR: Optional[ConnectomeReader] = ConnectomeReader('MANCv1.0'),
-        bodyId: Optional[BodyId | int] = None,
+        CR: Optional[ConnectomeReader] = ConnectomeReader('MANC','v1.0'),
+        body_id: Optional[BodyId | int] = None,
         from_file: Optional[str] = None
     ):
         """
@@ -62,7 +43,7 @@ class Neuron:
         ----------
         CR : ConnectomeReader, optional
             The connectome reader to use.
-            The default is ConnectomeReader('MANCv1.0').
+            The default is ConnectomeReader('MANC','v1.0').
         bodyId : int, optional
             The body id of the neuron.
             The default is None.
@@ -74,11 +55,11 @@ class Neuron:
             self.__load(from_file)
         else:
             assert (
-                bodyId is not None
+                body_id is not None
             ), "To initialise a `Neuron`, you must provide either a `bodyId` or `from_file`, but both were None."
-            self.bodyId = bodyId
+            self.body_id = body_id
             self.CR = CR
-            self.data = load_data_neuron(bodyId, CR.node_base_attributes())
+            self.data = CR.load_data_neuron(body_id, CR.node_base_attributes())
             self.__initialise_base_attributes()
 
     # private methods
@@ -92,69 +73,23 @@ class Neuron:
         self.__dict__.update(neuron)
 
     def __initialise_base_attributes(self):
-        self.name = self.data[self.CR.name].values[0]
-        self.hemilineage = self.data[self.CR.hemilineage].values[0]
-        self.soma_side = self.data[self.CR.side].values[0]
-        self.class_ = self.data[self.CR.class_1].values[0]
-        self.subclass = self.data[self.CR.class_2].values[0]
-        #self.group = self.data["group:int"].values[0]
-        #self.cell_body_fiber = self.data["cellBodyFiber:string"].values[0]
-        self.size = self.data[self.CR.size].values[0]
-        #self.target = self.data["target:string"].values[0]
-        self.predicted_nt_prob = self.data[self.CR.nt_proba].values[0]
-        self.predicted_nt = self.data[self.CR.nt_type].values[0]
-        #self.tag = self.data["tag:string"].values[0]
+        self.nt_type = self.data['nt_type'].values[0]
+        self.nt_proba = self.data['nt_proba'].values[0]
+        self.class_1 = self.data['class_1'].values[0]
+        self.class_2 = self.data['class_2'].values[0]
+        self.name = self.data['name'].values[0]
+        self.side = self.data['side'].values[0]
+        self.neuropil = self.data['neuropil'].values[0]
+        self.size = self.data['size'].values[0]
+        self.hemilineage = self.data['hemilineage'].values[0]
+
 
     def __load_synapse_ids(self):
-
-        # TODO: rewrite this such that the loading is forwarded to the
-        # ConnectomeReader() class.
         # Independently of the file structure, we should get a pd.dataframe
         # with columns ['synapse_id', 'start_id', 'end_id']
         
-        self.synapse_df = self.CR.get_synapse_df(self.bodyId)
+        self.synapse_df = self.CR.get_synapse_df(self.body_id)
 
-        '''
-        """
-        Load the synapse ids for the neuron.
-        """
-        # neuron to synapse set
-        neuron_to_synapse = pd.read_feather(params.NEUPRINT_NEURON_SYNAPSESET_FILE)
-        synset_list = neuron_to_synapse.loc[
-            neuron_to_synapse[self.CR.start_bid] == self.bodyId
-        ][":END_ID(SynSet-ID)"].values
-
-        # synapse set to synapse
-        synapses = pd.read_feather(params.NEUPRINT_SYNAPSESET_FILE)
-        synapses = synapses.loc[synapses[":START_ID(SynSet-ID)"].isin(synset_list)]
-        synapses.reset_index(drop=True, inplace=True)
-
-        # build a dataframe with columns 'syn_id', 'synset_id'
-        synapse_df = pd.DataFrame(
-            {
-                "syn_id": synapses[":END_ID(Syn-ID)"],
-                "synset_id": synapses[":START_ID(SynSet-ID)"],
-            }
-        )
-        synapse_df["start_id"] = synapse_df["synset_id"].apply(
-            lambda x: int(x.split("_")[0])
-        )  # body id of the presynaptic neuron
-        synapse_df["end_id"] = synapse_df["synset_id"].apply(
-            lambda x: int(x.split("_")[1])
-        )  # body id of the postsynaptic neuron
-        synapse_df["position"] = synapse_df["synset_id"].apply(
-            lambda x: x.split("_")[2]
-        )  # pre or post
-
-        # remove the synapses that belong to partner neurons
-        synapse_df = synapse_df[synapse_df["position"] == "pre"]
-        synapse_df.drop(columns=["position"], inplace=True)
-
-        # set the synapse ids
-        self.synapse_df = synapse_df
-        del synapses, neuron_to_synapse
-        return
-        '''
 
     def __load_synapse_locations(self):
         """
@@ -167,18 +102,12 @@ class Neuron:
             The default is None, which converts all synapse ids.
         """
 
-        # load the synapse data
-        data = pd.read_feather(
-            params.NEUPRINT_SYNAPSE_FILE,
-            columns=[":ID(Syn-ID)", "location:point{srid:9157}"],
-        )
-        data = data.loc[data[":ID(Syn-ID)"].isin(self.synapse_df["syn_id"])]
+        data = self.CR.get_synapse_locations(self.synapse_df["synapse_id"].values)
 
         # merge with existing synapse df
         self.synapse_df = self.synapse_df.merge(
-            data, right_on=":ID(Syn-ID)", left_on="syn_id", how="inner"
+            data, on="synapse_id", how="inner"
         )
-        del data
         return
 
     def __categorical_neuropil_information(self):
