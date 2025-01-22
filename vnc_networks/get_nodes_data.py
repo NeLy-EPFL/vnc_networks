@@ -1,5 +1,8 @@
 """
-This module provides functions to get the data of the neurons from the dataset.
+Obsolete module. 
+This module has been replaced by the ConnectomeReader class in the connectome_reader.py module.
+
+Previsously: This module provides functions to get the data of the neurons from the dataset.
 """
 
 import typing

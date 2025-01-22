@@ -169,7 +169,7 @@ class ConnectomeReader:
         columns_to_read = [
             self.sna(a) for a in selection_dict.keys()
         ]
-        columns_to_write = selection_dict.keys()
+        columns_to_write = list(selection_dict.keys())
         if 'body_id' not in selection_dict.keys():
             columns_to_read.append(self._body_id) # specific name field
             columns_to_write.append('body_id') # generic name field
@@ -269,13 +269,13 @@ class ConnectomeReader:
     def specific_selection_dict(
             self,
             selection_dict: SelectionDict
-            ): # returns a self.SpecificSelectionDict
+            ):
         """
         Returns the specific selection_dict for the connectome.
         Example: the generic key 'class_1' input will be replaced with
         'class:string' for MANC and 'super_class' for FAFB.
         """
-        s_dict = self.SpecificSelectionDict() 
+        s_dict = {} 
         for k, v in selection_dict.items():
             s_dict[self.sna(k)] = v
         return s_dict
@@ -406,6 +406,7 @@ class MANC(ConnectomeReader):
         self._hemilineage = "hemilineage:string"
         self._size = "size:long"
         # specific to MANC -> need to add to ::sna()
+        self._type = "type:string"
         self._tracing_status = "status:string"
         self._entry_nerve = "entryNerve:string"
         self._exit_nerve = "exitNerve:string"
@@ -723,6 +724,7 @@ class MANC(ConnectomeReader):
         except KeyError:
             # look for specific attributes only defined in this connectome
             mapping = {
+                "type": self._type,
                 "tracing_status": self._tracing_status,
                 "position": self._position,
                 "entry_nerve": self._entry_nerve,
@@ -806,7 +808,7 @@ class MANC(ConnectomeReader):
         List the possible attributes of the dataset.
         """
         all_attr = [
-            "nt_type", "nt_proba", "class_1", "class_2", "name", "side",
+            "nt_type", "nt_proba", "class_1", "class_2", "name", "type", "side",
             "neuropil", "hemilineage", "size", "tracing_status", "entry_nerve",
             "exit_nerve", "position"
         ]

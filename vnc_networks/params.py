@@ -121,6 +121,7 @@ NeuronAttribute = typing.Literal[
     "class_1", # upper classification level, common to all
     "class_2", # lower classification level, common to all
     "name", # common to all
+    "type",
     # morphology
     "side", # common to all
     "neuropil", # common to all
