@@ -10,6 +10,7 @@ import os
 import typing
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 import params
 from params import BodyId, NeuronAttribute, NeuronClass, SelectionDict
@@ -635,6 +636,62 @@ class MANC(ConnectomeReader):
             )
         data = data.loc[data[self._syn_id].isin(synapse_ids)]
         data.columns = ['synapse_id', 'location']
+
+        locations = data['location'].values
+
+        # split the location into X, Y, Z
+        X, Y, Z = [], [], []
+        for loc in locations:
+            name = loc.replace('x','"x"').replace('y','"y"').replace('z','"z"')
+            try:
+                pos = eval(name)  # read loc as a dict, use of x,y,z under the hood
+            except TypeError:
+                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
+                print(f'Type Error in reading location for {name}')
+            except NameError:
+                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
+                print(f'Name Error in reading location for {name}')
+            if not isinstance(pos, dict):
+                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
+            X.append(pos["x"])
+            Y.append(pos["y"])
+            Z.append(pos["z"])
+        data["X"] = X
+        data["Y"] = Y
+        data["Z"] = Z
+
+        data.drop(columns=["location"], inplace=True)
+
+        return data
+    
+    def get_synapse_neuropil(self, synapse_ids: list[int]) -> pd.DataFrame:
+        """
+        Get the neuropil of the synapses.
+        In MANC, this means finding the name of the neuropil column for which 
+        the entry is True.
+        """
+        roi_file = os.path.join(self._connectome_dir, "all_ROIs.txt")
+        rois = list(pd.read_csv(roi_file, sep="\t").values.flatten())
+
+        # find the subset of the synapses in the dataset that we care about for this neuron
+        # then for each possible ROI, check which synapses are in that ROI
+        # store each synapse's ROI in the neuropil column
+        data = pd.read_feather(self._synapse_file, columns = [self._syn_id])
+        data.columns = ['synapse_id']
+        data["neuropil"] = "None"
+
+        for roi in rois:
+            column_name = roi + ":boolean"
+            roi_column = pd.read_feather(
+                self._synapse_file,
+                columns=[column_name, self._syn_id],
+            )[synapse_ids]
+            synapses_in_roi = roi_column.loc[
+                roi_column[column_name] == True, self._syn_id
+            ].values  # type: ignore
+            data.loc[
+                data["synapse_id"].isin(synapses_in_roi), "neuropil"
+            ] = roi
         return data
 
     # --- additions
@@ -852,6 +909,9 @@ class FAFB(ConnectomeReader):
         """
         Get the locations of the synapses.
         """
+        raise NotImplementedError('Method not implemented yet on FAFB.')
+
+    def get_synapse_neuropil(self, synapse_ids: list[int]) -> pd.DataFrame:
         raise NotImplementedError('Method not implemented yet on FAFB.')
 
     def sna(
