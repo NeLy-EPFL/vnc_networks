@@ -48,7 +48,6 @@ class ConnectomeReader:
         self._load_specific_directories()
         # assert all is defined, defined globally
         self.__assert_all_is_defined()
-        self.__define_data_types()
 
     # ----- virtual private methods -----
     def _load_specific_namefields(self):
@@ -71,20 +70,16 @@ class ConnectomeReader:
             raise AttributeError("Some base attributes are not defined.")
         return
         
-    def __define_data_types(self):
-        """
-        Define the data types of the attributes.
-        """
-        self.SpecificSelectionDict = dict[
-            self.SpecificNeuronAttribute,
-            str | int | float | bool | BodyId
-            ]
-        #Dictionary for selecting subsets of neurons based on different `NeuronAttribute`s.
-
     # ----- public methods -----
-    def get_connections(self, columns: list[NeuronAttribute]):
+    def get_connections(
+            self,
+            columns: list[NeuronAttribute],
+            keep_only_traced_neurons: bool = False,
+            ):
         """
         Load the connections of the connectome.
+        If keep_only_traced_neurons is True, only the neurons that have been traced
+        will be kept.
 
         Parameters
         ----------
@@ -95,10 +90,36 @@ class ConnectomeReader:
         columns_to_read = [
             self.sna(a) for a in columns
         ]
+        # Identify which neurons are traced
+        if keep_only_traced_neurons and self.exists_tracing_status():
+            nodes_data = pd.read_feather(
+                self._nodes_file,
+                columns=[self._body_id, self._tracing_status]
+                )
+            nodes_data = nodes_data[
+                nodes_data[self._tracing_status] == self.traced_entry
+                ]
+            traced_bids = nodes_data[self._body_id].values
+
+        # Load the connections
         df = pd.read_feather(self._connections_file, columns=columns_to_read)
+
         # rename to generic names
         df.columns = columns
+
+        # Filter out the untraced neurons
+        if keep_only_traced_neurons:
+            df = df[df['start_bid'].isin(traced_bids)]
+            df = df[df['end_bid'].isin(traced_bids)]
+
         return df
+
+    def list_all_nodes(self) -> list[BodyId]:
+        """
+        List all the pre-synaptic neurons existing in the connectome.
+        """
+        data = pd.read_feather(self._nodes_file, columns=[self._body_id])
+        return list(data[self._body_id].values)
 
     def exists_tracing_status(self):
         """
@@ -149,7 +170,7 @@ class ConnectomeReader:
             self.sna(a) for a in selection_dict.keys()
         ]
         columns_to_write = selection_dict.keys()
-        if NeuronAttribute('body_id') not in selection_dict.keys():
+        if 'body_id' not in selection_dict.keys():
             columns_to_read.append(self._body_id) # specific name field
             columns_to_write.append('body_id') # generic name field
         
@@ -195,7 +216,7 @@ class ConnectomeReader:
             self.sna(a) for a in attributes
         ]
         columns_to_write = attributes
-        if NeuronAttribute('body_id') not in attributes:
+        if 'body_id' not in attributes:
             columns_to_read.append(self._body_id) # specific name field
             columns_to_write.append('body_id') # generic name field
 
@@ -232,7 +253,7 @@ class ConnectomeReader:
             self.sna(a) for a in attributes
         ]
         columns_to_write = attributes
-        if NeuronAttribute('body_id') not in attributes:
+        if 'body_id' not in attributes:
             columns_to_read.append(self._body_id) # specific name field
             columns_to_write.append('body_id') # generic name field
 
@@ -274,6 +295,7 @@ class ConnectomeReader:
             "body_id": self._body_id,
             "start_bid": self._start_bid,
             "end_bid": self._end_bid,
+            "syn_count": self._syn_count,
             # connectivity
             # function
             "nt_type": self._nt_type,
@@ -290,7 +312,9 @@ class ConnectomeReader:
             "hemilineage": self._hemilineage,
         }
         equivalent_name = mapping.get(generic_n_a)
-        return self.SpecificNeuronAttribute(equivalent_name)
+        if equivalent_name is None:
+            raise KeyError
+        return equivalent_name
 
     def specific_neuron_class(
             self,
@@ -355,8 +379,8 @@ class MANC(ConnectomeReader):
         """
         # common to all
         self._body_id = ":ID(Body-ID)"
-        self._start_bid = "START_ID(Body-ID)"
-        self._end_bid = "END_ID(Body-ID)"
+        self._start_bid = ":START_ID(Body-ID)"
+        self._end_bid = ":END_ID(Body-ID)"
         self._syn_count = "weightHR:int"
         self._nt_type = "predictedNt:string"
         self._nt_proba = "predictedNtProb:float"
@@ -379,30 +403,6 @@ class MANC(ConnectomeReader):
         self._end_syn_id = ":END_ID(Syn-ID)"
         self._syn_id = ":ID(Syn-ID)"
         self._syn_location = "location:point{srid:9157}"
-
-        self.SpecificNeuronAttribute = typing.Literal[
-            self._body_id,
-            self._start_bid,
-            self._end_bid,
-            self._nt_type,
-            self._nt_proba,
-            self._class_1,
-            self._class_2,
-            self._name,
-            self._side,
-            self._neuropil,
-            self._hemilineage,
-            self._size,
-            self._tracing_status,
-            self._entry_nerve,
-            self._exit_nerve,
-            self._position,
-        ]
-
-        # Add the bodyid naming to the neuron attributes, as this is a public
-        # attribute that can be called directly
-        NeuronAttribute = NeuronAttribute | typing.Literal[self.BodyId]
-
 
         # Existing fields in the MANC v1.0 for future reference
         '''
@@ -705,7 +705,7 @@ class MANC(ConnectomeReader):
         fails, it looks for specific attributes only defined in this connectome.
         """
         try:
-            converted_type = super().__sna(generic_n_a)
+            converted_type = super().sna(generic_n_a)
         except KeyError:
             # look for specific attributes only defined in this connectome
             mapping = {
@@ -715,8 +715,9 @@ class MANC(ConnectomeReader):
                 "exit_nerve": self._exit_nerve,
             }
             try:
-                new_attribute = mapping.get(generic_n_a)
-                converted_type = self.SpecificNeuronAttribute(new_attribute)
+                converted_type = mapping.get(generic_n_a)
+                if converted_type is None:
+                    raise KeyError
             except KeyError:
                 raise ValueError(
                     f"ConnectomeReader::sna().\
@@ -827,26 +828,7 @@ class FAFB(ConnectomeReader):
         self._nerve = "nerve"
         self._area = "area_nm"
         self._length = "length_nm"
-        self._flow = "flow",
-
-
-        self.NeuronAttribute = typing.Literal[
-            self._body_id,
-            self._start_bid,
-            self._end_bid,
-            self._syn_count,
-            self._nt_proba,
-            self._class_1,
-            self._class_2,
-            self._side,
-            self._neuropil,
-            self._hemilineage,
-            self._size,
-            self._nerve,
-            self._area,
-            self._length,
-            self._flow,
-        ]
+        self._flow = "flow"
             
     def _load_specific_neuron_classes(self):
         """
@@ -924,7 +906,7 @@ class FAFB(ConnectomeReader):
         fails, it looks for specific attributes only defined in this connectome.
         """
         try:
-            converted_type = super().__sna(generic_n_a)
+            converted_type = super().sna(generic_n_a)
         except KeyError:
             # look for specific attributes only defined in this connectome
             mapping = {
@@ -934,8 +916,9 @@ class FAFB(ConnectomeReader):
                 "flow": self._flow,
             }
             try:
-                new_attribute = mapping.get(generic_n_a)
-                converted_type = self.SpecificNeuronAttribute(new_attribute)
+                converted_type = mapping.get(generic_n_a)
+                if converted_type is None:
+                    raise KeyError
             except KeyError:
                 raise ValueError(
                     f"ConnectomeReader::sna().\

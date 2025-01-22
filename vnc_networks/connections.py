@@ -88,32 +88,23 @@ class Connections:
             self._start_bid_name = self.CR.sna('start_bid')
             self._end_bid_name = self.CR.sna('end_bid')
             self._syn_count_name = self.CR.sna('syn_count')
+            self.keep_only_traced_neurons = keep_only_traced_neurons
+
             # Neurons used in the connections
             if neurons_pre is None:
-                neurons_ = pd.read_feather( # TODO: move to CR
-                    CR.nodes_file, columns=[self._body_id_name]
-                )
-                neurons_pre_ = neurons_[self._body_id_name].to_list() # TODO: update
-
+                self.neurons_pre = self.CR.list_all_nodes()
             else:
-                neurons_pre_ = neurons_pre
-            self.neurons_pre = neurons_pre_
+                self.neurons_pre_ = neurons_pre
             if neurons_post is None:
                 self.neurons_post = self.neurons_pre
             else:
-                self.neurons_post = (neurons_post,)
+                self.neurons_post = neurons_post
             self.nt_weights = nt_weights
             self.subgraphs = {}
 
         self.__initialize(split_neurons, not_connected)
 
-        if keep_only_traced_neurons: 
-            # this is computationally not optimal but makes the dataset a lot cleaner.
-            # TODO: implement this as the dataset is created, by loading 
-            # node data sequentially.
-            self.get_connections_with_only_traced_neurons()
     
-
     # private methods
     def __initialize(
         self,
@@ -149,7 +140,8 @@ class Connections:
         by the NeuronAtrribute type.
         """
         connections_ = self.CR.get_connections(
-            columns = ['start_bid', 'syn_count', 'end_bid']
+            columns = ['start_bid', 'syn_count', 'end_bid'],
+            keep_only_traced_neurons = self.keep_only_traced_neurons,
             )
         # filter out only the connections relevant here
         connections_ = connections_[
@@ -853,7 +845,7 @@ class Connections:
     # --- getters
     def get_connections_with_only_traced_neurons(self):
         """
-        Remove the neurons in the graph for which the field "status:string"
+        Remove the neurons in the graph for which the field "tracing_status"
         is not "Traced". This can only be done on datastes where the status
         field is present.
 
@@ -872,7 +864,7 @@ class Connections:
                 if status == self.CR.traced_entry
             ]
             return self.subgraph(traced_nodes)
-        return self
+        return
 
     def get_neuron_bodyids(self, selection_dict: Optional[SelectionDict] = None):
         """
@@ -1573,7 +1565,7 @@ class Connections:
         pos: Optional[typing.Mapping] = None,
         method: typing.Literal[
             "circular", "spring", "kamada_kawai", "breadth_first", "force", "spectral"
-        ] = "circular",
+        ] = "force",
         title: str = "test",
         label_nodes: bool = False,
         syn_threshold: Optional[int] = None,
