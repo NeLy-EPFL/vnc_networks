@@ -327,15 +327,29 @@ class ConnectomeReader:
         """
         mapping = {
             "sensory": self._sensory,
-            "sensory ascending": self._sensory_ascending,
             "ascending": self._ascending,
             "motor": self._motor,
             "descending": self._descending,
-            "efferent": self._efferent,
-            "unknown": self._unknown,
         }
         equivalent_name = mapping.get(generic_n_c)
+        if equivalent_name is None:
+            raise KeyError
         return self.SpecificNeuronClass(equivalent_name)
+    
+    def decode_neuron_class(self, specific_class: str) -> NeuronClass:
+        """
+        Decode the specific class to the generic one.
+        """
+        mapping = {
+            self._sensory: "sensory",
+            self._motor: "motor",
+            self._ascending: "ascending",
+            self._descending: "descending",
+        }
+        equivalent_name = mapping.get(specific_class)
+        if equivalent_name is None:
+            raise KeyError
+        return equivalent_name
 
     def list_possible_attributes(self):
         raise NotImplementedError('This should only be called on child instances.')
@@ -747,14 +761,45 @@ class MANC(ConnectomeReader):
                 "interneuron_unknown": self._interneuron_unknown,
             }
             try:
-                new_class = mapping.get(generic_n_c)
-                converted_type = self.SpecificNeuronClass(new_class)
+                converted_type = mapping.get(generic_n_c)
+                if converted_type is None:
+                    raise KeyError
             except KeyError:
                 raise ValueError(
                     f"ConnectomeReader::specific_neuron_class().\
                     The class {generic_n_c} is not defined in {self.connectome_name}."
                     )
         return converted_type
+    
+    def decode_neuron_class(self, specific_class: str) -> NeuronClass:
+        """
+        Decode the specific class to the generic one.
+        """
+        try:
+            converted_class = super().decode_neuron_class(specific_class)
+        except KeyError:
+            # look for specific classes only defined in this connectome
+            mapping = {
+                self._intrinsic: "intrinsic",
+                self._glia: "glia",
+                self._sensory_ascending: "sensory ascending",
+                self._efferent: "efferent",
+                self._efferent_ascending: "efferent ascending",
+                self._unknown: "unknown",
+                self._sensory_unknown: "sensory_unknown",
+                self._interneuron_unknown: "interneuron_unknown",
+                None: "unknown",
+            }
+            try:
+                converted_class = mapping.get(specific_class)
+                if converted_class is None:
+                    raise KeyError
+            except KeyError:
+                raise ValueError(
+                    f"ConnectomeReader::decode_neuron_class().\
+                    The class {specific_class} is not defined in {self.connectome_name}."
+                    )   
+        return converted_class
 
     def list_possible_attributes(self):
         """
@@ -946,14 +991,42 @@ class FAFB(ConnectomeReader):
                 "other": self._other,
             }
             try:
-                new_class = mapping.get(generic_n_c)
-                converted_type = self.SpecificNeuronClass(new_class)
+                converted_type = mapping.get(generic_n_c)
+                if converted_type is None:
+                    raise KeyError 
             except KeyError:
                 raise ValueError(
                     f"ConnectomeReader::specific_neuron_class().\
                     The class {generic_n_c} is not defined in {self.connectome_name}."
                     )
         return converted_type
+    
+    def decode_neuron_class(self, specific_class: str) -> NeuronClass:
+        """
+        Decode the specific class to the generic one.
+        """
+        try:
+            converted_class = super().decode_neuron_class(specific_class)
+        except KeyError:
+            # look for specific classes only defined in this connectome
+            mapping = {
+                self._central: "central",
+                self._endocrine: "endocrine",
+                self._optic: "optic",
+                self._visual_centrifugal: "visual centrifugal",
+                self._visual_projection: "visual projection",
+                self._other: "other",
+            }
+            try:
+                converted_class = mapping.get(specific_class)
+                if converted_class is None:
+                    raise KeyError
+            except KeyError:
+                raise ValueError(
+                    f"ConnectomeReader::decode_neuron_class().\
+                    The class {specific_class} is not defined in {self.connectome_name}."
+                    )
+        return converted_class
 
     def list_possible_attributes(self):
         """

@@ -559,7 +559,9 @@ class Connections:
         ]
         _ = self.__get_node_attributes("class_1")
         nx.set_node_attributes(
-            self.graph, nx.get_node_attributes(self.graph, "class_1"), "node_class"
+            self.graph,
+            nx.get_node_attributes(self.graph, "class_1"),
+            "node_class"
         )
         self.__defined_attributes_in_graph.append("node_class")
 
@@ -682,10 +684,16 @@ class Connections:
                     ids=body_ids,
                     attributes=[attribute],
                 )
-                attr_mapping = {
-                    body_id: value  # map body id to attribute value
-                    for body_id, value in zip(attr['body_id'], attr[attribute])
-                }
+                if attribute == "class_1": # need to map to standard 'NeuronClass' type
+                    attr_mapping = {
+                        body_id: self.CR.decode_neuron_class(value)  # map body id to attribute value
+                        for body_id, value in zip(attr['body_id'], attr[attribute])
+                    }
+                else: 
+                    attr_mapping = {
+                        body_id: value  # map body id to attribute value
+                        for body_id, value in zip(attr['body_id'], attr[attribute])
+                    }
                 attr_list = {
                     node: attr_mapping[body_id]  # map node to attribute value
                     for node, body_id in zip(nodes, body_ids)
@@ -920,7 +928,7 @@ class Connections:
             "syn_count", "eff_weight", "syn_count_norm", "eff_weight_norm"
         ] = "eff_weight",
         syn_threshold: Optional[int] = None,
-    ):
+    ) -> nx.DiGraph:
         """
         Get the graph of the connections.
         """
@@ -947,6 +955,8 @@ class Connections:
                 if abs(d["weight"]) < syn_threshold
             ]
             graph_.remove_edges_from(edges_to_remove)
+            # remove isolated nodes
+            graph_.remove_nodes_from(list(nx.isolates(graph_)))
         return graph_
 
     def get_nt_weights(self):

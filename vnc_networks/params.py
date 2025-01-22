@@ -173,19 +173,29 @@ NT_TYPES = {
     None: {"color": LIGHTGREY, "linestyle": "-"},
     np.nan: {"color": LIGHTGREY, "linestyle": "-"},
 }
-'''
+
 NEURON_CLASSES: dict[NeuronClass, dict[typing.Literal["color"], str]] = {
-    "sensory neuron": {"color": LIGHTORANGE},
+    # orange: input related
+    "ascending": {"color": DARKORANGE},
+    "sensory": {"color": LIGHTORANGE},
     "sensory ascending": {"color": LIGHTORANGE},
-    "ascending neuron": {"color": DARKORANGE},
-    "Sensory TBD": {"color": LIGHTORANGE},
-    "motor neuron": {"color": LIGHTBLUE},
-    "descending neuron": {"color": DARKBLUE},
-    "efferent neuron": {"color": DARKGREY},
-    "efferent ascending": {"color": DARKGREY},
-    "intrinsic neuron": {"color": GREEN},
-    "Interneuron TBD": {"color": DARKGREY},
-    "Glia": {"color": LIGHTGREY},
-    "TBD": {"color": LIGHTGREY},
+    "optic": {"color": LIGHTORANGE},
+    "visual projection": {"color": LIGHTORANGE},
+    # blue: output related
+    "descending": {"color": DARKBLUE},
+    "motor": {"color": LIGHTBLUE},
+    "efferent": {"color": LIGHTBLUE},
+    "efferent ascending": {"color": LIGHTBLUE},
+    "visual centrifugal": {"color": LIGHTBLUE},
+    # green: interneurons
+    "intrinsic": {"color": GREEN},
+    "central": {"color": GREEN},
+    # grey: other
+    "interneuron_unknown": {"color": DARKGREY},
+    "sensory_unknown": {"color": DARKGREY},
+    "endocrine": {"color": DARKGREY},
+    "unknown": {"color": LIGHTGREY},
+    "other": {"color": LIGHTGREY},
+    "glia": {"color": LIGHTGREY},
 }
-'''
+
