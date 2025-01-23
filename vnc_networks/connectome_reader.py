@@ -752,10 +752,12 @@ class MANC(ConnectomeReader):
                 "nb_post_neurons": self._nb_post_neurons,
             }
             try:
-                converted_type = mapping.get(generic_n_a)[0]
-                print(generic_n_a, ' ---> ', converted_type)
+                converted_type = mapping.get(generic_n_a)
                 if converted_type is None:
                     raise KeyError
+                # if the converted type is a tuple, get the first element
+                if isinstance(converted_type, tuple):
+                    converted_type = converted_type[0]
             except KeyError:
                 raise ValueError(
                     f"ConnectomeReader::sna().\

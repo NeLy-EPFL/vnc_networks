@@ -20,7 +20,7 @@ os.makedirs(FOLDER, exist_ok=True)
 
 
 def get_mdn_bodyids(CR: ConnectomeReader = ConnectomeReader("MANC", "v1.0")):
-    bids = CR.get_body_ids({"type": "MDN"})
+    bids = CR.get_neuron_bodyids({"type": "MDN"})
     return bids
 
 
