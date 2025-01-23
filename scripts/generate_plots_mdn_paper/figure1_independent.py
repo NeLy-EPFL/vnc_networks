@@ -16,7 +16,6 @@ import params
 import specific_neurons.mdn_helper as mdn_helper
 import specific_neurons.motor_neurons_helper as mns_helper
 from connections import Connections
-from get_nodes_data import get_neuron_bodyids
 from matplotlib import pyplot as plt
 from neuron import Neuron
 from params import NeuronAttribute
@@ -48,7 +47,7 @@ def write_neuron_dataframe(
 
 
 # -------------------------- Main functions -------------------------- #
-def venn_mdn_branches_neuropil_direct(attribute: NeuronAttribute = "class:string"):
+def venn_mdn_branches_neuropil_direct(attribute: NeuronAttribute = "class_1"):
     """
     Draw a Venn diagram of the neurons directly downstream of MDN split by where
     the synapses are.
@@ -66,7 +65,7 @@ def venn_mdn_branches_neuropil_direct(attribute: NeuronAttribute = "class:string
     cmatrix = VNC.get_cmatrix(type_="norm")
 
     # Get the uids of neurons split by MDN synapses in leg neuropils
-    mdn_uids = VNC.get_neuron_ids({"type:string": "MDN"})
+    mdn_uids = VNC.get_neuron_ids({"type": "MDN"})
     list_down_neurons = []  # will become a list with 3 sets
     for i in range(3):
         neuropil = "LegNp(T" + str(i + 1) + ")"  # synapses of MDNs in T1/T2/T3
@@ -133,7 +132,7 @@ def venn_t3_subbranches(n_clusters: int = 3):
     VNC = mdn_helper.get_connectome_with_MDN_t3_branches(
         n_clusters=n_clusters
     )  # already pruned of non Traced neurons
-    mdn_uids = VNC.get_neuron_ids({"type:string": "MDN"})
+    mdn_uids = VNC.get_neuron_ids({"type": "MDN"})
 
     # Get the direct downstream partners for each subdivision
     cmatrix = VNC.get_cmatrix(type_="norm")
@@ -143,7 +142,7 @@ def venn_t3_subbranches(n_clusters: int = 3):
         down_neurons[uid] = down_partners
 
     # Draw a Venn diagram for the branches of each neuron
-    mnd_bodyids = get_neuron_bodyids({"type:string": "MDN"})
+    mnd_bodyids = VNC.get_neuron_bodyids({"type": "MDN"})
     for mdn_bid in mnd_bodyids:
         single_mdn_uids = VNC.get_uids_from_bodyid(mdn_bid)
         single_mdn_uids = [

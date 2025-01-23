@@ -29,8 +29,7 @@ def graph_from_mdn_to_muscle(
     ----------
     target: dict
         dictionary with the target neuron attributes
-        necessary keys: 'class:string', 'somaSide:string', 'subclass:string',
-        'target:string'
+        necessary keys: 'class_1', 'side', 'class_2', 'target'
     n_hops: int
         number of hops to consider
     label_nodes: bool
@@ -52,8 +51,8 @@ def graph_from_mdn_to_muscle(
         not_connected=mdn_helper.get_mdn_bodyids()
     )
     VNC = full_VNC.get_connections_with_only_traced_neurons()
-    side = target["somaSide:string"]
-    neuropil = target["subclass:string"]
+    side = target["side"]
+    neuropil = target["class_2"]
     mdns = mdn_helper.get_subdivided_mdns(VNC, neuropil, side)
     target_neurons = VNC.get_neuron_ids(target)
 
@@ -119,7 +118,7 @@ def graph_from_mdn_to_muscle(
     plt.tight_layout()
 
     # Saving
-    title = f'MDNs|{side}_{neuropil}_to_{target["target:string"]}_{n_hops}_hops'
+    title = f'MDNs|{side}_{neuropil}_to_{target["target"]}_{n_hops}_hops'
     title = title.replace("/", "|")
     title = title.replace(" ", "-")
     if method is not None:
