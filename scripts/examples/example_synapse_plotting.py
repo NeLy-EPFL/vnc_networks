@@ -8,14 +8,15 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import params
 import utils.plots_design as plots_design
-from get_nodes_data import get_neuron_bodyids
+from connectome_reader import ConnectomeReader
 from neuron import Neuron
 
+CR = ConnectomeReader("MANC", "v1.0")
 synapses = []
-neurons_pre = get_neuron_bodyids({"type:string": "MDN"})
+neurons_pre = CR.get_neuron_bodyids({"type": "MDN"})
 
 for i in range(4):
-    MDN = Neuron(neurons_pre[i])
+    MDN = Neuron(neurons_pre[i], CR=CR)
     # MDN = Neuron(from_file='MDN'+str(i))
     syn = MDN.get_synapse_distribution()
     synapses.append(syn)

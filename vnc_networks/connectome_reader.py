@@ -424,6 +424,10 @@ class MANC(ConnectomeReader):
         self._entry_nerve = "entryNerve:string"
         self._exit_nerve = "exitNerve:string"
         self._position = "position:point{srid:9157}"
+        self._nb_pre_synapses = "pre:int",
+        self._nb_post_synapses = "post:int",
+        self._nb_pre_neurons = "upstream:int",
+        self._nb_post_neurons = "downstream:int",
         # Synapse specific
         self._start_synset_id = ":START_ID(SynSet-ID)"
         self._end_synset_id = ":END_ID(SynSet-ID)"
@@ -742,9 +746,14 @@ class MANC(ConnectomeReader):
                 "position": self._position,
                 "entry_nerve": self._entry_nerve,
                 "exit_nerve": self._exit_nerve,
+                "nb_pre_synapses": self._nb_pre_synapses,
+                "nb_post_synapses": self._nb_post_synapses,
+                "nb_pre_neurons": self._nb_pre_neurons,
+                "nb_post_neurons": self._nb_post_neurons,
             }
             try:
-                converted_type = mapping.get(generic_n_a)
+                converted_type = mapping.get(generic_n_a)[0]
+                print(generic_n_a, ' ---> ', converted_type)
                 if converted_type is None:
                     raise KeyError
             except KeyError:
@@ -823,7 +832,8 @@ class MANC(ConnectomeReader):
         all_attr = [
             "nt_type", "nt_proba", "class_1", "class_2", "name", "type", "side",
             "neuropil", "hemilineage", "size", "tracing_status", "entry_nerve",
-            "exit_nerve", "position"
+            "exit_nerve", "position", "nb_pre_synapses", "nb_post_synapses",
+            "nb_pre_neurons", "nb_post_neurons",
         ]
         return all_attr
 
