@@ -59,6 +59,22 @@ SortingStyle = typing.Literal[
 
 ## ---- Classes ---- ##
 class Connections:
+    def __deepcopy__(self, memo):
+        """
+        deepcopy everything except the ConnectomeReader instance that can
+        be shared between the original and the copy
+        """
+        new_instance = self.__class__.__new__(self.__class__)
+        memo[id(self)] = new_instance
+
+        for k, v in self.__dict__.items():
+            if k == "CR":
+                setattr(new_instance, k, v)
+            else:
+                setattr(new_instance, k, copy.deepcopy(v, memo))
+        
+        return new_instance
+
     def __init__(
         self,
         CR: Optional[ConnectomeReader] = ConnectomeReader('MANC','v1.0'),
@@ -737,6 +753,9 @@ class Connections:
         """
         # copy the original object
         new_connection_obj = copy.deepcopy(self)
+        print(new_connection_obj.CR == self.CR)
+        print(new_connection_obj.graph == self.graph)
+        print(new_connection_obj.connections.head())
 
         if nodes is None and edges is None:
             return new_connection_obj 
