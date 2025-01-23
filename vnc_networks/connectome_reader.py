@@ -162,6 +162,9 @@ class ConnectomeReader:
         Get the Ids of the neurons in the dataset.
         Select (keep) according to the selection_dict.
         Different criteria are treated as 'and' conditions.
+
+        For the specific case of "class_1" that refers to the NeuronClass,
+        we need to verify both the generic and the specific names.
         """
         s_dict = self.specific_selection_dict(selection_dict)
 
@@ -175,9 +178,19 @@ class ConnectomeReader:
             columns_to_write.append('body_id') # generic name field
         
         neurons = pd.read_feather(self._nodes_file, columns=list(columns_to_read))
+
         if s_dict is not None:
             for key in s_dict.keys():
-                neurons = neurons[neurons[key] == s_dict[key]]
+                if key == self.sna('class_1'):
+                    try: # will work if a generic NeuronClass is given
+                        specific_class = self.specific_neuron_class(s_dict[key])
+                    except KeyError: # will work if a specific NeuronClass is given
+                        specific_class = s_dict[key]
+                    neurons = neurons[
+                        neurons[self._class_1] == specific_class
+                        ]
+                else:
+                    neurons = neurons[neurons[key] == s_dict[key]]
         if nodes is not None:
             neurons = neurons[neurons[self._body_id].isin(nodes)]
     
@@ -333,8 +346,8 @@ class ConnectomeReader:
         }
         equivalent_name = mapping.get(generic_n_c)
         if equivalent_name is None:
-            raise KeyError
-        return self.SpecificNeuronClass(equivalent_name)
+            raise KeyError # this will be caught and handeled by child instances
+        return equivalent_name
     
     def decode_neuron_class(self, specific_class: str) -> NeuronClass:
         """
@@ -749,7 +762,7 @@ class MANC(ConnectomeReader):
         Converts the generic Neuron Class to the specific one.
         """
         try:
-            converted_type = super().__specific_neuron_class(generic_n_c)
+            converted_type = super().specific_neuron_class(generic_n_c)
         except KeyError:
             # look for specific classes only defined in this connectome
             mapping = {
@@ -981,7 +994,7 @@ class FAFB(ConnectomeReader):
         Converts the generic Neuron Class to the specific one.
         """
         try:
-            converted_type = super().__specific_neuron_class(generic_n_c)
+            converted_type = super().specific_neuron_class(generic_n_c)
         except KeyError:
             # look for specific classes only defined in this connectome
             mapping = {

@@ -38,14 +38,21 @@ def get_leg_motor_neurons(
         if side is not None:
             neurons_post = data.get_neuron_ids(
                 {
-                    "subclass:string": t,
-                    "class:string": "motor neuron",
-                    "somaSide:string": side,
+                    "class_2": t,
+                    "class_1": "motor",
+                    "side": side,
                 }
             )
         else:
             neurons_post = data.get_neuron_ids(
-                {"subclass:string": t, "class:string": "motor neuron"}
+                {"class_2": t, "class_1": "motor"}
             )
         leg_motor_neurons.extend(neurons_post)
     return set(leg_motor_neurons)
+
+
+if __name__ == "__main__":
+    VNC = Connections()
+    leg_motor_neurons = get_leg_motor_neurons(VNC, leg="f", side="LHS")
+    bids = VNC.get_bodyids_from_uids(leg_motor_neurons)
+    print(bids)

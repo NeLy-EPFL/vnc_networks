@@ -753,9 +753,6 @@ class Connections:
         """
         # copy the original object
         new_connection_obj = copy.deepcopy(self)
-        print(new_connection_obj.CR == self.CR)
-        print(new_connection_obj.graph == self.graph)
-        print(new_connection_obj.connections.head())
 
         if nodes is None and edges is None:
             return new_connection_obj 

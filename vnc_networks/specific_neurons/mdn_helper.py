@@ -6,11 +6,11 @@ import os
 import typing
 from typing import Optional
 
-import get_nodes_data
 import matplotlib.pyplot as plt
 import neuron
 import params
 from connections import Connections
+from connectome_reader import ConnectomeReader
 from neuron import Neuron
 from params import BodyId
 
@@ -19,8 +19,9 @@ FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)
 os.makedirs(FOLDER, exist_ok=True)
 
 
-def get_mdn_bodyids():
-    return get_nodes_data.get_neuron_bodyids({"type:string": "MDN"})
+def get_mdn_bodyids(CR: ConnectomeReader = ConnectomeReader("MANC", "v1.0")):
+    bids = CR.get_body_ids({"type": "MDN"})
+    return bids
 
 
 def get_mdn_uids(
@@ -32,7 +33,7 @@ def get_mdn_uids(
     ] = None,
 ):
     if side is None:
-        return data.get_neuron_ids({"type:string": "MDN"})
+        return data.get_neuron_ids({"type": "MDN"})
 
     if side in ["L", "Left", "l", "left", "LHS"]:
         side_ = "L"
@@ -41,7 +42,7 @@ def get_mdn_uids(
     else:
         raise ValueError("Side not recognized.")
 
-    mdns = data.get_neuron_ids({"type:string": "MDN"})
+    mdns = data.get_neuron_ids({"type": "MDN"})
     specific_mdns = [
         mdn
         for mdn in mdns
@@ -90,7 +91,7 @@ def get_subdivided_mdns(
     elif side in ["R", "Right", "r", "right", "RHS"]:
         side_ = "R"
 
-    mdns = VNC.get_neuron_ids({"type:string": "MDN"})
+    mdns = VNC.get_neuron_ids({"type": "MDN"})
     specific_mdns = [
         mdn
         for mdn in mdns
@@ -126,7 +127,10 @@ def get_vnc_split_MDNs_by_neuropil(
     return VNC
 
 
-def mdn_synapse_distribution(n_clusters: int = 3):
+def mdn_synapse_distribution(
+        n_clusters: int = 3,
+        CR: ConnectomeReader = ConnectomeReader("MANC", "v1.0")
+        ):
     """
     show for each MDN the distribution of synapses in the neuropils.
     Each row is an MDN.
@@ -136,9 +140,9 @@ def mdn_synapse_distribution(n_clusters: int = 3):
 
     Save the data for later use.
     """
-    mdn_bodyids = get_nodes_data.get_neuron_bodyids({"type:string": "MDN"})
+    mdn_bodyids = CR.get_neuron_bodyids({"type": "MDN"})
     for i in range(4):  # each MDN
-        MDN = Neuron(mdn_bodyids[i])
+        MDN = Neuron(mdn_bodyids[i], CR=CR)
         _ = MDN.get_synapse_distribution()
 
         # Column 1: depth-color coded
@@ -186,7 +190,10 @@ def mdn_synapse_distribution(n_clusters: int = 3):
         del MDN
 
 
-def get_connectome_with_MDN_t3_branches(n_clusters: int = 3):
+def get_connectome_with_MDN_t3_branches(
+        n_clusters: int = 3,
+        CR: ConnectomeReader = ConnectomeReader("MANC", "v1.0")
+        ):
     """
     Build the connectome with the T3 neuropil branches of MDN split.
     """
@@ -198,14 +205,14 @@ def get_connectome_with_MDN_t3_branches(n_clusters: int = 3):
         print("Creating the connectome with T3 branches of MDN split...")
 
         # === creating the split neurons
-        mdn_bodyids = get_nodes_data.get_neuron_bodyids({"type:string": "MDN"})
+        mdn_bodyids = CR.get_neuron_bodyids({"type": "MDN"})
         MDNs = []
         # if not already defined (tested on the first), define the split neurons
         filename = os.path.join(
             params.NEURON_DIR, f"mdn_{mdn_bodyids[0]}_T3_synapses_split.txt"
         )
         if not os.path.isfile(filename):
-            mdn_synapse_distribution(n_clusters=n_clusters)
+            mdn_synapse_distribution(n_clusters=n_clusters, CR=CR)
         # load
         for i in range(4):
             MDN = Neuron(from_file=f"mdn_{mdn_bodyids[i]}_T3_synapses_split")
@@ -215,5 +222,5 @@ def get_connectome_with_MDN_t3_branches(n_clusters: int = 3):
             split_neurons=MDNs,  # split the MDNs according to the synapse data
             not_connected=mdn_bodyids,  # exclude connections from MDNs to MDNs
         )
-        VNC.save(name=connectome_name)  # for later use
-    return VNC
+        VNC_full.save(name=connectome_name)  # for later use
+    return VNC_full
