@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Initialises the Neuron class.
 Meant to be used to load data for a single neuron.
@@ -19,10 +20,10 @@ import matplotlib.colors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import params
-import utils.plots_design as plot_design
-from connectome_reader import ConnectomeReader
-from params import BodyId, NeuronAttribute
+from . import params
+from .utils import plots_design
+from .connectome_reader import ConnectomeReader
+from .params import BodyId, NeuronAttribute
 from sklearn.cluster import KMeans
 
 

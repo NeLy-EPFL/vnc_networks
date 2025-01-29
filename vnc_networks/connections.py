@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Initializes the connections class.
 Possible use cases are processing the adjacency matrix from a set of neurons,
@@ -31,21 +32,18 @@ import typing
 from collections.abc import Mapping
 from typing import Optional
 
-import cmatrix
+from . import cmatrix
 import matplotlib.axes
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
-import params
+from . import params
 import seaborn as sns
-import utils.matrix_utils as matrix_utils
-import utils.nx_design as nx_design
-import utils.nx_utils as nx_utils
-import utils.plots_design as plots_design
-from connectome_reader import ConnectomeReader
-from neuron import Neuron
-from params import UID, BodyId, NeuronAttribute, NeuronClass, SelectionDict
+from .utils import matrix_utils, nx_design, nx_utils, plots_design
+from .connectome_reader import ConnectomeReader
+from .neuron import Neuron
+from .params import UID, BodyId, NeuronAttribute, NeuronClass, SelectionDict
 
 ## ---- Types ---- ##
 SortingStyle = typing.Literal[

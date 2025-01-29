@@ -17,4 +17,4 @@ readme = "README.md"
 description = "Package to work with MANC for VNC networks modelling"
 
 [tool.setuptools.packages.find]
-where = ["vnc_networks"]
+where = ["."]
