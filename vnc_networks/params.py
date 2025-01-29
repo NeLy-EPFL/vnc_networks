@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 2024.03.14
 author: femke.hurtak@epfl.ch

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Definition of the ConnectomeReader class.
 Class defining the methods and labels to read different connectomes.
@@ -13,8 +14,8 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-import params
-from params import BodyId, NeuronAttribute, NeuronClass, SelectionDict
+from . import params
+from .params import BodyId, NeuronAttribute, NeuronClass, SelectionDict
 
 
 # --- Parent class, abstract --- #

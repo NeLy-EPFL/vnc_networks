@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Helper functions regarding the ensemble of all motor neurons in the VNC.
 """
@@ -5,8 +6,8 @@ Helper functions regarding the ensemble of all motor neurons in the VNC.
 import typing
 from typing import Optional
 
-from connections import Connections
-from params import UID
+from ..connections import Connections
+from ..params import UID
 
 
 def get_leg_motor_neurons(

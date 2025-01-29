@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Module for matrix visualization.
 """
@@ -6,9 +7,9 @@ from typing import Optional
 
 import matplotlib.axes
 import matplotlib.pyplot as plt
-import params
+from .. import params
 import scipy as sc
-import utils.plots_design as plots_design
+from ..utils import plots_design
 
 
 def spy(

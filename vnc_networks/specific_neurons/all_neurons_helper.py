@@ -1,11 +1,12 @@
+#!/usr/bin/env python3
 """
 Helper functions regarding the ensemble of all neurons in the VNC.
 """
 
 from typing import Optional
 
-from connections import Connections
-from params import BodyId
+from ..connections import Connections
+from ..params import BodyId
 
 
 def get_full_vnc(not_connected: Optional[list[BodyId] | list[int]] = None):

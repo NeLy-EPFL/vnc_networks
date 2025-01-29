@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Functions specific to working with MDNs to avoid copying code.
 """
@@ -7,12 +8,11 @@ import typing
 from typing import Optional
 
 import matplotlib.pyplot as plt
-import neuron
-import params
-from connections import Connections
-from connectome_reader import ConnectomeReader
-from neuron import Neuron
-from params import BodyId
+from .. import neuron, params
+from ..connections import Connections
+from ..connectome_reader import ConnectomeReader
+from ..neuron import Neuron
+from ..params import BodyId
 
 FOLDER_NAME = "MDN_specific"
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)

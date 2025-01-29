@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Helper functions for making networkx graphs look nice and standardized.
 """
@@ -10,19 +11,19 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import Optional
 
-import connections
+from .. import connections
 import matplotlib.axes
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
-import params
+from .. import params
 import pyvis.network
-import utils.nx_utils as nx_utils
+from . import nx_utils
 from matplotlib.lines import Line2D
 from mpl_toolkits.mplot3d import Axes3D
-from params import UID
-from utils.math_utils import sigmoid
+from ..params import UID
+from .math_utils import sigmoid
 
 # --- Constants ---#
 
@@ -188,10 +189,10 @@ def display_interactive_graph(
     )
 
     def neuron_data_row_to_label(row: pd.Series):
-            return f"{row["name"]}"
+            return f'{row["name"]}'
 
     def neuron_data_row_to_title(row: pd.Series):
-        return f"body_id: {row["body_id"]}\n" + "\n".join(
+        return f'body_id: {row["body_id"]}\n' + "\n".join(
             [
                 f"{field}: {row[field]}"
                 for field in [
