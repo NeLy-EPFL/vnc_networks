@@ -11,7 +11,7 @@ from connectome_reader import ConnectomeReader
 from matplotlib_venn import venn3
 from neuron import Neuron
 
-CR = ConnectomeReader("MANC", "v1.0")
+CR = ConnectomeReader('v1.0', 'MANC')
 MDNs = []
 neurons_pre = CR.get_neuron_bodyids({'type': 'MDN'})
 

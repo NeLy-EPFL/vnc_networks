@@ -161,8 +161,10 @@ NeuronClass = typing.Literal[
     "sensory_unknown",
     "interneuron_unknown",
 ]
+"""Possible values for neuron class. These are the 'class:string' values in MANC v1.0 or the 'superclass' values in the FAFB v630 connectome"""
 
 SelectionDict = dict[NeuronAttribute, str | int | float | bool | BodyId]
+"""Dictionary for selecting subsets of neurons based on different `NeuronAttribute`s."""
 
 
 # --- Parameters for the network representation --- #

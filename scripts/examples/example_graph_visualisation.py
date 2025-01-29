@@ -9,7 +9,7 @@ import pandas as pd
 from connections import Connections
 from connectome_reader import ConnectomeReader
 
-CR = ConnectomeReader("MANC", "v1.0")
+CR = ConnectomeReader('v1.0', 'MANC')
 # MDNs = get_neuron_ids({'type:string': 'MDN'})
 DNxn050 = CR.get_neuron_bodyids({"name": "DNxn050"})  # MDN R
 DNxn049 = CR.get_neuron_bodyids({"name": "DNxn049"})  # MDN L

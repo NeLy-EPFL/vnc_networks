@@ -8,6 +8,7 @@ data types to the specific ones of the connectome.
 
 import os
 import typing
+from abc import ABC, abstractmethod
 from typing import Optional
 
 import numpy as np
@@ -16,27 +17,28 @@ import params
 from params import BodyId, NeuronAttribute, NeuronClass, SelectionDict
 
 
-# --- Parent class --- #
-class ConnectomeReader:
+# --- Parent class, abstract --- #
+class ConnectomeReader(ABC):
     def __new__(
             cls,
-            connectome_name: typing.Literal['MANC','FAFB'],
             connectome_version: typing.Literal['v1.0', 'v1.2','v630','v783'],
+            connectome_name: typing.Literal['MANC','FAFB'],
+
         ):
         if cls is ConnectomeReader:  # Only redirect if creating an instance directly
             match connectome_name:
                 case 'MANC':
-                    return MANC('MANC', connectome_version)
+                    return MANC(connectome_version, 'MANC')
                 case 'FAFB':
-                    return FAFB('FAFB', connectome_version)
+                    return FAFB(connectome_version, 'FAFB')
                 case _:
                     raise ValueError("Connectome not recognized.")
         return super().__new__(cls)
 
     def __init__(
             self,
-            connectome_name: typing.Literal['MANC','FAFB'],
             connectome_version: typing.Literal['v1.0', 'v1.2','v630','v783'],
+            connectome_name: typing.Literal['MANC','FAFB'],
             ):
 
         self.connectome_name = connectome_name
@@ -46,31 +48,123 @@ class ConnectomeReader:
         self._load_specific_namefields()
         self._load_specific_neuron_classes()
         self._load_specific_directories()
-        # assert all is defined, defined globally
-        self.__assert_all_is_defined()
 
     # ----- virtual private methods -----
+    @abstractmethod
     def _load_specific_namefields(self):
-        raise NotImplementedError('This should only be called on child instances.')
-    
-    def _load_specific_neuron_classes(self):
-        raise NotImplementedError('This should only be called on child instances.')
-    
-    def _load_specific_directories(self):
-        raise NotImplementedError('This should only be called on child instances.')
+        pass
 
-    # ----- private methods -----
-    def __assert_all_is_defined(self):
-        """
-        Verify that all the base elements are defined.
-        """
-        try:
-            _ = self.node_base_attributes()
-        except AttributeError:
-            raise AttributeError("Some base attributes are not defined.")
-        return
+    @abstractmethod
+    def _load_specific_neuron_classes(self):
+        pass   
+
+    @abstractmethod 
+    def _load_specific_directories(self):
+        pass
         
     # ----- public methods -----
+    # --- abstract methods
+    @abstractmethod
+    def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
+        """
+        Get the synapses of a neuron.
+        """
+        pass
+
+    @abstractmethod
+    def get_synapse_locations(self, synapse_ids: list[int]) -> pd.DataFrame:
+        """
+        Get the locations of the synapses.
+        """
+        pass
+
+    @abstractmethod
+    def get_synapse_neuropil(self, synapse_ids: list[int]) -> pd.DataFrame:
+        """
+        Get the neuropil of the synapses.
+        """
+        pass
+ 
+    @abstractmethod
+    def list_possible_attributes(self) -> list[str]:
+        """
+        List the possible attributes for a neuron.
+        """
+        pass
+
+    # --- partially reused methods
+    def sna(
+            self,
+            generic_n_a: NeuronAttribute
+            ) -> str:
+        """
+        Returns the specific Neuron Attribute defined for the connectome.
+        Example: the generic 'class_1' input will return 'class:string' for MANC
+        and 'super_class' for FAFB.
+        The mapped attributes are the ones common to all connectomes. 
+        Specific mappings can be added through overloaded methods.
+        """
+        mapping = {
+            "body_id": self._body_id,
+            "start_bid": self._start_bid,
+            "end_bid": self._end_bid,
+            "syn_count": self._syn_count,
+            # connectivity
+            # function
+            "nt_type": self._nt_type,
+            "nt_proba": self._nt_proba,
+            # classification
+            "class_1": self._class_1, 
+            "class_2": self._class_2,
+            "name": self._name,
+            # morphology
+            "side": self._side,
+            "neuropil": self._neuropil,
+            "size": self._size,
+            # genetics
+            "hemilineage": self._hemilineage,
+        }
+        equivalent_name = mapping.get(generic_n_a)
+        if equivalent_name is None:
+            raise KeyError
+        return equivalent_name
+
+    def specific_neuron_class(
+            self,
+            generic_n_c: NeuronClass
+            ):
+        """
+        Returns the specific Neuron Class defined for the connectome.
+        This method only defines the mapping for the common classes. Specific
+        classes can be added through overloaded methods.
+        """
+        mapping = {
+            "sensory": self._sensory,
+            "ascending": self._ascending,
+            "motor": self._motor,
+            "descending": self._descending,
+        }
+        equivalent_name = mapping.get(generic_n_c)
+        if equivalent_name is None:
+            raise KeyError # this will be caught and handeled by child instances
+        return equivalent_name
+    
+    def decode_neuron_class(self, specific_class: str) -> NeuronClass:
+        """
+        Decode the specific class to the generic one.
+        """
+        mapping = {
+            self._sensory: "sensory",
+            self._motor: "motor",
+            self._ascending: "ascending",
+            self._descending: "descending",
+        }
+        equivalent_name = mapping.get(specific_class)
+        if equivalent_name is None:
+            raise KeyError
+        return equivalent_name
+    
+    # --- common methods
     def get_connections(
             self,
             columns: list[NeuronAttribute],
@@ -129,30 +223,7 @@ class ConnectomeReader:
             self.traced_entry = "Traced"
             return True
         return False
-    
-    def node_base_attributes(self) -> list[NeuronAttribute]:
-        """
-        Returns a list of the base attributes that all nodes have, used
-        to initialise a neuron::Neuron() object for instance.
-        """
-        list_node_attributes: list[self.NeuronAttribute] = [
-                "body_id",
-                # function
-                "nt_type",
-                "nt_proba",
-                # classification
-                "class_1",
-                "class_2",
-                "name",
-                # morphology
-                "side",
-                "neuropil",
-                "size",
-                # genetics
-                "hemilineage",
-            ]
-        return list_node_attributes
-    
+
     def get_neuron_bodyids(
         self,
         selection_dict: Optional[SelectionDict] = None,
@@ -293,111 +364,55 @@ class ConnectomeReader:
             s_dict[self.sna(k)] = v
         return s_dict
     
-    def sna(
-            self,
-            generic_n_a: NeuronAttribute
-            ) -> str:
+    @staticmethod
+    def node_base_attributes() -> list[NeuronAttribute]:
         """
-        Returns the specific Neuron Attribute defined for the connectome.
-        Example: the generic 'class_1' input will return 'class:string' for MANC
-        and 'super_class' for FAFB.
-        The mapped attributes are the ones common to all connectomes. 
-        Specific mappings can be added through overloaded methods.
+        Returns a list of the base attributes that all nodes have, used
+        to initialise a neuron::Neuron() object for instance.
         """
-        mapping = {
-            "body_id": self._body_id,
-            "start_bid": self._start_bid,
-            "end_bid": self._end_bid,
-            "syn_count": self._syn_count,
-            # connectivity
-            # function
-            "nt_type": self._nt_type,
-            "nt_proba": self._nt_proba,
-            # classification
-            "class_1": self._class_1, 
-            "class_2": self._class_2,
-            "name": self._name,
-            # morphology
-            "side": self._side,
-            "neuropil": self._neuropil,
-            "size": self._size,
-            # genetics
-            "hemilineage": self._hemilineage,
-        }
-        equivalent_name = mapping.get(generic_n_a)
-        if equivalent_name is None:
-            raise KeyError
-        return equivalent_name
+        list_node_attributes: list[NeuronAttribute] = [
+                "body_id",
+                # function
+                "nt_type",
+                "nt_proba",
+                # classification
+                "class_1",
+                "class_2",
+                "name",
+                # morphology
+                "side",
+                "neuropil",
+                "size",
+                # genetics
+                "hemilineage",
+            ]
+        return list_node_attributes
 
-    def specific_neuron_class(
-            self,
-            generic_n_c: NeuronClass
-            ):
-        """
-        Returns the specific Neuron Class defined for the connectome.
-        This method only defines the mapping for the common classes. Specific
-        classes can be added through overloaded methods.
-        """
-        mapping = {
-            "sensory": self._sensory,
-            "ascending": self._ascending,
-            "motor": self._motor,
-            "descending": self._descending,
-        }
-        equivalent_name = mapping.get(generic_n_c)
-        if equivalent_name is None:
-            raise KeyError # this will be caught and handeled by child instances
-        return equivalent_name
-    
-    def decode_neuron_class(self, specific_class: str) -> NeuronClass:
-        """
-        Decode the specific class to the generic one.
-        """
-        mapping = {
-            self._sensory: "sensory",
-            self._motor: "motor",
-            self._ascending: "ascending",
-            self._descending: "descending",
-        }
-        equivalent_name = mapping.get(specific_class)
-        if equivalent_name is None:
-            raise KeyError
-        return equivalent_name
-
-    def list_possible_attributes(self):
-        raise NotImplementedError('This should only be called on child instances.')
-    
-    def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
-        """
-        Get the synapses of a neuron.
-        """
-        raise NotImplementedError('This should only be called on child instances.')
-    
 # --- Specific classes --- #
 
 # === MANC: Male Adult Neuronal Connectome
 class MANC(ConnectomeReader):
     def __new__(
             cls,
-            connectome_name: typing.Literal['MANC'],
             connectome_version: typing.Literal['v1.0','v1.2'],
+            connectome_name: typing.Literal['MANC'],
         ):
         if cls is MANC:  # Only redirect if creating an instance directly
             match connectome_version:
                 case 'v1.0':
-                    return MANC_v_1_0('MANC', 'v1.0')
+                    return MANC_v_1_0('v1.0', 'MANC')
                 case 'v1.2':
-                    return MANC_v_1_2('MANC', 'v1.2')
+                    return MANC_v_1_2('v1.2', 'MANC')
                 case _:
                     raise ValueError("Connectome not recognized.")
-        return super().__new__(cls, connectome_name, connectome_version)
+        return super().__new__(cls, connectome_version, connectome_name)
     
     def __init__(
             self,
+            connectome_version: typing.Literal['v1.0','v1.2'],
             connectome_name: typing.Literal['MANC'],
-            connectome_version: typing.Literal['v1.0','v1.2']
             ): # 2nd argument is useless, only for compatibility
-        super().__init__('MANC', connectome_version)
+        super().__init__(connectome_version, connectome_name)
         
     # ----- overwritten methods -----
     def _load_specific_namefields(self):
@@ -657,7 +672,7 @@ class MANC(ConnectomeReader):
         synapse_df.drop(columns=["position"], inplace=True)
 
         return synapse_df
-        
+  
     def get_synapse_locations(self, synapse_ids: list[int]) -> pd.DataFrame:
         """
         Get the locations of the synapses.
@@ -726,6 +741,18 @@ class MANC(ConnectomeReader):
             ] = roi
         return data
 
+    def list_possible_attributes(self) -> list[str]:
+        """
+        List the possible attributes for a neuron.
+        """
+        all_attr = [
+            "nt_type", "nt_proba", "class_1", "class_2", "name", "type", "side",
+            "neuropil", "hemilineage", "size", "tracing_status", "entry_nerve",
+            "exit_nerve", "position", "nb_pre_synapses", "nb_post_synapses",
+            "nb_pre_neurons", "nb_post_neurons",
+        ]
+        return all_attr
+    
     # --- additions
     def sna( # specific_neuron_attribute, abbreviated due to frequent use
             self,
@@ -827,54 +854,48 @@ class MANC(ConnectomeReader):
                     )   
         return converted_class
 
-    def list_possible_attributes(self):
-        """
-        List the possible attributes of the dataset.
-        """
-        all_attr = [
-            "nt_type", "nt_proba", "class_1", "class_2", "name", "type", "side",
-            "neuropil", "hemilineage", "size", "tracing_status", "entry_nerve",
-            "exit_nerve", "position", "nb_pre_synapses", "nb_post_synapses",
-            "nb_pre_neurons", "nb_post_neurons",
-        ]
-        return all_attr
+
 
 # Specific versions of MANC
 class MANC_v_1_0(MANC):
     def __init__(
             self,
-            connectome_name: typing.Literal['MANC'],
-            connectome_version: typing.Literal['v1.0'],
+            connectome_version,
+            connectome_name,
             ):
-        super().__init__('MANC', 'v1.0')
+        super().__init__(connectome_version, connectome_name)
 
 class MANC_v_1_2(MANC):
-    def __init__(self, connectome_name, connectome_version):
-        super().__init__('MANC', 'v1.2')
+    def __init__(
+            self,
+            connectome_version,
+            connectome_name,
+            ):
+        super().__init__(connectome_version, connectome_name)
 
 # === FAFB: Female Adult Fly Brain
 class FAFB(ConnectomeReader):
     def __new__(
             cls,
-            connectome_name: typing.Literal['FAFB'],
             connectome_version: typing.Literal['v630','v783'],
+            connectome_name: typing.Literal['FAFB'],
         ):
         if cls is FAFB:
             match connectome_version:
                 case 'v630':
-                    return FAFB_v630('FAFB', 'v630')
+                    return FAFB_v630('v630', 'FAFB')
                 case 'v783':
-                    return FAFB_v783('FAFB', 'v783')
+                    return FAFB_v783('v783', 'FAFB')
                 case _:
                     raise ValueError("Connectome not recognized.")
-        return super().__new__(cls, connectome_name, connectome_version)
+        return super().__new__(cls, connectome_version, connectome_name)
         
     def __init__(
             self,
-            connectome_name: typing.Literal['FAFB'],
             connectome_version: typing.Literal['v630','v783'],
+            connectome_name: typing.Literal['FAFB'],
             ):
-        super().__init__('FAFB', connectome_version) # 2nd argument is useless, only for compatibility
+        super().__init__(connectome_version, connectome_name) # 2nd argument is useless, only for compatibility
         
     # ----- overwritten methods -----
     def _load_specific_namefields(self):
@@ -951,7 +972,7 @@ class FAFB(ConnectomeReader):
             )
         
     # public methods
-        # --- additions
+    # --- additions
     def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
         """
         Load the synapse ids for the neuron.
@@ -967,7 +988,7 @@ class FAFB(ConnectomeReader):
 
     def get_synapse_neuropil(self, synapse_ids: list[int]) -> pd.DataFrame:
         raise NotImplementedError('Method not implemented yet on FAFB.')
-
+    
     def sna(
             self,
             generic_n_a: NeuronAttribute
@@ -1067,12 +1088,25 @@ class FAFB(ConnectomeReader):
 
 # Specific versions of FAFB
 class FAFB_v630(FAFB):
-    def __init__(self, connectome_name, connectome_version):
-        super().__init__(connectome_name, connectome_version)
+    def __init__(
+            self,
+            connectome_version,
+            connectome_name,
+            ):
+        super().__init__(connectome_version, connectome_name)
 
 class FAFB_v783(FAFB):
-    def __init__(self, connectome_name, connectome_version):
-        super().__init__(connectome_name, connectome_version)
+    def __init__(
+            self,
+            connectome_version,
+            connectome_name
+            ):
+        super().__init__(connectome_version, connectome_name)
+
+
+
+
+
 
 if __name__ == "__main__":
     # Test the class

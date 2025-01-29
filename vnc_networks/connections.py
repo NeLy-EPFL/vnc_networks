@@ -14,7 +14,7 @@ Use the following code to initialize the class:
 from connections import Connections
 from connectome_reader import ConnectomeReader
 
-connectome_reader = ConnectomeReader('MANCv1.0')
+connectome_reader = ConnectomeReader('v1.0', 'MANC')
 neurons_pre = connectome_reader.get_neurons_from_class('sensory neuron')
 neurons_post = connectome_reader.get_neurons_from_class('motor neuron')
 connections = Connections(
@@ -75,16 +75,33 @@ class Connections:
         
         return new_instance
 
+    @typing.overload
     def __init__(
         self,
-        CR: Optional[ConnectomeReader] = ConnectomeReader('MANC','v1.0'),
+        from_file: str,
+    ): ...
+    @typing.overload
+    def __init__(
+        self,
+        CR: ConnectomeReader = ConnectomeReader('v1.0','MANC'),
+        neurons_pre: Optional[list[int] | list[BodyId]] = None,
+        neurons_post: Optional[list[int] | list[BodyId]] = None,
+        nt_weights: Mapping[str, int] = params.NT_WEIGHTS,
+        split_neurons: Optional[list[Neuron]] = None,
+        not_connected: Optional[list[BodyId] | list[int]] = None,
+        keep_only_traced_neurons: bool = True,
+    ): ...
+
+    def __init__(
+        self,
+        CR: ConnectomeReader = ConnectomeReader('v1.0','MANC'),
         from_file: Optional[str] = None,
         neurons_pre: Optional[list[int] | list[BodyId]] = None,
         neurons_post: Optional[list[int] | list[BodyId]] = None,
-        nt_weights: Optional[Mapping[str, int]] = params.NT_WEIGHTS,
+        nt_weights: Mapping[str, int] = params.NT_WEIGHTS,
         split_neurons: Optional[list[Neuron]] = None,
         not_connected: Optional[list[BodyId] | list[int]] = None,
-        keep_only_traced_neurons: Optional[bool] = True,
+        keep_only_traced_neurons: bool = True,
     ):
         """
         By default, work with MANC v1.0 connectome.
@@ -118,7 +135,14 @@ class Connections:
             self.nt_weights = nt_weights
             self.subgraphs = {}
 
-        self.__initialize(split_neurons, not_connected)
+            self.__initialize(split_neurons, not_connected)
+
+        # verify that the file has been loaded correctly
+        if not hasattr(self, "CR") or not hasattr(self, "connections"):
+            raise ValueError(
+                f"Class Connections::: > __init():\
+                The ConnectomeReader instance is not well defined."
+            )
 
     
     # private methods

@@ -2,7 +2,7 @@ from connections import Connections
 from connectome_reader import ConnectomeReader
 
 # Load dataset
-CR = ConnectomeReader("MANC", "v1.0")
+CR = ConnectomeReader('v1.0', 'MANC')
 # Load neurons
 neurons_pre = CR.get_neuron_bodyids({'type': 'MDN'})
 neuropil = 'T1' 

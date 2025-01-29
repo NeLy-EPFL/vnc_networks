@@ -27,15 +27,28 @@ from sklearn.cluster import KMeans
 
 
 class Neuron:
+
+    @typing.overload
     def __init__(
         self,
-        CR: Optional[ConnectomeReader] = ConnectomeReader('MANC','v1.0'),
+        from_file: str,
+    ):...
+    @typing.overload
+    def __init__(
+        self,
+        body_id: BodyId | int,
+        CR: ConnectomeReader = ConnectomeReader('v1.0', 'MANC'),
+    ):...
+
+    def __init__(
+        self,
         body_id: Optional[BodyId | int] = None,
+        CR: ConnectomeReader = ConnectomeReader('v1.0', 'MANC'),
         from_file: Optional[str] = None
     ):
         """
         Initialise the neuron.
-        Loading possible either from scratch using only the bodyId, or
+        Loading possible either from scratch using only the body_id, or
         from a file. Loading from a file is useful if the neuron has already
         been processed and saved. Loading from scratch is useful if the neuron
         is new, but is computationally expensive and time-consuming.
@@ -44,7 +57,7 @@ class Neuron:
         ----------
         CR : ConnectomeReader, optional
             The connectome reader to use.
-            The default is ConnectomeReader('MANC','v1.0').
+            The default is ConnectomeReader('v1.0', 'MANC').
         bodyId : int, optional
             The body id of the neuron.
             The default is None.
@@ -57,11 +70,14 @@ class Neuron:
         else:
             assert (
                 body_id is not None
-            ), "To initialise a `Neuron`, you must provide either a `bodyId` or `from_file`, but both were None."
+            ), "To initialise a `Neuron`, you must provide either a `body_id` or `from_file`, but both were None."
             self.body_id = body_id
             self.CR = CR
             self.data = CR.load_data_neuron(body_id, CR.node_base_attributes())
             self.__initialise_base_attributes()
+
+        # verify that the neuron has the required information (up to date)
+        assert hasattr(self, "CR"), "CR not found in neuron."
 
     # private methods
 
@@ -367,7 +383,7 @@ class Neuron:
         X, Y, Z = self.get_synapse_distribution(threshold=threshold)
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
-        #assert ax is not None  # needed for type hinting
+        assert ax is not None  # needed for type hinting
         if color_by is None:
             plot_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax, cmap=cmap)
         else:
@@ -396,7 +412,7 @@ class Neuron:
         if savefig:
             name = os.path.join(
                 params.PLOT_DIR,
-                f"synapse_distribution_{self.bodyId}_color_by_{color_by}.pdf",
+                f"synapse_distribution_{self.body_id}_color_by_{color_by}.pdf",
                 )
             plt.savefig(
                 name,

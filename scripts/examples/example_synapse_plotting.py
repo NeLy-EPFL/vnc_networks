@@ -11,7 +11,7 @@ import utils.plots_design as plots_design
 from connectome_reader import ConnectomeReader
 from neuron import Neuron
 
-CR = ConnectomeReader("MANC", "v1.0")
+CR = ConnectomeReader('v1.0', 'MANC')
 synapses = []
 neurons_pre = CR.get_neuron_bodyids({"type": "MDN"})
 
