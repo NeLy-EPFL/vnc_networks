@@ -17,6 +17,7 @@ import typing
 from collections import defaultdict
 from typing import Optional
 
+import matplotlib
 import matplotlib.axes
 import matplotlib.pyplot as plt
 import numpy as np

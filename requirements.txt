@@ -8,3 +8,5 @@
  networkx
  pyvis
  pyarrow
+ setuptools
+ tqdm
