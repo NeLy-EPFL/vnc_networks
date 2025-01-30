@@ -15,7 +15,7 @@ Use the following code to initialize the class:
 from connections import Connections
 from connectome_reader import ConnectomeReader
 
-connectome_reader = ConnectomeReader('v1.0', 'MANC')
+connectome_reader = MANC('v1.0')
 neurons_pre = connectome_reader.get_neurons_from_class('sensory neuron')
 neurons_post = connectome_reader.get_neurons_from_class('motor neuron')
 connections = Connections(
@@ -32,18 +32,18 @@ import typing
 from collections.abc import Mapping
 from typing import Optional
 
-from . import cmatrix
 import matplotlib.axes
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
-from . import params
 import seaborn as sns
-from .utils import matrix_utils, nx_design, nx_utils, plots_design
-from .connectome_reader import ConnectomeReader
+
+from . import cmatrix, params
+from .connectome_reader import MANC, ConnectomeReader
 from .neuron import Neuron
 from .params import UID, BodyId, NeuronAttribute, NeuronClass, SelectionDict
+from .utils import matrix_utils, nx_design, nx_utils, plots_design
 
 ## ---- Types ---- ##
 SortingStyle = typing.Literal[
@@ -81,7 +81,7 @@ class Connections:
     @typing.overload
     def __init__(
         self,
-        CR: ConnectomeReader = ConnectomeReader('v1.0','MANC'),
+        CR: ConnectomeReader = MANC('v1.0'),
         neurons_pre: Optional[list[int] | list[BodyId]] = None,
         neurons_post: Optional[list[int] | list[BodyId]] = None,
         nt_weights: Mapping[str, int] = params.NT_WEIGHTS,
@@ -92,7 +92,7 @@ class Connections:
 
     def __init__(
         self,
-        CR: ConnectomeReader = ConnectomeReader('v1.0','MANC'),
+        CR: ConnectomeReader = MANC('v1.0'),
         from_file: Optional[str] = None,
         neurons_pre: Optional[list[int] | list[BodyId]] = None,
         neurons_post: Optional[list[int] | list[BodyId]] = None,

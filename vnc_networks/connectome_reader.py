@@ -14,36 +14,17 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+
 from . import params
 from .params import BodyId, NeuronAttribute, NeuronClass, SelectionDict
 
 
 # --- Parent class, abstract --- #
 class ConnectomeReader(ABC):
-    def __new__(
-            cls,
-            connectome_version: typing.Literal['v1.0', 'v1.2','v630','v783'],
-            connectome_name: typing.Literal['MANC','FAFB'],
 
-        ):
-        if cls is ConnectomeReader:  # Only redirect if creating an instance directly
-            match connectome_name:
-                case 'MANC':
-                    return MANC(connectome_version, 'MANC')
-                case 'FAFB':
-                    return FAFB(connectome_version, 'FAFB')
-                case _:
-                    raise ValueError("Connectome not recognized.")
-        return super().__new__(cls)
+    @abstractmethod
+    def __init__(self):
 
-    def __init__(
-            self,
-            connectome_version: typing.Literal['v1.0', 'v1.2','v630','v783'],
-            connectome_name: typing.Literal['MANC','FAFB'],
-            ):
-
-        self.connectome_name = connectome_name
-        self.connectome_version = connectome_version
         self.raw_data_dir = params.RAW_DATA_DIR
         # specific namefields
         self._load_specific_namefields()
@@ -393,27 +374,42 @@ class ConnectomeReader(ABC):
 
 # === MANC: Male Adult Neuronal Connectome
 class MANC(ConnectomeReader):
+    _versions = {} # Will contain the specific versions of MANC
+
     def __new__(
             cls,
-            connectome_version: typing.Literal['v1.0','v1.2'],
-            connectome_name: typing.Literal['MANC'],
+            connectome_version: str,
+            *args,
+            **kwargs,
         ):
-        if cls is MANC:  # Only redirect if creating an instance directly
-            match connectome_version:
-                case 'v1.0':
-                    return MANC_v_1_0('v1.0', 'MANC')
-                case 'v1.2':
-                    return MANC_v_1_2('v1.2', 'MANC')
-                case _:
-                    raise ValueError("Connectome not recognized.")
-        return super().__new__(cls, connectome_version, connectome_name)
+        """
+        Instantiate the child class corresponding to the version of MANC.
+        """
+        if connectome_version in cls._versions:
+            return super().__new__(cls._versions[connectome_version])
+        raise ValueError("MANC version not recognized.")
     
+    def __init_subclass__(
+            cls,
+            connectome_version: Optional[str] = None,
+            **kwargs,
+        ):
+        """
+        Register the existing versions of MANC.
+        """
+        super().__init_subclass__(**kwargs)
+        if connectome_version is not None:
+            MANC._versions[connectome_version] = cls
+    
+    @abstractmethod
     def __init__(
             self,
-            connectome_version: typing.Literal['v1.0','v1.2'],
-            connectome_name: typing.Literal['MANC'],
+            connectome_version: str,
             ): # 2nd argument is useless, only for compatibility
-        super().__init__(connectome_version, connectome_name)
+        
+        self.connectome_name = 'MANC'
+        self.connectome_version = connectome_version
+        super().__init__()
         
     # ----- overwritten methods -----
     def _load_specific_namefields(self):
@@ -855,48 +851,53 @@ class MANC(ConnectomeReader):
                     )   
         return converted_class
 
-
-
 # Specific versions of MANC
-class MANC_v_1_0(MANC):
-    def __init__(
-            self,
-            connectome_version,
-            connectome_name,
-            ):
-        super().__init__(connectome_version, connectome_name)
+class MANC_v_1_0(MANC, connectome_version='v1.0'):
+    def __init__(self, connectome_version: str):
+        super().__init__(connectome_version)
 
-class MANC_v_1_2(MANC):
-    def __init__(
-            self,
-            connectome_version,
-            connectome_name,
-            ):
-        super().__init__(connectome_version, connectome_name)
+class MANC_v_1_2(MANC, connectome_version='v1.2'):
+    def __init__(self, connectome_version: str):
+        super().__init__(connectome_version)
 
 # === FAFB: Female Adult Fly Brain
 class FAFB(ConnectomeReader):
+    _versions = {} # Will contain the specific versions of FAFB
+
     def __new__(
             cls,
-            connectome_version: typing.Literal['v630','v783'],
-            connectome_name: typing.Literal['FAFB'],
+            connectome_version: str,
+            *args,
+            **kwargs,
         ):
-        if cls is FAFB:
-            match connectome_version:
-                case 'v630':
-                    return FAFB_v630('v630', 'FAFB')
-                case 'v783':
-                    return FAFB_v783('v783', 'FAFB')
-                case _:
-                    raise ValueError("Connectome not recognized.")
-        return super().__new__(cls, connectome_version, connectome_name)
-        
+        """
+        Instantiate the child class corresponding to the version of FAFB.
+        """
+        if connectome_version in cls._versions:
+            return super().__new__(cls._versions[connectome_version])
+        raise ValueError("FAFB version not recognized.")
+    
+    def __init_subclass__(
+            cls,
+            connectome_version: Optional[str] = None,
+            **kwargs,
+        ):
+        """
+        Register the existing versions of FAFB.
+        """
+        super().__init_subclass__(**kwargs)
+        if connectome_version is not None:
+            FAFB._versions[connectome_version] = cls
+
+    @abstractmethod    
     def __init__(
             self,
-            connectome_version: typing.Literal['v630','v783'],
-            connectome_name: typing.Literal['FAFB'],
+            connectome_version: str,
             ):
-        super().__init__(connectome_version, connectome_name) # 2nd argument is useless, only for compatibility
+        
+        self.connectome_name = 'FAFB'
+        self.connectome_version = connectome_version
+        super().__init__()
         
     # ----- overwritten methods -----
     def _load_specific_namefields(self):
@@ -1088,30 +1089,13 @@ class FAFB(ConnectomeReader):
         return all_attr
 
 # Specific versions of FAFB
-class FAFB_v630(FAFB):
-    def __init__(
-            self,
-            connectome_version,
-            connectome_name,
-            ):
-        super().__init__(connectome_version, connectome_name)
+class FAFB_v630(FAFB, connectome_version='v630'):
+    def __init__(self, connectome_version: str):
+        super().__init__(connectome_version)
 
-class FAFB_v783(FAFB):
-    def __init__(
-            self,
-            connectome_version,
-            connectome_name
-            ):
-        super().__init__(connectome_version, connectome_name)
+class FAFB_v783(FAFB, connectome_version='v783'):
+    def __init__(self, connectome_version: str):
+        super().__init__(connectome_version)
 
 
-
-
-
-
-if __name__ == "__main__":
-    # Test the class
-    manc = ConnectomeReader('MANC', 'v1.0')
-    if manc.exists_tracing_status():
-        print("MANC has tracing status.")
                 

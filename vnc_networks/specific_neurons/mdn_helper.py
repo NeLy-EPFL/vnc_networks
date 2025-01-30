@@ -8,9 +8,10 @@ import typing
 from typing import Optional
 
 import matplotlib.pyplot as plt
+
 from .. import neuron, params
 from ..connections import Connections
-from ..connectome_reader import ConnectomeReader
+from ..connectome_reader import MANC, ConnectomeReader
 from ..neuron import Neuron
 from ..params import BodyId
 
@@ -19,7 +20,7 @@ FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)
 os.makedirs(FOLDER, exist_ok=True)
 
 
-def get_mdn_bodyids(CR: ConnectomeReader = ConnectomeReader('v1.0', 'MANC')):
+def get_mdn_bodyids(CR: ConnectomeReader = MANC('v1.0')):
     bids = CR.get_neuron_bodyids({"type": "MDN"})
     return bids
 

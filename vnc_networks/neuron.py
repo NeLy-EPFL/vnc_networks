@@ -20,11 +20,12 @@ import matplotlib.colors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from . import params
-from .utils import plots_design
-from .connectome_reader import ConnectomeReader
-from .params import BodyId, NeuronAttribute
 from sklearn.cluster import KMeans
+
+from . import params
+from .connectome_reader import MANC, ConnectomeReader
+from .params import BodyId, NeuronAttribute
+from .utils import plots_design
 
 
 class Neuron:
@@ -38,13 +39,13 @@ class Neuron:
     def __init__(
         self,
         body_id: BodyId | int,
-        CR: ConnectomeReader = ConnectomeReader('v1.0', 'MANC'),
+        CR: ConnectomeReader = MANC('v1.0'),
     ):...
 
     def __init__(
         self,
         body_id: Optional[BodyId | int] = None,
-        CR: ConnectomeReader = ConnectomeReader('v1.0', 'MANC'),
+        CR: ConnectomeReader = MANC('v1.0'),
         from_file: Optional[str] = None
     ):
         """
@@ -58,7 +59,7 @@ class Neuron:
         ----------
         CR : ConnectomeReader, optional
             The connectome reader to use.
-            The default is ConnectomeReader('v1.0', 'MANC').
+            The default is MANC('v1.0').
         bodyId : int, optional
             The body id of the neuron.
             The default is None.
@@ -386,7 +387,7 @@ class Neuron:
             _, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
         assert ax is not None  # needed for type hinting
         if color_by is None:
-            plot_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax, cmap=cmap)
+            plots_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax, cmap=cmap)
         else:
             if color_by not in self.synapse_df.columns:
                 raise AttributeError(f"Attribute {color_by} not in synapse dataframe.")
@@ -401,7 +402,7 @@ class Neuron:
                 synapses = self.synapse_df
 
             Z = synapses[color_by].dropna().values
-            plot_design.scatter_xyz_2d(
+            plots_design.scatter_xyz_2d(
                 X,
                 Y,
                 Z=Z,

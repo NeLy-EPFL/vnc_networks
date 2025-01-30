@@ -12,9 +12,10 @@ import matplotlib.colors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from .. import params
 import seaborn as sns
 from matplotlib_venn import venn3
+
+from .. import params
 
 
 def make_nice_spines(ax: matplotlib.axes.Axes, linewidth=params.LINEWIDTH):

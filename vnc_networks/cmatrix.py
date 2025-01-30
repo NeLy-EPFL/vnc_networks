@@ -21,12 +21,13 @@ import matplotlib.axes
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from . import params
 import scipy as sc
 import scipy.cluster.hierarchy as sch
-from .utils import matrix_design, matrix_utils
-from .params import UID, BodyId
 from sklearn.cluster import DBSCAN
+
+from . import params
+from .params import UID, BodyId
+from .utils import matrix_design, matrix_utils
 
 
 class CMatrix:
