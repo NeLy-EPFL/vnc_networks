@@ -17,6 +17,7 @@ import specific_neurons.motor_neurons_helper as mns_helper
 import utils.matrix_design as matrix_design
 import utils.nx_design as nx_design
 import utils.nx_utils as nx_utils
+from params import NeuronAttribute
 
 FOLDER_NAME = "Figure_5_t3_oscillations"
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)
@@ -63,7 +64,7 @@ def read_clusters_from_file(cluster_file: str):
 
 
 def show_length2_t3(
-    attribute: str = "class:string",
+    attribute: NeuronAttribute = "class_1",
     syn_thresh: int = None,
 ):
     side = "RHS"
@@ -82,7 +83,7 @@ def show_length2_t3(
     # draw the graph
     ax = subconnections.draw_graph_concentric_by_attribute(
         title=f"MDNs|{side}_{neuropil}_to_MNs_2_hops",
-        attribute="target:string",
+        attribute="target",
         center_nodes=mdns,
         target_nodes=target_neurons,
         save=False,
@@ -108,10 +109,10 @@ def hind_leg_muscles_graph(
     for the front leg muscles.
     """
     target = {
-        "class:string": "motor neuron",
-        "somaSide:string": side_,
-        "subclass:string": "hl",
-        "target:string": muscle_,
+        "class_1": "motor",
+        "side": side_,
+        "class_2": "hl",
+        "target": muscle_,
     }
     title, axs = paper_funcs.graph_from_mdn_to_muscle(
         target,
@@ -172,7 +173,7 @@ def cluster_t3_graph(n_hops: int = 2):
                 target_nodes=target_neurons,
                 save=False,
                 label_nodes=True,
-                attribute="target:string",
+                attribute="target",
             )
         except:
             pass
@@ -216,7 +217,7 @@ def display_l2_t3_graph_with_clusters(cluster_file: str):
         target_nodes=target_neurons,
         save=False,
         return_pos=True,
-        attribute="target:string",
+        attribute="target",
     )  # get the positions of the nodes according to their nature
 
     # create a color map for the clusters
@@ -315,7 +316,7 @@ def display_l2_t3_to_motor_neuron_clusters(cluster_file):
 
     # save the motor clusters to a file
     motor_cluster_file = os.path.join(FOLDER, "motor_clusters.csv")
-    _ = subconnections.include_node_attributes(["target:string"])
+    _ = subconnections.include_node_attributes(["target"])
     df = subconnections.list_neuron_properties(
         neurons=motor_neurons,
         input_type="uid",
@@ -413,7 +414,7 @@ def t3_nttype_interneurons(
     graph = subconnections.paths_length_n(n_hops, mdns, motor_neurons)
     interneurons = set(graph.nodes) - set(mdns) - set(motor_neurons)
     interneurons = interneurons.intersection(
-        subconnections.get_neuron_ids({"predictedNt:string": nt_type})
+        subconnections.get_neuron_ids({"nt_type": nt_type})
     )
     interneurons = [
         interneuron
@@ -457,7 +458,7 @@ def focus_strongest_inhibitors_t3(
     graph = l2_subconnections.paths_length_n(2, mdns, motor_neurons)
     interneurons = set(graph.nodes) - set(mdns) - set(motor_neurons)
     inhibitors = interneurons.intersection(
-        l2_subconnections.get_neuron_ids({"predictedNt:string": "gaba"})
+        l2_subconnections.get_neuron_ids({"nt_type": "gaba"})
     )
     inhibitors = [
         inhibitor
@@ -509,7 +510,7 @@ def focus_strongest_inhibitors_t3_effective(
     graph = l2_subconnections.paths_length_n(2, mdns, motor_neurons)
     interneurons = set(graph.nodes) - set(mdns) - set(motor_neurons)
     inhibitors = interneurons.intersection(
-        l2_subconnections.get_neuron_ids({"predictedNt:string": "gaba"})
+        l2_subconnections.get_neuron_ids({"nt_type": "gaba"})
     )
     inhibitors = [
         inhibitor

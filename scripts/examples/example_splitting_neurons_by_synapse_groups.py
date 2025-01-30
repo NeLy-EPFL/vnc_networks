@@ -7,15 +7,16 @@ import matplotlib.pyplot as plt
 import params
 import seaborn as sns
 from connections import Connections
-from get_nodes_data import get_neuron_bodyids
+from connectome_reader import ConnectomeReader
 from matplotlib_venn import venn3
 from neuron import Neuron
 
+CR = ConnectomeReader('v1.0', 'MANC')
 MDNs = []
-neurons_pre = get_neuron_bodyids({'type:string': 'MDN'})
+neurons_pre = CR.get_neuron_bodyids({'type': 'MDN'})
 
 for i in range(4):
-    MDN = Neuron(neurons_pre[i])
+    MDN = Neuron(neurons_pre[i], CR=CR)
     _ = MDN.get_synapse_distribution(threshold=True)
     #MDN = Neuron(from_file='MDN_split-neuropil_'+str(i))  # if already defined
     #MDN.cluster_synapses_spatially(n_clusters=3)
@@ -31,14 +32,14 @@ for i in range(4):
 
 
 
-VNC = Connections()  # full VNC
-VNC.initialize(split_neurons=MDNs)  # split MDNs according to the synapse data
+VNC = Connections(split_neurons=MDNs, CR=CR)  # full VNC
 VNC.save(name='VNC_split_MDNs_by_neuropil')  # if you want to reuse it later
 #connections = VNC.get_connections()
 
 
 #VNC = Connections(from_file='VNC_split_MDNs_by_neuropil')  # load the split VNC
-mdn_connections = VNC.subgraph(nodes=neurons_pre)
+mdn_uids = VNC.get_neuron_ids({'type': 'MDN'})
+mdn_connections = VNC.subgraph(nodes=mdn_uids)
 mdn_connections.display_graph(label_nodes=True, title='MDN-MDN-per-neuropil')
 
 '''

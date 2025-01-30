@@ -1,16 +1,17 @@
 from connections import Connections
-from get_nodes_data import get_neuron_bodyids, get_neurons_from_class
+from connectome_reader import ConnectomeReader
 
+# Load dataset
+CR = ConnectomeReader('v1.0', 'MANC')
 # Load neurons
-neurons_pre = get_neuron_bodyids({'type:string': 'MDN'})
+neurons_pre = CR.get_neuron_bodyids({'type': 'MDN'})
 neuropil = 'T1' 
 #neurons_post = get_neurons_from_class('motor neuron')
-neurons_post = get_neuron_bodyids(
-    {'somaNeuromere:string': neuropil, 'class:string': 'motor neuron'}
+neurons_post = CR.get_neuron_bodyids(
+    {'neuropil': neuropil, 'class_1': 'motor'}
 )
 # Load dataset
-connections = Connections() # entire dataset
-connections.initialize()
+connections = Connections(CR=CR) # entire dataset
 
 # Compute second order connections
 cmatrix = connections.get_cmatrix(type_='norm')

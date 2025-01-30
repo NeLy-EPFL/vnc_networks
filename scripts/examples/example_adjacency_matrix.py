@@ -16,9 +16,9 @@ if __name__ == "__main__":
     # right hind leg motor neurons
     target_neurons = VNC.get_neuron_ids(
         {
-            "class:string": "motor neuron",
-            "somaSide:string": side,
-            "subclass:string": neuropil,
+            "class_1": "motor",
+            "side": side,
+            "class_2": neuropil,
         }
     )
 

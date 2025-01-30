@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Initialises the Neuron class.
 Meant to be used to load data for a single neuron.
@@ -8,6 +9,7 @@ by using the dataset "Neuprint_Synapse_Connections_manc_v1.ftr" which
 has two columns: ':START_ID(Syn-ID)' and ':END_ID(Syn-ID)'.
 """
 
+import copy
 import os
 import pickle
 import typing
@@ -18,42 +20,46 @@ import matplotlib.colors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import params
-import utils.plots_design as plot_design
-from get_nodes_data import load_data_neuron
-from params import BodyId, NeuronAttribute
 from sklearn.cluster import KMeans
 
-NEURON_BASE_ATTRIBUTES: list[NeuronAttribute] = [
-    "systematicType:string",
-    "hemilineage:string",
-    "somaSide:string",
-    "class:string",
-    "subclass:string",
-    "group:int",
-    "cellBodyFiber:string",
-    "size:long",
-    "target:string",
-    "predictedNtProb:float",
-    "predictedNt:string",
-    "tag:string",
-    "status:string",  # 'Traced' or None
-]
+from . import params
+from .connectome_reader import MANC, ConnectomeReader
+from .params import BodyId, NeuronAttribute
+from .utils import plots_design
 
 
 class Neuron:
+
+    @typing.overload
     def __init__(
-        self, bodyId: Optional[BodyId | int] = None, from_file: Optional[str] = None
+        self,
+        from_file: str,
+    ):...
+    @typing.overload
+    def __init__(
+        self,
+        body_id: BodyId | int,
+        CR: ConnectomeReader = MANC('v1.0'),
+    ):...
+
+    def __init__(
+        self,
+        body_id: Optional[BodyId | int] = None,
+        CR: ConnectomeReader = MANC('v1.0'),
+        from_file: Optional[str] = None
     ):
         """
         Initialise the neuron.
-        Loading possible either from scratch using only the bodyId, or
+        Loading possible either from scratch using only the body_id, or
         from a file. Loading from a file is useful if the neuron has already
         been processed and saved. Loading from scratch is useful if the neuron
         is new, but is computationally expensive and time-consuming.
 
         Parameters
         ----------
+        CR : ConnectomeReader, optional
+            The connectome reader to use.
+            The default is MANC('v1.0').
         bodyId : int, optional
             The body id of the neuron.
             The default is None.
@@ -65,11 +71,15 @@ class Neuron:
             self.__load(from_file)
         else:
             assert (
-                bodyId is not None
-            ), "To initialise a `Neuron`, you must provide either a `bodyId` or `from_file`, but both were None."
-            self.bodyId = bodyId
-            self.data = load_data_neuron(bodyId, NEURON_BASE_ATTRIBUTES)
+                body_id is not None
+            ), "To initialise a `Neuron`, you must provide either a `body_id` or `from_file`, but both were None."
+            self.body_id = body_id
+            self.CR = CR
+            self.data = CR.load_data_neuron(body_id, CR.node_base_attributes())
             self.__initialise_base_attributes()
+
+        # verify that the neuron has the required information (up to date)
+        assert hasattr(self, "CR"), "CR not found in neuron."
 
     # private methods
 
@@ -82,63 +92,30 @@ class Neuron:
         self.__dict__.update(neuron)
 
     def __initialise_base_attributes(self):
-        self.type = self.data["systematicType:string"].values[0]
-        self.hemilineage = self.data["hemilineage:string"].values[0]
-        self.soma_side = self.data["somaSide:string"].values[0]
-        self.class_ = self.data["class:string"].values[0]
-        self.subclass = self.data["subclass:string"].values[0]
-        self.group = self.data["group:int"].values[0]
-        self.cell_body_fiber = self.data["cellBodyFiber:string"].values[0]
-        self.size = self.data["size:long"].values[0]
-        self.target = self.data["target:string"].values[0]
-        self.predicted_nt_prob = self.data["predictedNtProb:float"].values[0]
-        self.predicted_nt = self.data["predictedNt:string"].values[0]
-        self.tag = self.data["tag:string"].values[0]
+        self.nt_type = self.data['nt_type'].values[0]
+        self.nt_proba = self.data['nt_proba'].values[0]
+        self.class_1 = self.data['class_1'].values[0]
+        self.class_2 = self.data['class_2'].values[0]
+        self.name = self.data['name'].values[0]
+        self.side = self.data['side'].values[0]
+        self.neuropil = self.data['neuropil'].values[0]
+        self.size = self.data['size'].values[0]
+        self.hemilineage = self.data['hemilineage'].values[0]
+
 
     def __load_synapse_ids(self):
-        """
-        Load the synapse ids for the neuron.
-        """
-        # neuron to synapse set
-        neuron_to_synapse = pd.read_feather(params.NEUPRINT_NEURON_SYNAPSESET_FILE)
-        synset_list = neuron_to_synapse.loc[
-            neuron_to_synapse[":START_ID(Body-ID)"] == self.bodyId
-        ][":END_ID(SynSet-ID)"].values
+        # Independently of the file structure, we should get a pd.dataframe
+        # with columns ['synapse_id', 'start_id', 'end_id']
+        
+        if 'synapse_df' in self.__dict__: # already done
+            return
+        
+        self.synapse_df = self.CR.get_synapse_df(self.body_id)
 
-        # synapse set to synapse
-        synapses = pd.read_feather(params.NEUPRINT_SYNAPSESET_FILE)
-        synapses = synapses.loc[synapses[":START_ID(SynSet-ID)"].isin(synset_list)]
-        synapses.reset_index(drop=True, inplace=True)
-
-        # build a dataframe with columns 'syn_id', 'synset_id'
-        synapse_df = pd.DataFrame(
-            {
-                "syn_id": synapses[":END_ID(Syn-ID)"],
-                "synset_id": synapses[":START_ID(SynSet-ID)"],
-            }
-        )
-        synapse_df["start_id"] = synapse_df["synset_id"].apply(
-            lambda x: int(x.split("_")[0])
-        )  # body id of the presynaptic neuron
-        synapse_df["end_id"] = synapse_df["synset_id"].apply(
-            lambda x: int(x.split("_")[1])
-        )  # body id of the postsynaptic neuron
-        synapse_df["position"] = synapse_df["synset_id"].apply(
-            lambda x: x.split("_")[2]
-        )  # pre or post
-
-        # remove the synapses that belong to partner neurons
-        synapse_df = synapse_df[synapse_df["position"] == "pre"]
-        synapse_df.drop(columns=["position"], inplace=True)
-
-        # set the synapse ids
-        self.synapse_df = synapse_df
-        del synapses, neuron_to_synapse
-        return
 
     def __load_synapse_locations(self):
         """
-        Convert the synapse ids to MANC format.
+        Add three columns: 'X', 'Y' and 'Z' to the synapse df.
 
         Parameters
         ----------
@@ -146,73 +123,42 @@ class Neuron:
             The subset of synapse ids to convert.
             The default is None, which converts all synapse ids.
         """
+        if 'synapse_df' not in self.__dict__:
+            self.__load_synapse_ids()
 
-        # load the synapse data
-        data = pd.read_feather(
-            params.NEUPRINT_SYNAPSE_FILE,
-            columns=[":ID(Syn-ID)", "location:point{srid:9157}"],
-        )
-        data = data.loc[data[":ID(Syn-ID)"].isin(self.synapse_df["syn_id"])]
+        if "location" in self.synapse_df.columns:  # already done
+            return
+        
+        data = self.CR.get_synapse_locations(self.synapse_df["synapse_id"].values)
 
         # merge with existing synapse df
         self.synapse_df = self.synapse_df.merge(
-            data, right_on=":ID(Syn-ID)", left_on="syn_id", how="inner"
+            data, on="synapse_id", how="inner"
         )
-        del data
         return
 
     def __categorical_neuropil_information(self):
         """
-        Add a column 'neuropil' to the synapse df that contains the neuropil
-        in which the synapse is located. This is done by finding the roi column
-        that has a bool value of True.
+        Add a 'neuropil' column to the synapse df.
+
+        Parameters
+        ----------
+        subset : list, optional
+            The subset of synapse ids to convert.
+            The default is None, which converts all synapse ids.
         """
+        if 'synapse_df' not in self.__dict__:
+            self.__load_synapse_ids()
+            
         if "neuropil" in self.synapse_df.columns:  # already done
             return
+        
+        data = self.CR.get_synapse_locations(self.synapse_df["synapse_id"].values)
 
-        roi_file = os.path.join(params.NEUPRINT_RAW_DIR, "all_ROIs.txt")
-        rois = list(pd.read_csv(roi_file, sep="\t").values.flatten())
-
-        # find the subset of the synapses in the dataset that we care about for this neuron
-        # then for each possible ROI, check which synapses are in that ROI
-        # store each synapse's ROI in the neuropil column
-        synapses_we_care_about = pd.read_feather(
-            params.NEUPRINT_SYNAPSE_FILE, columns=[":ID(Syn-ID)"]
-        )[":ID(Syn-ID)"].isin(self.synapse_df["syn_id"])
-        self.synapse_df["neuropil"] = "None"
-        for roi in rois:
-            column_name = roi + ":boolean"
-            roi_column = pd.read_feather(
-                params.NEUPRINT_SYNAPSE_FILE,
-                columns=[column_name, ":ID(Syn-ID)"],
-            )[synapses_we_care_about]
-            synapses_in_roi = roi_column.loc[
-                roi_column[column_name], ":ID(Syn-ID)"
-            ].values  # type: ignore
-            self.synapse_df.loc[
-                self.synapse_df["syn_id"].isin(synapses_in_roi), "neuropil"
-            ] = roi
-
-    def __explicit_synapse_positions(self):
-        """
-        convert the synapse locations defined in the text version of a dict
-        to explicit position columns in the synapse df.
-        """
-        if "X" in self.synapse_df.columns:  # already done
-            return
-
-        locations = self.synapse_df["location:point{srid:9157}"].values
-        X, Y, Z = [], [], []
-        for loc in locations:
-            pos = eval(loc)  # read loc as a dict, use of x,y,z under the hood
-            if not isinstance(pos, dict):
-                pos = {0: np.nan, 1: np.nan, 2: np.nan}
-            X.append(pos[0])
-            Y.append(pos[1])
-            Z.append(pos[2])
-        self.synapse_df["X"] = X
-        self.synapse_df["Y"] = Z
-        self.synapse_df["Z"] = Y
+        # merge with existing synapse df
+        self.synapse_df = self.synapse_df.merge(
+            data, on="synapse_id", how="inner"
+        )
         return
 
     # public methods
@@ -224,8 +170,7 @@ class Neuron:
         """
         Get the synapse table of the connections.
         """
-        synapses = self.synapse_df
-        return synapses
+        return copy.deepcopy(self.synapse_df)
 
     def get_synapse_distribution(self, threshold: bool = False):
         """
@@ -238,16 +183,9 @@ class Neuron:
             The default is False.
         """
         # check if the synapse df is loaded
-        try:
-            self.synapse_df
-        except AttributeError:
-            print("Synapse data not loaded. Loading now...")
-            self.__load_synapse_ids()
-            self.__load_synapse_locations()
-            print("... Synapse data loaded.")
+        self.__load_synapse_ids()
+        self.__load_synapse_locations()
 
-        # define synapse positions
-        self.__explicit_synapse_positions()
         # threshold if for a given neuron, the number of synapses is below the threshold
         if threshold:
             syn_count = self.synapse_df.groupby("end_id").size().reset_index()
@@ -274,7 +212,7 @@ class Neuron:
         """
         Get the body id of the neuron.
         """
-        return self.bodyId
+        return self.body_id
 
     def get_synapse_count(self, to=None):
         """
@@ -317,7 +255,7 @@ class Neuron:
         # and a columns 'subdivision_pre'  with the index associated to the attribute split on.
         # Unclassified synapses have a -1 index.
         # Finally, it has a 'synapse_ids' column with a list of the synapse ids.
-        synapses = self.synapse_df[[attribute, "syn_id", "start_id", "end_id"]]
+        synapses = self.synapse_df[[attribute, "synapse_id", "start_id", "end_id"]]
         # ensure the 'attribute' column is a string
         synapses[attribute] = synapses[attribute].astype(str).values
         # find end_id for which the number of synapses is below the threshold
@@ -350,7 +288,7 @@ class Neuron:
             .agg(list)
             .reset_index()
         )
-        synapses["syn_count"] = synapses["syn_id"].apply(len)
+        synapses["syn_count"] = synapses["synapse_id"].apply(len)
 
         self.subdivisions = synapses
 
@@ -446,10 +384,10 @@ class Neuron:
         plt.get_cmap()
         X, Y, Z = self.get_synapse_distribution(threshold=threshold)
         if ax is None:
-            fig, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)[1]
+            _, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
         assert ax is not None  # needed for type hinting
         if color_by is None:
-            plot_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax, cmap=cmap)
+            plots_design.scatter_xyz_2d(X, Y, Z=Z, ax=ax, cmap=cmap)
         else:
             if color_by not in self.synapse_df.columns:
                 raise AttributeError(f"Attribute {color_by} not in synapse dataframe.")
@@ -464,7 +402,7 @@ class Neuron:
                 synapses = self.synapse_df
 
             Z = synapses[color_by].dropna().values
-            plot_design.scatter_xyz_2d(
+            plots_design.scatter_xyz_2d(
                 X,
                 Y,
                 Z=Z,
@@ -474,8 +412,12 @@ class Neuron:
                 discrete_coloring=discrete_coloring,
             )
         if savefig:
+            name = os.path.join(
+                params.PLOT_DIR,
+                f"synapse_distribution_{self.body_id}_color_by_{color_by}.pdf",
+                )
             plt.savefig(
-                f"{params.PLOT_DIR}/synapse_distribution_{self.bodyId}_{color_by}.pdf"
+                name,
             )
         return ax
 

@@ -31,10 +31,10 @@ def middle_leg_muscles_graph(
     for the front leg muscles.
     """
     target = {
-        "class:string": "motor neuron",
-        "somaSide:string": side_,
-        "subclass:string": "ml",
-        "target:string": muscle_,
+        "class_1": "motor",
+        "side": side_,
+        "class_2": "ml",
+        "target": muscle_,
     }
     title, axs = paper_funcs.graph_from_mdn_to_muscle(
         target,

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Helper functions for making networkx graphs look nice and standardized.
 """
@@ -10,20 +11,19 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import Optional
 
-import connections
-import get_nodes_data
+from .. import connections
 import matplotlib.axes
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
-import params
+from .. import params
 import pyvis.network
-import utils.nx_utils as nx_utils
+from . import nx_utils
 from matplotlib.lines import Line2D
 from mpl_toolkits.mplot3d import Axes3D
-from params import UID
-from utils.math_utils import sigmoid
+from ..params import UID
+from .math_utils import sigmoid
 
 # --- Constants ---#
 
@@ -174,47 +174,45 @@ def display_interactive_graph(
     g = connections.graph.copy()
     assert isinstance(g, nx.DiGraph)  # needed for type hinting
     graph_bodyids = connections.get_bodyids_from_uids(list(g.nodes))
-    neurons_data = get_nodes_data.load_data_neuron_set(
-        graph_bodyids,
+    neurons_data = connections.CR.load_data_neuron_set(
+        graph_bodyids, # these should exist for all connectomes. 
         [
-            ":ID(Body-ID)",
-            "instance:string",
-            "type:string",
-            "systematicType:string",
-            "somaSide:string",
-            "rootSide:string",
-            "class:string",
+            "body_id",
+            "class_1",
+            "class_2",
+            "nt_type",
+            "name",
+            "side",
+            "neuropil",
+            "hemilineage",
         ],
     )
 
     def neuron_data_row_to_label(row: pd.Series):
-        if (
-            row["type:string"] is not None
-            and row["type:string"] != row["systematicType:string"]
-        ):
-            return f"{row["systematicType:string"]} [{row["type:string"]}]"
-        else:
-            return f"{row["systematicType:string"]}"
+            return f'{row["name"]}'
 
     def neuron_data_row_to_title(row: pd.Series):
-        return f"bodyID: {row[":ID(Body-ID)"]}\n" + "\n".join(
+        return f'body_id: {row["body_id"]}\n' + "\n".join(
             [
-                f"{field}: {row[f'{field}:string']}"
+                f"{field}: {row[field]}"
                 for field in [
-                    "type",
-                    "systematicType",
-                    "class",
-                    "somaSide",
-                    "rootSide",
+                    "name",
+                    "class_1",
+                    "class_2",
+                    "nt_type",
+                    "name",
+                    "side",
+                    "neuropil",
+                    "hemilineage",
                 ]
-                if row[f"{field}:string"] is not None
+                if row[field] is not None
             ]
         )
 
     # This is the text that is written next to each node
     node_labels = {
         connections.get_first_uid_from_bodyid(
-            row[":ID(Body-ID)"]
+            row["body_id"]
         ): neuron_data_row_to_label(row)
         for _, row in neurons_data.iterrows()
     }
@@ -223,7 +221,7 @@ def display_interactive_graph(
     # This is the text that is shown when hovering over a node (more detailed)
     node_titles = {
         connections.get_first_uid_from_bodyid(
-            row[":ID(Body-ID)"]
+            row["body_id"]
         ): neuron_data_row_to_title(row)
         for _, row in neurons_data.iterrows()
     }
@@ -257,7 +255,7 @@ def display_interactive_graph(
             edge: f"{syn_count} synapses ({nt})"
             for (edge, syn_count), nt in zip(
                 nx.get_edge_attributes(g, "syn_count").items(),
-                nx.get_edge_attributes(g, "predictedNt:string").values(),
+                nx.get_edge_attributes(g, "nt_type").values(),
             )
         },
         "title",
@@ -336,16 +334,16 @@ def define_edge_colors(graph: nx.DiGraph):
     >>> connections.initialize()
     >>> dng11 = connections.get_neuron_ids(
     ...     {
-    ...         "class:string": "descending neuron",
-    ...         "type:string": "DNg11",
-    ...         "rootSide:string": "LHS",
+    ...         "class_1": "descending neuron",
+    ...         "type": "DNg11",
+    ...         "side": "LHS",
     ...     }
     ... )
     >>> T1L_motor_neurons = connections.get_neuron_ids(
     ...     {
-    ...         "class:string": "motor neuron",
-    ...         "somaNeuromere:string": "T1",
-    ...         "somaSide:string": "LHS",
+    ...         "class_1": "motor neuron",
+    ...         "neuropil": "T1",
+    ...         "side": "LHS",
     ...     }
     ... )
     >>> g = connections.paths_length_n(2, dng11, T1L_motor_neurons)
@@ -360,9 +358,9 @@ def define_edge_colors(graph: nx.DiGraph):
         if "edge_color" in e_[2].keys():
             edge_colors.append(e_[2]["edge_color"])
         else:
-            if "predictedNt:string" in e_[2].keys():
+            if "nt_type" in e_[2].keys():
                 edge_colors.append(
-                    params.NT_TYPES[e_[2]["predictedNt:string"]]["color"]
+                    params.NT_TYPES[e_[2]["nt_type"]]["color"]
                 )
             else:
                 if "weight" not in e_[2].keys():
@@ -408,8 +406,8 @@ def define_node_boundary_colors(graph: nx.DiGraph):
     for n_, dict_ in nodes_:
         if "boundary_color" in dict_.keys():
             node_b_colors.append(dict_["boundary_color"])
-        elif "predictedNt:string" in dict_.keys():
-            node_b_colors.append(params.NT_TYPES[n_["predictedNt:string"]]["color"])
+        elif "nt_type" in dict_.keys():
+            node_b_colors.append(params.NT_TYPES[n_["nt_type"]]["color"])
         else:
             node_b_colors.append(params.WHITE)
     graph = nx.set_node_attributes(graph, values=node_b_colors, name="boundary_color")

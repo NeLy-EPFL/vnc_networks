@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Initialises the cmatrix class, standing for connectome matrix.
 The purpose of this class is to manipulate the adjacency matrix of the connectome,
@@ -20,13 +21,13 @@ import matplotlib.axes
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import params
 import scipy as sc
 import scipy.cluster.hierarchy as sch
-import utils.matrix_design as matrix_design
-import utils.matrix_utils as matrix_utils
-from params import UID, BodyId
 from sklearn.cluster import DBSCAN
+
+from . import params
+from .params import UID, BodyId
+from .utils import matrix_design, matrix_utils
 
 
 class CMatrix:
