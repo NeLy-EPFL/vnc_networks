@@ -40,6 +40,8 @@ jobs:
     - name: Check code formatting with Ruff
       run: ruff format --diff --target-version=py39
       continue-on-error: true
+    - name: Debug test discovery
+      run: pytest --collect-only
     - name: Test with pytest
       run: |
-        pytest
+        pytest tests/
