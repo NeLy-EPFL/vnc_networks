@@ -15,6 +15,20 @@ classifiers = [
 ]
 readme = "README.md"
 description = "Package to work with MANC for VNC networks modelling"
+dependencies = [
+  pandas
+  numpy
+  seaborn
+  scipy
+  matplotlib
+  matplotlib-venn
+  scikit-learn
+  networkx
+  pyvis
+  pyarrow
+  setuptools
+  tqdm
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
