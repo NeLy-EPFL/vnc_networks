@@ -16,8 +16,8 @@ from connections import Connections
 from connectome_reader import ConnectomeReader
 
 connectome_reader = MANC('v1.0')
-neurons_pre = connectome_reader.get_neurons_from_class('sensory neuron')
-neurons_post = connectome_reader.get_neurons_from_class('motor neuron')
+neurons_pre = connectome_reader.get_neurons_from_class('sensory')
+neurons_post = connectome_reader.get_neurons_from_class('motor')
 connections = Connections(
     neurons_pre = neurons_pre,
     neurons_post = neurons_post,
