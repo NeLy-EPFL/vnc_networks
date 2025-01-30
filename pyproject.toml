@@ -14,20 +14,20 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 readme = "README.md"
-description = "Package to work with MANC for VNC networks modelling"
+description = "Package to work with connectomes for network modelling"
 dependencies = [
-  pandas
-  numpy
-  seaborn
-  scipy
-  matplotlib
-  matplotlib-venn
-  scikit-learn
-  networkx
-  pyvis
-  pyarrow
-  setuptools
-  tqdm
+  "pandas",
+  "numpy",
+  "seaborn",
+  "scipy",
+  "matplotlib",
+  "matplotlib-venn",
+  "scikit-learn",
+  "networkx",
+  "pyvis",
+  "pyarrow",
+  "setuptools",
+  "tqdm",
 ]
 
 [tool.setuptools.packages.find]
