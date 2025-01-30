@@ -4,8 +4,7 @@ Initialisation tests for the code.
 
 import pytest
 
-
-class TestClass:
+class TestImport:
     def test_import(self):
         """
         Test the import of the module.
@@ -46,6 +45,9 @@ class TestClass:
             assert False
 
 
+
+
+class TestInstanciation:
     def test_connectome_reader_instanciation(self):
         """
         Test the instanciation of the ConnectomeReader class.
