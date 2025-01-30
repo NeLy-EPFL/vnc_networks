@@ -44,4 +44,4 @@ jobs:
       run: pytest --collect-only
     - name: Test with pytest
       run: |
-        pytest tests/
+        pytest --rootdir=../ tests/

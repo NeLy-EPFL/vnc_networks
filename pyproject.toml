@@ -18,6 +18,3 @@ description = "Package to work with MANC for VNC networks modelling"
 
 [tool.setuptools.packages.find]
 where = ["."]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
