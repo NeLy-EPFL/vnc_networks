@@ -7,8 +7,9 @@ from typing import Optional
 
 import matplotlib.axes
 import matplotlib.pyplot as plt
-from .. import params
 import scipy as sc
+
+from .. import params
 from ..utils import plots_design
 
 
