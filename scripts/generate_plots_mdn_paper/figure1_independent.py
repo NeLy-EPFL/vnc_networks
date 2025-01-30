@@ -12,15 +12,15 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-import params
-import specific_neurons.mdn_helper as mdn_helper
-import specific_neurons.motor_neurons_helper as mns_helper
-from connections import Connections
 from matplotlib import pyplot as plt
-from neuron import Neuron
-from params import NeuronAttribute
 from tqdm import tqdm
-from utils import matrix_design, plots_design
+
+from vnc_networks import NeuronAttribute, params
+from vnc_networks.connections import Connections
+from vnc_networks.neuron import Neuron
+from vnc_networks.specific_neurons import mdn_helper
+from vnc_networks.specific_neurons import motor_neurons_helper as mns_helper
+from vnc_networks.utils import matrix_design, plots_design
 
 FOLDER_NAME = "Figure_1_independent"
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)

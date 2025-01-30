@@ -1,4 +1,5 @@
- pandas numpy
+ pandas
+ numpy
  seaborn
  scipy
  matplotlib-venn

@@ -8,7 +8,8 @@ import os
 
 import matplotlib.pyplot as plt
 import mdn_paper_helper_functions as paper_funcs
-import params
+
+from vnc_networks import params
 
 FOLDER_NAME = "Figure_4_t2_coupling"
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)

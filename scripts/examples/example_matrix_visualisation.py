@@ -1,8 +1,8 @@
-from connections import Connections
-from connectome_reader import ConnectomeReader
+from vnc_networks.connections import Connections
+from vnc_networks.connectome_reader import MANC
 
 # Load dataset
-CR = ConnectomeReader('v1.0', 'MANC')
+CR = MANC('v1.0')
 # Load neurons
 neurons_pre = CR.get_neuron_bodyids({'type': 'MDN'})
 neuropil = 'T1' 

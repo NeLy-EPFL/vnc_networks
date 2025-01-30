@@ -2,8 +2,6 @@
 Initialisation tests for the code.
 """
 
-import pytest
-
 class TestImport:
     def test_import(self):
         """

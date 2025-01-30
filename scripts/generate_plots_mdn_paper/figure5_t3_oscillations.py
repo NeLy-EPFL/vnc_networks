@@ -11,13 +11,11 @@ import mdn_paper_helper_functions as paper_funcs
 import networkx as nx
 import numpy as np
 import pandas as pd
-import params
-import specific_neurons.mdn_helper as mdn_helper
-import specific_neurons.motor_neurons_helper as mns_helper
-import utils.matrix_design as matrix_design
-import utils.nx_design as nx_design
-import utils.nx_utils as nx_utils
-from params import NeuronAttribute
+
+from vnc_networks import NeuronAttribute, params
+from vnc_networks.specific_neurons import mdn_helper
+from vnc_networks.specific_neurons import motor_neurons_helper as mns_helper
+from vnc_networks.utils import matrix_design, nx_design, nx_utils
 
 FOLDER_NAME = "Figure_5_t3_oscillations"
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)

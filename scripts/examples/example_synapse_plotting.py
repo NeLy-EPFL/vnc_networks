@@ -6,12 +6,13 @@ Script to load the MANC dataset and save it in a usable format.
 
 import matplotlib.pyplot as plt
 import pandas as pd
-import params
-import utils.plots_design as plots_design
-from connectome_reader import ConnectomeReader
-from neuron import Neuron
 
-CR = ConnectomeReader('v1.0', 'MANC')
+from vnc_networks import params
+from vnc_networks.connectome_reader import MANC
+from vnc_networks.neuron import Neuron
+from vnc_networks.utils import plots_design
+
+CR = MANC('v1.0')
 synapses = []
 neurons_pre = CR.get_neuron_bodyids({"type": "MDN"})
 
