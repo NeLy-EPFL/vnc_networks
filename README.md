@@ -1,10 +1,10 @@
 # vnc_networks
-Code to analyse the MANC connectome and perform connectome-constrained modelling
+Code to analyse the connectomes.
 
 ## Structure:
 - `vnc_networks/` contains the main codebase
-    It includes the follwing subdirectories:
-    - the files defining the main classes to work with: Connections, Neurons, CMatrix
+    It includes the following subdirectories:
+    - the files defining the main classes to work with: ConnectomeReader, Connections, Neurons, CMatrix
     - `vnc_networks/specific_neurons/`: code to analyse specific neurons
     - `vnc_networks/utils/`: utility functions
 - `scripts/` contains the scripts to run the analysis
@@ -16,21 +16,23 @@ Code to analyse the MANC connectome and perform connectome-constrained modelling
 
 ## Description
 The codebase is structured around the following classes:
+- `ConnectomeReader` (abstract) with its child classes `FAFB` and `MANC`: to read the connectome data
 - `Connections`: to load and manipulate the connectome
 - `Neurons`: to load and manipulate the neurons
 - `CMatrix`: to load and manipulate the connectivity matrix
+- Additionally, the file `params.py` defines all the static information generally necessary such as paths, design choices or data types.
 
 The codebase is designed to be modular and flexible. It is possible to load the connectome and the neurons, and then perform any analysis on them. 
 
 The classes interact in the following manner:
+`ConnectomeReader` allows to access data for a given connectome and version, given that the naming conventiosn and file structures are not consistent between the different datasets. An instance of this class is used by the classes `Connections` and `Neurons` so that they can get their data.
 `Connections` loads the connectome and provides methods to extract the connectivity matrix. The connections between neurons can be modified by 
 providing a list of subdivided `Neurons` objects or a list of neurons that are not connected together. An example use case is the split a neuron into subparts
 restricted to a specific region of the connectome. 
 It is possible to initialise a `CMatrix` object from the `Connections` object, by
 providing an adjacency matrix and the ids of the neurons corresponding to the rows and columns of the matrix.
 
-Note on neuron ids: the neuron `bodyids` are the same as the ones used in the connectome. Given that we can subset or split neurons, the neuron ids are 
-remapped to unique ids named `uid`. The `uid` is used to index the neurons in the `CMatrix` object.
+Note on neuron ids: the neuron `BodyIds` (specific data type) are the same as the ones used in the connectome online tools such as _Neuroglancer_. Given that we can subset or split neurons, the neuron ids are remapped to unique ids named `UID`. The `UID` is used to index the neurons in the `CMatrix` object.
 
 ## Installation
 
