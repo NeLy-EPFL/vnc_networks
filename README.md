@@ -39,7 +39,7 @@ Note on neuron ids: the neuron `BodyIds` (specific data type) are the same as th
 Make sure you have conda installed, then run the following from inside this directory to create a new environment
 
 ```bash
-conda env create --file ./environment.yml
+conda create -n vnc python=3.12
 conda activate vnc
 pip install -e .
 ```

@@ -11,18 +11,18 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import Optional
 
-from .. import connections
 import matplotlib.axes
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
-from .. import params
 import pyvis.network
-from . import nx_utils
 from matplotlib.lines import Line2D
 from mpl_toolkits.mplot3d import Axes3D
+
+from .. import connections, params
 from ..params import UID
+from . import nx_utils
 from .math_utils import sigmoid
 
 # --- Constants ---#

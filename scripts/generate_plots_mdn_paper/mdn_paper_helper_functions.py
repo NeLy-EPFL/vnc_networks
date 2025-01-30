@@ -6,8 +6,9 @@ import typing
 from typing import Optional
 
 import matplotlib.pyplot as plt
-import params
-from specific_neurons import mdn_helper
+
+from vnc_networks import params
+from vnc_networks.specific_neurons import mdn_helper
 
 
 def graph_from_mdn_to_muscle(

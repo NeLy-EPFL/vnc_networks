@@ -20,12 +20,11 @@ import typing
 
 import matplotlib.pyplot as plt
 import numpy as np
-import params
-import specific_neurons.all_neurons_helper as all_neurons_helper
-import specific_neurons.mdn_helper as mdn_helper
-import specific_neurons.motor_neurons_helper as mns_helper
-import utils.matrix_design as matrix_design
-import utils.matrix_utils as matrix_utils
+
+from vnc_networks import params
+from vnc_networks.specific_neurons import all_neurons_helper, mdn_helper
+from vnc_networks.specific_neurons import motor_neurons_helper as mns_helper
+from vnc_networks.utils import matrix_design, matrix_utils
 
 FOLDER_NAME = "explo_exc-inhib"
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)

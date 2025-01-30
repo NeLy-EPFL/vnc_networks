@@ -9,11 +9,8 @@ import os
 
 import matplotlib.pyplot as plt
 import mdn_paper_helper_functions as paper_funcs
-import numpy as np
-import params
-import specific_neurons.mdn_helper as mdn_helper
-import specific_neurons.motor_neurons_helper as mns_helper
-from utils import matrix_design
+
+from vnc_networks import params
 
 FOLDER_NAME = "Figure_3_t1_extension"
 FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)
