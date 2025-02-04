@@ -102,7 +102,6 @@ class Neuron:
         self.size = self.data['size'].values[0]
         self.hemilineage = self.data['hemilineage'].values[0]
 
-
     def __load_synapse_ids(self):
         # Independently of the file structure, we should get a pd.dataframe
         # with columns ['synapse_id', 'start_id', 'end_id']
@@ -111,7 +110,6 @@ class Neuron:
             return
         
         self.synapse_df = self.CR.get_synapse_df(self.body_id)
-
 
     def __load_synapse_locations(self):
         """
@@ -153,7 +151,7 @@ class Neuron:
         if "neuropil" in self.synapse_df.columns:  # already done
             return
         
-        data = self.CR.get_synapse_locations(self.synapse_df["synapse_id"].values)
+        data = self.CR.get_synapse_neuropil(self.synapse_df["synapse_id"].values)
 
         # merge with existing synapse df
         self.synapse_df = self.synapse_df.merge(
@@ -170,6 +168,8 @@ class Neuron:
         """
         Get the synapse table of the connections.
         """
+        if 'synapse_df' not in self.__dict__:
+            self.__load_synapse_ids()
         return copy.deepcopy(self.synapse_df)
 
     def get_synapse_distribution(self, threshold: bool = False):
@@ -254,7 +254,7 @@ class Neuron:
         # It has two columns 'id_pre' and 'id_post' with the bodyId of the pre and post neurons
         # and a columns 'subdivision_pre'  with the index associated to the attribute split on.
         # Unclassified synapses have a -1 index.
-        # Finally, it has a 'synapse_ids' column with a list of the synapse ids.
+        # Finally, it has a 'synapse_id' column with a list of the synapse ids.
         synapses = self.synapse_df[[attribute, "synapse_id", "start_id", "end_id"]]
         # ensure the 'attribute' column is a string
         synapses[attribute] = synapses[attribute].astype(str).values
@@ -277,7 +277,6 @@ class Neuron:
 
         mapping = {val: i for i, val in enumerate(to_map)}
         mapping[np.nan] = -1 if "-1" not in to_map else mapping["-1"]
-        print(mapping)
         synapses["subdivision_start"] = synapses[attribute].map(mapping)
         synapses["subdivision_start_name"] = synapses[attribute]
         synapses.drop(columns=[attribute], inplace=True)
@@ -437,21 +436,42 @@ class Neuron:
 
 # --- helper functions
 
+@typing.overload
+def split_neuron_by_neuropil(
+        neuron_id,
+        save: bool = True,
+        return_type: typing.Literal["Neuron", "name"] = "Neuron"
+        ) -> Neuron:...
+@typing.overload
+def split_neuron_by_neuropil(
+    neuron_id,
+    save: bool = True,
+    return_type: typing.Literal["Neuron", "name"] = "name"
+    ) -> str:...
 
-def split_neuron_by_neuropil(neuron_id):
+def split_neuron_by_neuropil(
+        neuron_id,
+        save: bool = True,
+        return_type: typing.Literal["Neuron", "name"] = "name"
+        ):
     """
     Define neuron subdivisions based on synapse distribution.
     Saves the subdivisions in a new neuron to file, which can be loaded by its
     name.
     """
+    # TODO: update the saving and loading directory management as a function of CR
     name = "neuron-" + str(neuron_id) + "_neuropil-split"
     # check there are files starting with name
-    files = [f for f in os.listdir(params.NEURON_DIR) if f.startswith(name)]
-    if files:
-        return name
-    else:
-        neuron = Neuron(neuron_id)
-        _ = neuron.get_synapse_distribution(threshold=True)
-        neuron.create_synapse_groups(attribute="neuropil")
+    #files = [f for f in os.listdir(params.NEURON_DIR) if f.startswith(name)]
+    #if files:
+    #    return name
+    #else:
+    neuron = Neuron(neuron_id)
+    _ = neuron.get_synapse_distribution(threshold=True)
+    neuron.create_synapse_groups(attribute="neuropil")
+    if save:
         neuron.save(name=name)
-    return name
+    if return_type == "Neuron":
+        return neuron
+    else:
+        return name

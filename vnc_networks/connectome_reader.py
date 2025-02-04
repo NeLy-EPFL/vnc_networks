@@ -668,6 +668,24 @@ class MANC(ConnectomeReader):
         synapse_df = synapse_df[synapse_df["position"] == "pre"]
         synapse_df.drop(columns=["position"], inplace=True)
 
+        # add a column with 'tracing_status' of the postsynaptic neuron if it exists
+        if self.exists_tracing_status():
+            nodes_data = pd.read_feather(
+                self._nodes_file,
+                columns=[self._body_id, self._tracing_status],
+            )
+            nodes_data.columns = ["end_id", "tracing_status"]
+            synapse_df = synapse_df.merge(nodes_data, on="end_id", how="left")
+            # remove the rows where the postsynaptic neuron is not traced
+            synapse_df = synapse_df[synapse_df["tracing_status"] == self.traced_entry]
+            synapse_df.drop(columns=["tracing_status"], inplace=True)
+
+        # remove the rows where there are fewer than threshold synapses from
+        # a presynaptic neuron to a postsynaptic neuron
+        synapse_df = synapse_df.groupby(["start_id", "end_id"]).filter(
+            lambda x: len(x) >= params.SYNAPSE_CUTOFF
+        )
+        
         return synapse_df
   
     def get_synapse_locations(self, synapse_ids: list[int]) -> pd.DataFrame:
@@ -729,7 +747,8 @@ class MANC(ConnectomeReader):
             roi_column = pd.read_feather(
                 self._synapse_file,
                 columns=[column_name, self._syn_id],
-            )[synapse_ids]
+            )
+            roi_column = roi_column[roi_column[self._syn_id].isin(synapse_ids)]
             synapses_in_roi = roi_column.loc[
                 roi_column[column_name] == True, self._syn_id
             ].values  # type: ignore
