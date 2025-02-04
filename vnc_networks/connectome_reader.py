@@ -634,7 +634,7 @@ class MANC(ConnectomeReader):
     def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
         """
         Load the synapse ids for the neuron.
-        should define the columns ['synapse_id','start_id','end_id']
+        should define the columns ['synapse_id','start_bid','end_bid']
         """
         # neuron to synapse set
         neuron_to_synapse = pd.read_feather(self._neuron_synapseset_file)
@@ -654,10 +654,10 @@ class MANC(ConnectomeReader):
                 "synset_id": synapses[self._start_synset_id],
             }
         )
-        synapse_df["start_id"] = synapse_df["synset_id"].apply(
+        synapse_df["start_bid"] = synapse_df["synset_id"].apply(
             lambda x: int(x.split("_")[0])
         )  # body id of the presynaptic neuron
-        synapse_df["end_id"] = synapse_df["synset_id"].apply(
+        synapse_df["end_bid"] = synapse_df["synset_id"].apply(
             lambda x: int(x.split("_")[1])
         )  # body id of the postsynaptic neuron
         synapse_df["position"] = synapse_df["synset_id"].apply(
@@ -674,15 +674,15 @@ class MANC(ConnectomeReader):
                 self._nodes_file,
                 columns=[self._body_id, self._tracing_status],
             )
-            nodes_data.columns = ["end_id", "tracing_status"]
-            synapse_df = synapse_df.merge(nodes_data, on="end_id", how="left")
+            nodes_data.columns = ["end_bid", "tracing_status"]
+            synapse_df = synapse_df.merge(nodes_data, on="end_bid", how="left")
             # remove the rows where the postsynaptic neuron is not traced
             synapse_df = synapse_df[synapse_df["tracing_status"] == self.traced_entry]
             synapse_df.drop(columns=["tracing_status"], inplace=True)
 
         # remove the rows where there are fewer than threshold synapses from
         # a presynaptic neuron to a postsynaptic neuron
-        synapse_df = synapse_df.groupby(["start_id", "end_id"]).filter(
+        synapse_df = synapse_df.groupby(["start_bid", "end_bid"]).filter(
             lambda x: len(x) >= params.SYNAPSE_CUTOFF
         )
         
@@ -997,7 +997,7 @@ class FAFB(ConnectomeReader):
     def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
         """
         Load the synapse ids for the neuron.
-        should define the columns ['synapse_id','start_id','end_id']
+        should define the columns ['synapse_id','start_bid','end_bid']
         """
         raise NotImplementedError('Method not implemented yet on FAFB.')
     

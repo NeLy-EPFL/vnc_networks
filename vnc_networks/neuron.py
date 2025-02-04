@@ -104,7 +104,7 @@ class Neuron:
 
     def __load_synapse_ids(self):
         # Independently of the file structure, we should get a pd.dataframe
-        # with columns ['synapse_id', 'start_id', 'end_id']
+        # with columns ['synapse_id', 'start_bid', 'end_bid']
         
         if 'synapse_df' in self.__dict__: # already done
             return
@@ -188,11 +188,11 @@ class Neuron:
 
         # threshold if for a given neuron, the number of synapses is below the threshold
         if threshold:
-            syn_count = self.synapse_df.groupby("end_id").size().reset_index()
-            syn_count.columns = ["end_id", "syn_count"]
+            syn_count = self.synapse_df.groupby("end_bid").size().reset_index()
+            syn_count.columns = ["end_bid", "syn_count"]
             syn_count = syn_count[syn_count["syn_count"] >= params.SYNAPSE_CUTOFF]
-            to_keep = syn_count["end_id"].values
-            synapses = self.synapse_df[self.synapse_df["end_id"].isin(to_keep)]
+            to_keep = syn_count["end_bid"].values
+            synapses = self.synapse_df[self.synapse_df["end_bid"].isin(to_keep)]
         else:
             synapses = self.synapse_df
         # get the synapse positions
@@ -228,7 +228,7 @@ class Neuron:
         if to is None:
             return len(self.synapse_df)
         else:
-            return len(self.synapse_df[self.synapse_df["end_id"] == to])
+            return len(self.synapse_df[self.synapse_df["end_bid"] == to])
 
     # --- setters
     def add_neuropil_information(self):
@@ -255,15 +255,15 @@ class Neuron:
         # and a columns 'subdivision_pre'  with the index associated to the attribute split on.
         # Unclassified synapses have a -1 index.
         # Finally, it has a 'synapse_id' column with a list of the synapse ids.
-        synapses = self.synapse_df[[attribute, "synapse_id", "start_id", "end_id"]]
+        synapses = self.synapse_df[[attribute, "synapse_id", "start_bid", "end_bid"]]
         # ensure the 'attribute' column is a string
         synapses[attribute] = synapses[attribute].astype(str).values
-        # find end_id for which the number of synapses is below the threshold
-        syn_count = synapses.groupby("end_id").size().reset_index()
-        syn_count.columns = ["end_id", "syn_count"]
+        # find end_bid for which the number of synapses is below the threshold
+        syn_count = synapses.groupby("end_bid").size().reset_index()
+        syn_count.columns = ["end_bid", "syn_count"]
         syn_count = syn_count[syn_count["syn_count"] < params.SYNAPSE_CUTOFF]
-        to_discard = syn_count["end_id"].values
-        synapses = synapses[~synapses["end_id"].isin(to_discard)]
+        to_discard = syn_count["end_bid"].values
+        synapses = synapses[~synapses["end_bid"].isin(to_discard)]
 
         # complete the table
         synapses.fillna(
@@ -282,7 +282,7 @@ class Neuron:
         synapses.drop(columns=[attribute], inplace=True)
         synapses = (
             synapses.groupby(
-                ["start_id", "subdivision_start", "subdivision_start_name", "end_id"]
+                ["start_bid", "subdivision_start", "subdivision_start_name", "end_bid"]
             )
             .agg(list)
             .reset_index()
@@ -300,10 +300,10 @@ class Neuron:
             self.subdivisions is not None
         ), "Trying to clear not_connected but subdivisions is None"
         self.subdivisions = self.subdivisions[
-            ~self.subdivisions["end_id"].isin(not_connected)
+            ~self.subdivisions["end_bid"].isin(not_connected)
         ]
         self.synapse_df = self.synapse_df[
-            ~self.synapse_df["end_id"].isin(not_connected)
+            ~self.synapse_df["end_bid"].isin(not_connected)
         ]
 
     def remove_defined_subdivisions(self):
@@ -392,11 +392,11 @@ class Neuron:
                 raise AttributeError(f"Attribute {color_by} not in synapse dataframe.")
             # map self.synapse_df[color_by] categorical values to integers
             if threshold:
-                syn_count = self.synapse_df.groupby("end_id").size().reset_index()
-                syn_count.columns = ["end_id", "syn_count"]
+                syn_count = self.synapse_df.groupby("end_bid").size().reset_index()
+                syn_count.columns = ["end_bid", "syn_count"]
                 syn_count = syn_count[syn_count["syn_count"] >= params.SYNAPSE_CUTOFF]
-                to_keep = syn_count["end_id"].values
-                synapses = self.synapse_df[self.synapse_df["end_id"].isin(to_keep)]
+                to_keep = syn_count["end_bid"].values
+                synapses = self.synapse_df[self.synapse_df["end_bid"].isin(to_keep)]
             else:
                 synapses = self.synapse_df
 
