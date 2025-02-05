@@ -21,7 +21,7 @@ from matplotlib.lines import Line2D
 from mpl_toolkits.mplot3d import Axes3D
 
 from .. import connections, params
-from ..params import UID
+from ..params import UID, NeuronAttribute
 from . import nx_utils
 from .math_utils import sigmoid
 
@@ -156,6 +156,7 @@ def display_interactive_graph(
     connections: connections.Connections,
     output_file: str = "visualisation.html",
     window_height: int = 1000,
+    additional_attributes: Optional[list[NeuronAttribute]] = None,
 ):
     """
     Display the graph in interactive browser window using pyvis. This saves an HTML file and opens it in the browser.
@@ -169,63 +170,45 @@ def display_interactive_graph(
     window_height : int, optional
         How high the interactive window should be, by default 1000 px
     """
+    # parameters to display
+    attributes_displayed = [
+        "body_id",
+        "class_1",
+        "class_2",
+        "nt_type",
+        "name",
+        "side",
+        "neuropil",
+        "hemilineage",
+    ]
+    if additional_attributes is not None:
+        attributes_displayed += additional_attributes
+    # Ensure all the attributes are defined in the connections object
+    all_nodes = connections.get_nodes(type="uid")
+    for attribute in attributes_displayed:
+        _ = connections.get_node_attribute(all_nodes, attribute)
+
     # copy the graph because we're going to add a bunch of attributes to it
     # so they appear in the interactive visualisation
     g = connections.graph.copy()
     assert isinstance(g, nx.DiGraph)  # needed for type hinting
-    graph_bodyids = connections.get_bodyids_from_uids(list(g.nodes))
-    neurons_data = connections.CR.load_data_neuron_set(
-        graph_bodyids, # these should exist for all connectomes. 
-        [
-            "body_id",
-            "class_1",
-            "class_2",
-            "nt_type",
-            "name",
-            "side",
-            "neuropil",
-            "hemilineage",
-        ],
-    )
 
-    def neuron_data_row_to_label(row: pd.Series):
-            return f'{row["name"]}'
-
-    def neuron_data_row_to_title(row: pd.Series):
-        return f'body_id: {row["body_id"]}\n' + "\n".join(
+    def node_data_to_string(graph, node):
+        data_dict = graph.nodes[node]
+        return f'body_id: {data_dict["body_id"]}\n' + "\n".join(
             [
-                f"{field}: {row[field]}"
-                for field in [
-                    "name",
-                    "class_1",
-                    "class_2",
-                    "nt_type",
-                    "name",
-                    "side",
-                    "neuropil",
-                    "hemilineage",
-                ]
-                if row[field] is not None
+                f"{k}: {v}"
+                for k, v in data_dict.items()
             ]
         )
-
-    # This is the text that is written next to each node
-    node_labels = {
-        connections.get_first_uid_from_bodyid(
-            row["body_id"]
-        ): neuron_data_row_to_label(row)
-        for _, row in neurons_data.iterrows()
-    }
-    nx.set_node_attributes(g, node_labels, "label")
-
+        
     # This is the text that is shown when hovering over a node (more detailed)
-    node_titles = {
-        connections.get_first_uid_from_bodyid(
-            row["body_id"]
-        ): neuron_data_row_to_title(row)
-        for _, row in neurons_data.iterrows()
+    node_data = {
+        node: node_data_to_string(g,node)
+        for node in g.nodes
     }
-    nx.set_node_attributes(g, node_titles, "title")
+    
+    nx.set_node_attributes(g, node_data, "title")
 
     # set node colour based on neuron class
     nx.set_node_attributes(
@@ -285,8 +268,12 @@ def display_interactive_graph(
         filter_menu=True,
         cdn_resources="in_line",  # so everything is stored in one HTML file which you can visualise on different computers
     )
+    net.force_atlas_2based()
+    net.show_buttons()
+    net.toggle_drag_nodes(True)
     net.from_nx(g)  # Create directly from nx graph
-    net.show(output_file)
+    #net.show(output_file)
+    net.write_html(output_file)
 
 
 def add_edge_legend(
