@@ -16,8 +16,8 @@ from connections import Connections
 from connectome_reader import ConnectomeReader
 
 connectome_reader = MANC('v1.0')
-neurons_pre = connectome_reader.get_neurons_from_class('sensory neuron')
-neurons_post = connectome_reader.get_neurons_from_class('motor neuron')
+neurons_pre = connectome_reader.get_neurons_from_class('sensory')
+neurons_post = connectome_reader.get_neurons_from_class('motor')
 connections = Connections(
     neurons_pre = neurons_pre,
     neurons_post = neurons_post,
@@ -281,12 +281,12 @@ class Connections:
         split_neuron_subdivision_ids = subdivisions["subdivision_start"].unique()
 
         # --- Manage the splitting as pre-synaptic neuron
-        target_neurons = subdivisions["end_id"].unique()  # body ids
+        target_neurons = subdivisions["end_bid"].unique()  # body ids
         for end_body_id in target_neurons:
             # get the connections to split
             subdivisions_ = subdivisions[
-                (subdivisions["start_id"] == split_body_id)
-                & (subdivisions["end_id"] == end_body_id)
+                (subdivisions["start_bid"] == split_body_id)
+                & (subdivisions["end_bid"] == end_body_id)
             ]
             n_rows_in_target = len(subdivisions_)
             # sanity check on the total synapse count
@@ -351,7 +351,7 @@ class Connections:
         # --- Manage the splitting as post-synaptic neuron
         relevant_inputs = self.connections[
             self.connections['end_bid'] == split_body_id
-        ][self.CR.start_bid].unique()
+        ]['start_bid'].unique()
         for start_body_id in relevant_inputs:
             template = self.connections[
                 (self.connections['start_bid'] == start_body_id)
@@ -629,10 +629,10 @@ class Connections:
             subdivisions = neuron.get_subdivisions()
             assert subdivisions is not None, "Neuron subdivisions is None"
             unique_starts = subdivisions[
-                ["start_id", "subdivision_start", "subdivision_start_name"]
+                ["start_bid", "subdivision_start", "subdivision_start_name"]
             ].drop_duplicates()
             for _, row in unique_starts.iterrows():
-                id_tuple = (row["start_id"], row["subdivision_start"])
+                id_tuple = (row["start_bid"], row["subdivision_start"])
                 self.uid.loc[self.uid["neuron_ids"] == id_tuple, "node_label"] += row[
                     "subdivision_start_name"
                 ]
