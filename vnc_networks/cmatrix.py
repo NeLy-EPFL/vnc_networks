@@ -27,6 +27,7 @@ import scipy.cluster.hierarchy as sch
 from sklearn.cluster import DBSCAN
 
 from . import params
+from .connectome_reader import MANC, ConnectomeReader
 from .params import UID, BodyId
 from .utils import matrix_design, matrix_utils
 
@@ -36,6 +37,7 @@ class CMatrix:
         self,
         matrix: sc.sparse.csr_matrix,
         lookup: pd.DataFrame,
+        CR: ConnectomeReader = MANC('v1.0'),
     ):
         """
         Initialises the cmatrix class, standing for connectome matrix.
@@ -73,6 +75,8 @@ class CMatrix:
             raise ValueError(
                 "The lookup must include column indices up to the length of the matrix."
             )
+        
+        self.CR = CR
 
     # private methods
     def __update_indexing(self):
@@ -1057,7 +1061,11 @@ class CMatrix:
                 mat[cluster[0] : cluster[-1] + 1, cluster[0] : cluster[-1] + 1] = 1
             ax, title = new_cmatrix.imshow(savefig=False)
             ax.imshow(mat, cmap="binary", alpha=0.3)
-            plt.savefig(title)
+            full_title = os.path.join(
+                self.CR.get_plots_dir(),
+                title
+            )
+            plt.savefig(full_title)
             plt.close()
 
         return new_cmatrix, return_clusters, clusters
@@ -1081,7 +1089,7 @@ class CMatrix:
             _, ax = plt.subplots(1, 1, figsize=params.FIG_SIZE)
         _ = matrix_design.spy(self.get_matrix(), title=title, ax=ax)
         if savefig:
-            title_ = os.path.join(params.PLOT_DIR, title + "_spy.pdf")
+            title_ = os.path.join(self.CR.get_plots_dir(), title + "_spy.pdf")
             plt.savefig(title_)
         return
 
@@ -1150,7 +1158,7 @@ class CMatrix:
             ax=ax,
         )
         if savefig:
-            title_ = os.path.join(params.PLOT_DIR, title + "_imshow.pdf")
+            title_ = os.path.join(self.CR.get_plots_dir(), title + "_imshow.pdf")
             plt.savefig(title_)
             return
         else:

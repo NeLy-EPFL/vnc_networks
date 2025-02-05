@@ -25,7 +25,6 @@ class ConnectomeReader(ABC):
     @abstractmethod
     def __init__(self):
 
-        self.raw_data_dir = params.RAW_DATA_DIR
         # specific namefields
         self._load_specific_namefields()
         self._load_specific_neuron_classes()
@@ -42,7 +41,42 @@ class ConnectomeReader(ABC):
 
     @abstractmethod 
     def _load_specific_directories(self):
-        pass
+        """
+        Creates the directories where data is stored.
+        """
+        # preprocessed data saving
+        preprocessing_dir = params.PREPROCESSED_DATA_DIR
+        self._neuron_save_dir = os.path.join(
+            preprocessing_dir,
+            self.connectome_name,
+            self.connectome_version,
+            "neurons"
+            )
+        os.makedirs(self._neuron_save_dir, exist_ok=True)
+        self._connections_save_dir = os.path.join(
+            preprocessing_dir,
+            self.connectome_name,
+            self.connectome_version,
+            "connections"
+            )
+        os.makedirs(self._connections_save_dir, exist_ok=True)
+
+        # data saving directories
+        processed_dir = params.PROCESSED_DATA_DIR
+        self._data_save_dir = os.path.join(
+            processed_dir,
+            self.connectome_name,
+            self.connectome_version
+            )
+        os.makedirs(self._data_save_dir, exist_ok=True)
+
+        plots_dir = params.FIG_DIR
+        self._plot_save_dir = os.path.join(
+            plots_dir,
+            self.connectome_name,
+            self.connectome_version
+            )
+        os.makedirs(self._plot_save_dir, exist_ok=True)
         
     # ----- public methods -----
     # --- abstract methods
@@ -346,6 +380,24 @@ class ConnectomeReader(ABC):
             s_dict[self.sna(k)] = v
         return s_dict
     
+    def get_plots_dir(self) -> str:
+        """
+        Returns the directory where plots are saved.
+        """
+        return self._plot_save_dir
+
+    def get_connections_save_dir(self) -> str:
+        """
+        Returns the directory where connections are saved.
+        """
+        return self._connections_save_dir
+
+    def get_neuron_save_dir(self) -> str:
+        """
+        Returns the directory where neurons are saved.
+        """
+        return self._neuron_save_dir
+
     @staticmethod
     def node_base_attributes() -> list[NeuronAttribute]:
         """
@@ -407,7 +459,7 @@ class MANC(ConnectomeReader):
             connectome_version: str,
             ): # 2nd argument is useless, only for compatibility
         
-        self.connectome_name = 'MANC'
+        self.connectome_name = 'manc'
         self.connectome_version = connectome_version
         super().__init__()
         
@@ -599,13 +651,14 @@ class MANC(ConnectomeReader):
         """
         Need to define the directories that are common to all connectomes.
         """
+        super()._load_specific_directories() # data saving directories
         
         self._connectome_dir = os.path.join(
-            self.raw_data_dir,
-            "manc",
-            "v1.0",
-            "neuprint_manc_v1.0",
-            "neuprint_manc_v1.0_ftr",
+            params.RAW_DATA_DIR,
+            self.connectome_name,
+            self.connectome_version,
+            f"neuprint_manc_{self.connectome_version}",
+            f"neuprint_manc_{self.connectome_version}_ftr",
         )
         self._nodes_file = os.path.join(
             self._connectome_dir,
@@ -629,6 +682,7 @@ class MANC(ConnectomeReader):
             self._connectome_dir,
             "Neuprint_Synapses_manc_v1.ftr"
         )
+
 
     # public methods
     def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
@@ -978,9 +1032,10 @@ class FAFB(ConnectomeReader):
         """
         Need to define the directories that are common to all connectomes.
         """
+        super()._load_specific_directories() # data saving directories
         
         self._connectome_dir = os.path.join(
-            self.raw_data_dir,
+            params.RAW_DATA_DIR,
             "",
         )
         self._nodes_file = os.path.join(

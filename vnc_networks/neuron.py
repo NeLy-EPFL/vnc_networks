@@ -87,7 +87,10 @@ class Neuron:
         """
         Initialise the neuron from a file.
         """
-        with open(os.path.join(params.NEURON_DIR, name + ".txt"), "rb") as file:
+        with open(
+            os.path.join(self.CR.get_neuron_save_dir(), name + ".txt"),
+            "rb"
+            ) as file:
             neuron = pickle.load(file)
         self.__dict__.update(neuron)
 
@@ -412,7 +415,7 @@ class Neuron:
             )
         if savefig:
             name = os.path.join(
-                params.PLOT_DIR,
+                self.CR.get_plots_dir(),
                 f"synapse_distribution_{self.body_id}_color_by_{color_by}.pdf",
                 )
             plt.savefig(
@@ -430,7 +433,7 @@ class Neuron:
         name : str
             The name of the file to save to.
         """
-        with open(os.path.join(params.NEURON_DIR, name + ".txt"), "wb") as file:
+        with open(os.path.join(self.CR.get_neuron_save_dir(), name + ".txt"), "wb") as file:
             pickle.dump(self.__dict__, file)
 
 

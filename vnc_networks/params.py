@@ -13,26 +13,32 @@ import numpy as np
 import seaborn as sns
 
 # --- Where to find the raw data sets --- #
-# MANC traced
+# Need to add the raw data dumps manually given the file sizes
 RAW_DATA_DIR = os.path.join(Path(__file__).absolute().parent.parent, "data_dump")
-
-# --- Where to save the processed data sets --- #
-PROCESSED_DATA_DIR = os.path.join(Path(__file__).absolute().parent.parent, "data")
+os.makedirs(RAW_DATA_DIR, exist_ok=True)
 
 # --- Where to save the preprocessed data sets --- #
-PREPROCESSING_DIR = os.path.join(
-    Path(__file__).absolute().parent.parent, "preprocessing"
-)
-NEURON_DIR = os.path.join(PREPROCESSING_DIR, "neurons")
-os.makedirs(NEURON_DIR, exist_ok=True)
-CONNECTION_DIR = os.path.join(PREPROCESSING_DIR, "connections")
-os.makedirs(CONNECTION_DIR, exist_ok=True)
+# Used to store a preprocessed version of the data, to avoid re-running the
+# preprocessing steps each time
+PREPROCESSED_DATA_DIR = os.path.join(
+    Path(__file__).absolute().parent.parent,
+    "preprocessed"
+    )
+os.makedirs(PREPROCESSED_DATA_DIR, exist_ok=True)
+
+# --- Where to save the processed data --- #
+# Used to store the processed data, i.e. the data that is generated during
+# the analysis
+PROCESSED_DATA_DIR = os.path.join(
+    Path(__file__).absolute().parent.parent,
+    "data_processed"
+    )
+os.makedirs(PROCESSED_DATA_DIR, exist_ok=True)
 
 # --- Where to save the figures --- #
-FIG_DIR = os.path.join(Path(__file__).absolute().parent.parent, "plots")
+# Used to store the figures generated during the analysis
+FIG_DIR = os.path.join(Path(__file__).absolute().parent.parent, "figures")
 os.makedirs(FIG_DIR, exist_ok=True)
-PLOT_DIR = os.path.join(FIG_DIR, "tmp")
-os.makedirs(PLOT_DIR, exist_ok=True)
 
 # --- Parameters for the analysis --- #
 NT_WEIGHTS = {

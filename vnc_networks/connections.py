@@ -1032,7 +1032,9 @@ class Connections:
         By default, the normalized adjacency matrix is used.
         """
         return cmatrix.CMatrix(
-            self.get_adjacency_matrix(type_=type_), self.get_lookup()
+            self.get_adjacency_matrix(type_=type_),
+            self.get_lookup(),
+            CR = self.CR,
         )
 
     def get_lookup(self):
@@ -1576,7 +1578,9 @@ class Connections:
                     f"Class Connections::: > display_adjacency_matrix(): Unknown method {method}"
                 )
 
-        plt.savefig(os.path.join(params.PLOT_DIR, title + "_matrix.pdf"))
+        plt.savefig(
+            os.path.join(self.CR.get_plots_dir(), title + "_matrix.pdf")
+            )
         return
 
     @typing.overload
@@ -1657,7 +1661,9 @@ class Connections:
         )
         ax.set_title(title)
         if save:
-            plt.savefig(os.path.join(params.PLOT_DIR, title + "_graph.pdf"))
+            plt.savefig(
+                os.path.join(self.CR.get_plots_dir(), title + "_graph.pdf")
+                )
         if return_pos:
             return ax, pos
         return ax
@@ -1732,7 +1738,9 @@ class Connections:
                 attribute,
             )
         if save:
-            plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.pdf"))
+            plt.savefig(
+                os.path.join(self.CR.get_plots_dir(), title + "_sorted_graph.pdf")
+                )
             return ax
 
     def plot_xyz(
@@ -1788,7 +1796,9 @@ class Connections:
             # draw the plot
             _ = nx_design.plot_xyz(graph_, x, y, sorting=sorting)
         # save the plot
-        plt.savefig(os.path.join(params.PLOT_DIR, title + "3d_plot.pdf"))
+        plt.savefig(
+            os.path.join(self.CR.get_plots_dir(), title + "3d_plot.pdf")
+            )
         return
 
     def draw_3d_custom_axis(
@@ -1827,7 +1837,7 @@ class Connections:
             y,
             sorting=[x_sorting, y_sorting, z_sorting],
         )
-        plt.savefig(os.path.join(params.PLOT_DIR, title + "3dx_plot.pdf"))
+        plt.savefig(os.path.join(self.CR.get_plots_dir(), title + "3dx_plot.pdf"))
 
     @typing.overload
     def draw_graph_concentric_by_attribute(
@@ -1894,7 +1904,7 @@ class Connections:
         )
         ax.set_title(title)
         if save:
-            plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.pdf"))
+            plt.savefig(os.path.join(self.CR.get_plots_dir(), title + "_sorted_graph.pdf"))
         if return_pos:
             return ax, pos
         return ax
@@ -1955,7 +1965,7 @@ class Connections:
         )
         ax.set_title(title)
         if save:
-            plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.pdf"))
+            plt.savefig(os.path.join(self.CR.get_plots_dir(), title + "_sorted_graph.pdf"))
         if return_pos:
             return ax, pos
         return ax
@@ -2053,7 +2063,7 @@ class Connections:
         """
         Save the connections object to a pickle file.
         """
-        filename = os.path.join(params.CONNECTION_DIR, name + ".txt")
+        filename = os.path.join(self.CR.get_connections_save_dir(), name + ".txt")
         with open(filename, "wb") as f:
             pickle.dump(self.__dict__, f)
 
