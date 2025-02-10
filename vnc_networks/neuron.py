@@ -107,36 +107,13 @@ class Neuron:
 
     def __load_synapse_ids(self):
         # Independently of the file structure, we should get a pd.dataframe
-        # with columns ['synapse_id', 'start_bid', 'end_bid']
+        # with columns 
+        # ['synapse_id', 'start_bid', 'end_bid', 'X', 'Y', 'Z']
         
         if 'synapse_df' in self.__dict__: # already done
             return
         
         self.synapse_df = self.CR.get_synapse_df(self.body_id)
-
-    def __load_synapse_locations(self):
-        """
-        Add three columns: 'X', 'Y' and 'Z' to the synapse df.
-
-        Parameters
-        ----------
-        subset : list, optional
-            The subset of synapse ids to convert.
-            The default is None, which converts all synapse ids.
-        """
-        if 'synapse_df' not in self.__dict__:
-            self.__load_synapse_ids()
-
-        if "location" in self.synapse_df.columns:  # already done
-            return
-        
-        data = self.CR.get_synapse_locations(self.synapse_df["synapse_id"].values)
-
-        # merge with existing synapse df
-        self.synapse_df = self.synapse_df.merge(
-            data, on="synapse_id", how="inner"
-        )
-        return
 
     def __categorical_neuropil_information(self):
         """
@@ -187,7 +164,6 @@ class Neuron:
         """
         # check if the synapse df is loaded
         self.__load_synapse_ids()
-        self.__load_synapse_locations()
 
         # threshold if for a given neuron, the number of synapses is below the threshold
         if threshold:

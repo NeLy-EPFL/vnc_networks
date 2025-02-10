@@ -29,7 +29,9 @@ class ConnectomeReader(ABC):
         self._load_specific_namefields()
         self._load_specific_neuron_classes()
         self._load_specific_directories()
-
+        
+        self.nt_weigths = None # to be defined in the child classes
+        
     # ----- virtual private methods -----
     @abstractmethod
     def _load_specific_namefields(self):
@@ -78,6 +80,20 @@ class ConnectomeReader(ABC):
             )
         os.makedirs(self._plot_save_dir, exist_ok=True)
         
+    @abstractmethod
+    def _get_traced_bids(self) -> pd.DataFrame:
+        """
+        Get the body ids of the traced neurons.
+        """
+        pass
+
+    @abstractmethod
+    def _load_connections(self, columns: list[NeuronAttribute]) -> pd.DataFrame:
+        """
+        Load the connections of the connectome.
+        """
+        pass
+
     # ----- public methods -----
     # --- abstract methods
     @abstractmethod
@@ -108,6 +124,29 @@ class ConnectomeReader(ABC):
         """
         pass
 
+    @abstractmethod
+    def list_all_nodes(self) -> list[BodyId]:
+        """
+        List all the pre-synaptic neurons existing in the connectome.
+        """
+        pass
+
+    @abstractmethod
+    def get_neuron_bodyids(
+        self,
+        selection_dict: Optional[SelectionDict] = None,
+        nodes: Optional[list[BodyId] | list[int]] = None,
+    ) -> list[BodyId]:
+        """
+        Get the Ids of the neurons in the dataset.
+        Select (keep) according to the selection_dict.
+        Different criteria are treated as 'and' conditions.
+
+        For the specific case of "class_1" that refers to the NeuronClass,
+        we need to verify both the generic and the specific names.
+        """
+        pass
+
     # --- partially reused methods
     def sna(
             self,
@@ -133,10 +172,12 @@ class ConnectomeReader(ABC):
             "class_1": self._class_1, 
             "class_2": self._class_2,
             "name": self._name,
+            "target": self._target,
             # morphology
             "side": self._side,
             "neuropil": self._neuropil,
             "size": self._size,
+            "position": self._position,
             # genetics
             "hemilineage": self._hemilineage,
         }
@@ -183,11 +224,11 @@ class ConnectomeReader(ABC):
     # --- common methods
     def get_connections(
             self,
-            columns: list[NeuronAttribute],
             keep_only_traced_neurons: bool = False,
             ):
         """
         Load the connections of the connectome.
+        Will read ['start_bid', 'end_bid', 'syn_count', 'nt_type'].
         If keep_only_traced_neurons is True, only the neurons that have been traced
         will be kept.
 
@@ -195,41 +236,17 @@ class ConnectomeReader(ABC):
         ----------
         columns : list
             The columns to load.
-        """
-        # translate to specific names
-        columns_to_read = [
-            self.sna(a) for a in columns
-        ]
-        # Identify which neurons are traced
-        if keep_only_traced_neurons and self.exists_tracing_status():
-            nodes_data = pd.read_feather(
-                self._nodes_file,
-                columns=[self._body_id, self._tracing_status]
-                )
-            nodes_data = nodes_data[
-                nodes_data[self._tracing_status] == self.traced_entry
-                ]
-            traced_bids = nodes_data[self._body_id].values
-
+        """            
         # Load the connections
-        df = pd.read_feather(self._connections_file, columns=columns_to_read)
-
-        # rename to generic names
-        df.columns = columns
+        df = self._load_connections()
 
         # Filter out the untraced neurons
-        if keep_only_traced_neurons:
+        if keep_only_traced_neurons and self.exists_tracing_status():
+            traced_bids = self._get_traced_bids()
             df = df[df['start_bid'].isin(traced_bids)]
             df = df[df['end_bid'].isin(traced_bids)]
 
         return df
-
-    def list_all_nodes(self) -> list[BodyId]:
-        """
-        List all the pre-synaptic neurons existing in the connectome.
-        """
-        data = pd.read_feather(self._nodes_file, columns=[self._body_id])
-        return list(data[self._body_id].values)
 
     def exists_tracing_status(self):
         """
@@ -239,49 +256,6 @@ class ConnectomeReader(ABC):
             self.traced_entry = "Traced"
             return True
         return False
-
-    def get_neuron_bodyids(
-        self,
-        selection_dict: Optional[SelectionDict] = None,
-        nodes: Optional[list[BodyId] | list[int]] = None,
-    ) -> list[BodyId]:
-        """
-        Get the Ids of the neurons in the dataset.
-        Select (keep) according to the selection_dict.
-        Different criteria are treated as 'and' conditions.
-
-        For the specific case of "class_1" that refers to the NeuronClass,
-        we need to verify both the generic and the specific names.
-        """
-        s_dict = self.specific_selection_dict(selection_dict)
-
-        # Identify columns to load
-        columns_to_read = [
-            self.sna(a) for a in selection_dict.keys()
-        ]
-        columns_to_write = list(selection_dict.keys())
-        if 'body_id' not in selection_dict.keys():
-            columns_to_read.append(self._body_id) # specific name field
-            columns_to_write.append('body_id') # generic name field
-        
-        neurons = pd.read_feather(self._nodes_file, columns=list(columns_to_read))
-
-        if s_dict is not None:
-            for key in s_dict.keys():
-                if key == self.sna('class_1'):
-                    try: # will work if a generic NeuronClass is given
-                        specific_class = self.specific_neuron_class(s_dict[key])
-                    except KeyError: # will work if a specific NeuronClass is given
-                        specific_class = s_dict[key]
-                    neurons = neurons[
-                        neurons[self._class_1] == specific_class
-                        ]
-                else:
-                    neurons = neurons[neurons[key] == s_dict[key]]
-        if nodes is not None:
-            neurons = neurons[neurons[self._body_id].isin(nodes)]
-    
-        return list(neurons[self._body_id].values)
 
     def get_neurons_from_class(self, class_: NeuronClass) -> list[BodyId]:
         """
@@ -413,10 +387,12 @@ class ConnectomeReader(ABC):
                 "class_1",
                 "class_2",
                 "name",
+                "target",
                 # morphology
                 "side",
                 "neuropil",
                 "size",
+                "position",
                 # genetics
                 "hemilineage",
             ]
@@ -461,6 +437,16 @@ class MANC(ConnectomeReader):
         
         self.connectome_name = 'manc'
         self.connectome_version = connectome_version
+
+        self.nt_weigths = {
+            "acetylcholine": +1,
+            "gaba": -1,
+            "glutamate": -1,
+            "unknown": 0,
+            None: 0,
+            np.nan: 0,
+        }
+
         super().__init__()
         
     # ----- overwritten methods -----
@@ -482,12 +468,13 @@ class MANC(ConnectomeReader):
         self._neuropil = "somaNeuromere:string"
         self._hemilineage = "hemilineage:string"
         self._size = "size:long"
+        self._position = "position:point{srid:9157}"
+        self._target = "target:string"
         # specific to MANC -> need to add to ::sna()
         self._type = "type:string"
         self._tracing_status = "status:string"
         self._entry_nerve = "entryNerve:string"
         self._exit_nerve = "exitNerve:string"
-        self._position = "position:point{srid:9157}"
         self._nb_pre_synapses = "pre:int",
         self._nb_post_synapses = "post:int",
         self._nb_pre_neurons = "upstream:int",
@@ -660,16 +647,18 @@ class MANC(ConnectomeReader):
             f"neuprint_manc_{self.connectome_version}",
             f"neuprint_manc_{self.connectome_version}_ftr",
         )
-        self._nodes_file = os.path.join(
-            self._connectome_dir,
-            "Neuprint_Neurons_manc_v1.ftr"
-            )
         self._connections_file = os.path.join(
             self._connectome_dir,
             "Neuprint_Neuron_Connections_manc_v1.ftr"
             )
         
-        # unique to MANC
+        # specific to MANC
+        # all information for a neuron
+        self._nodes_file = os.path.join( 
+            self._connectome_dir,
+            "Neuprint_Neurons_manc_v1.ftr"
+            )
+        # synapses: neurons to synapse sets -> synapsesets to synapses -> synapses to synapse data
         self._synapseset_file = os.path.join(
             self._connectome_dir,
             "Neuprint_SynapseSet_to_Synapses_manc_v1.ftr"
@@ -683,12 +672,98 @@ class MANC(ConnectomeReader):
             "Neuprint_Synapses_manc_v1.ftr"
         )
 
+    def _get_traced_bids(self) -> pd.DataFrame:
+        """
+        Get the body ids of the traced neurons.
+        """
+        nodes_data = pd.read_feather(
+            self._nodes_file,
+            columns=[self._body_id, self._tracing_status]
+            )
+        nodes_data = nodes_data[
+            nodes_data[self._tracing_status] == self.traced_entry
+            ]
+        traced_bids = nodes_data[self._body_id].values
+        return traced_bids
+
+    def _load_connections(self, columns: list[NeuronAttribute]) -> pd.DataFrame:
+        """
+        Load the connections of the connectome.
+        Needs to gather the columns ['start_bid', 'end_bid', 'syn_count', 'nt_type'].
+        """
+        # Loading data in the connections file
+        columns = ['start_bid', 'end_bid', 'syn_count']
+        columns_to_read = [
+            self.sna(a) for a in columns
+        ]
+        connections = pd.read_feather(
+            self._connections_file, columns=columns_to_read
+            )
+        connections.columns = columns
+
+        # add nt_type information
+        data = pd.read_feather(
+            self._nodes_file,
+            columns=[self._body_id, self._nt_type]
+        )
+        data.columns = ['body_id', 'nt_type']
+        connections = pd.merge(
+            connections,
+            data,
+            left_on='start_bid',
+            right_on='body_id',
+            how="left",
+            suffixes=("", ""),
+        )
+        connections_ = connections_.drop(columns=['body_id'])
+
+        return connections
+
+    # --- specific private methods
+    def _load_synapse_locations(self, synapse_ids: list[int]) -> pd.DataFrame:
+        """
+        Get the locations of the synapses.
+        """
+        data = pd.read_feather(
+            self._synapse_file,
+            columns = [self._syn_id, self._syn_location]
+            )
+        data = data.loc[data[self._syn_id].isin(synapse_ids)]
+        data.columns = ['synapse_id', 'location']
+
+        locations = data['location'].values
+
+        # split the location into X, Y, Z
+        X, Y, Z = [], [], []
+        for loc in locations:
+            name = loc.replace('x','"x"').replace('y','"y"').replace('z','"z"')
+            try:
+                pos = eval(name)  # read loc as a dict, use of x,y,z under the hood
+            except TypeError:
+                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
+                print(f'Type Error in reading location for {name}')
+            except NameError:
+                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
+                print(f'Name Error in reading location for {name}')
+            if not isinstance(pos, dict):
+                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
+            X.append(pos["x"])
+            Y.append(pos["y"])
+            Z.append(pos["z"])
+        data["X"] = X
+        data["Y"] = Y
+        data["Z"] = Z
+
+        data.drop(columns=["location"], inplace=True)
+
+        return data
 
     # public methods
     def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
         """
         Load the synapse ids for the neuron.
-        should define the columns ['synapse_id','start_bid','end_bid']
+        should define the columns 
+        ['synapse_id','start_bid','end_bid', 'X', 'Y', 'Z']
         """
         # neuron to synapse set
         neuron_to_synapse = pd.read_feather(self._neuron_synapseset_file)
@@ -740,45 +815,14 @@ class MANC(ConnectomeReader):
             lambda x: len(x) >= params.SYNAPSE_CUTOFF
         )
         
-        return synapse_df
-  
-    def get_synapse_locations(self, synapse_ids: list[int]) -> pd.DataFrame:
-        """
-        Get the locations of the synapses.
-        """
-        data = pd.read_feather(
-            self._synapse_file,
-            columns = [self._syn_id, self._syn_location]
+        # Load the synapse locations
+        syn_ids = synapse_df["synapse_id"].values
+        data = self._load_synapse_locations(syn_ids)
+        synapse_df = synapse_df.merge(
+            data, on="synapse_id", how="inner"
             )
-        data = data.loc[data[self._syn_id].isin(synapse_ids)]
-        data.columns = ['synapse_id', 'location']
 
-        locations = data['location'].values
-
-        # split the location into X, Y, Z
-        X, Y, Z = [], [], []
-        for loc in locations:
-            name = loc.replace('x','"x"').replace('y','"y"').replace('z','"z"')
-            try:
-                pos = eval(name)  # read loc as a dict, use of x,y,z under the hood
-            except TypeError:
-                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
-                print(f'Type Error in reading location for {name}')
-            except NameError:
-                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
-                print(f'Name Error in reading location for {name}')
-            if not isinstance(pos, dict):
-                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
-            X.append(pos["x"])
-            Y.append(pos["y"])
-            Z.append(pos["z"])
-        data["X"] = X
-        data["Y"] = Y
-        data["Z"] = Z
-
-        data.drop(columns=["location"], inplace=True)
-
-        return data
+        return synapse_df
     
     def get_synapse_neuropil(self, synapse_ids: list[int]) -> pd.DataFrame:
         """
@@ -823,7 +867,6 @@ class MANC(ConnectomeReader):
         ]
         return all_attr
     
-    # --- additions
     def sna( # specific_neuron_attribute, abbreviated due to frequent use
             self,
             generic_n_a: NeuronAttribute
@@ -840,7 +883,6 @@ class MANC(ConnectomeReader):
             mapping = {
                 "type": self._type,
                 "tracing_status": self._tracing_status,
-                "position": self._position,
                 "entry_nerve": self._entry_nerve,
                 "exit_nerve": self._exit_nerve,
                 "nb_pre_synapses": self._nb_pre_synapses,
@@ -924,6 +966,57 @@ class MANC(ConnectomeReader):
                     )   
         return converted_class
 
+    def list_all_nodes(self) -> list[BodyId]:
+        """
+        List all the neurons existing in the connectome.
+        """
+        data = pd.read_feather(self._nodes_file, columns=[self._body_id])
+        return list(data[self._body_id].values)
+
+    def get_neuron_bodyids(
+        self,
+        selection_dict: Optional[SelectionDict] = None,
+        nodes: Optional[list[BodyId] | list[int]] = None,
+    ) -> list[BodyId]:
+        """
+        Get the Ids of the neurons in the dataset.
+        Select (keep) according to the selection_dict.
+        Different criteria are treated as 'and' conditions.
+
+        For the specific case of "class_1" that refers to the NeuronClass,
+        we need to verify both the generic and the specific names.
+        """
+        s_dict = self.specific_selection_dict(selection_dict)
+
+        # Identify columns to load
+        columns_to_read = [
+            self.sna(a) for a in selection_dict.keys()
+        ]
+        columns_to_write = list(selection_dict.keys())
+        if 'body_id' not in selection_dict.keys():
+            columns_to_read.append(self._body_id) # specific name field
+            columns_to_write.append('body_id') # generic name field
+        
+        neurons = pd.read_feather(self._nodes_file, columns=list(columns_to_read))
+
+        if s_dict is not None:
+            for key in s_dict.keys():
+                if key == self.sna('class_1'):
+                    requested_value = s_dict[key] # can be 'sensory' or 'sensory neuron'
+                    try: # will work if a generic NeuronClass is given
+                        specific_value = self.specific_neuron_class(requested_value)
+                    except KeyError: # will work if a specific NeuronClass is given
+                        specific_value = requested_value
+                    neurons = neurons[
+                        neurons[self._class_1] == specific_value
+                        ]
+                else:
+                    neurons = neurons[neurons[key] == s_dict[key]]
+        if nodes is not None:
+            neurons = neurons[neurons[self._body_id].isin(nodes)]
+    
+        return list(neurons[self._body_id].values)
+
 # Specific versions of MANC
 class MANC_v_1_0(MANC, connectome_version='v1.0'):
     def __init__(self, connectome_version: str):
@@ -968,10 +1061,22 @@ class FAFB(ConnectomeReader):
             connectome_version: str,
             ):
         
-        self.connectome_name = 'FAFB'
+        self.connectome_name = 'fafb'
         self.connectome_version = connectome_version
+
+        self.nt_weigths = {
+            "ACH": +1,
+            "GABA": -1,
+            "GLUT": -1,
+            "DA": 0,
+            "OCT": 0,
+            "SER": 0,
+            None: 0,
+            np.nan: 0,
+        }
+
         super().__init__()
-        
+
     # ----- overwritten methods -----
     def _load_specific_namefields(self):
         """
@@ -988,10 +1093,13 @@ class FAFB(ConnectomeReader):
         self._nt_proba = "nt_type_score"
         self._class_1 = "super_class"
         self._class_2 = "class"
+        self._name = "cell_type" # this is not ideal but mostly matches
         self._side = "side"
-        self._neuropil = "cell_type" # TODO: check, probably wrong
+        self._neuropil = "group"
         self._hemilineage = "hemilineage"
         self._size = "size_nm"
+        self._position = "position"
+        self._target = "sub_class"
         # specific to FAFB -> need to add to ::sna()
         self._nerve = "nerve"
         self._area = "area_nm"
@@ -1036,34 +1144,137 @@ class FAFB(ConnectomeReader):
         
         self._connectome_dir = os.path.join(
             params.RAW_DATA_DIR,
-            "",
+            self.connectome_name,
+            self.connectome_version,
         )
-        self._nodes_file = os.path.join(
-            self._connectome_dir,
-            ""
-            )
         self._connections_file = os.path.join(
             self._connectome_dir,
-            ""
+            "connections.csv"
             )
         
+        # specific to FAFB
+        # all information for a neuron
+        self._node_stats_file = os.path.join( # length, area, size
+            self._connectome_dir,
+            "cell_stats.csv"
+            )
+        self._node_class_file = os.path.join( # class, hemilineage, side etc.
+            self._connectome_dir,
+            "classification.csv"
+            )
+        self._node_position_file = os.path.join( # position = [x y z]
+            self._connectome_dir,
+            "coordinates.csv"
+            )
+        self._node_nt_type_file = os.path.join( # nt_type, nt_type_score
+            self._connectome_dir,
+            "neurons.csv"
+            )
+        # synapses
+        self._synapses_file = os.path.join( # pre_bid, post_bid, x, y, z
+            self._connectome_dir,
+            "synapse_coordinates.csv"
+            )
+
+    def _get_traced_bids(self) -> pd.DataFrame:
+        """
+        Get the body ids of the traced neurons.
+        """
+        raise NotImplementedError('Method should not be called on FAFB.')
+    
+    def _load_connections(self, columns: list[NeuronAttribute]) -> pd.DataFrame:
+        """
+        Load the connections of the connectome.
+        Needs to gather the columns ['start_bid', 'end_bid', 'syn_count', 'nt_type'].
+        """
+        columns = ['start_bid', 'end_bid', 'syn_count', 'nt_type']
+        columns_to_read = [
+            self.sna(a) for a in columns
+        ]
+        # here the root_id length is not an issue because there are mixed types
+        # in the dataframe. In practice that means that the root_ids are parsed
+        # first, and converted to int only if they are integers, which is fine.
+        connections = pd.read_csv(self._connections_file, usecols=columns_to_read)
+        connections.columns = columns
+        return connections
+    
+    # --- specific private methods
+    def _filter_neurons(
+        self,
+        attribute: NeuronAttribute,
+        value,
+        ) -> set[BodyId]:
+        """
+        Return the set of neuron body_ids for which the attribute has the value.
+        """
+        if attribute == 'body_id':
+            return {value}
+        
+        att = self.sna(attribute) # specific name attribute
+
+        def _simply_filter_df(filename:str, att:str, value) -> set[BodyId]:
+            data = pd.read_csv(
+                filename,
+                usecols=[self._body_id, att],
+                dtype={self._body_id: str} # in case there are only ints in the file
+                )
+            data = data[data[att] == value]
+            return set(data[self._body_id].astype(int).values)
+        
+        if attribute in ['nt_type', 'nt_proba', 'neuropil']:
+            filename = self._node_nt_type_file
+            valid_nodes = _simply_filter_df(filename, att, value)
+        elif attribute in ['length', 'area', 'size']:
+            filename = self._node_stats_file
+            valid_nodes = _simply_filter_df(filename, att, value)
+        elif attribute == 'position':
+            filename = self._node_position_file
+            valid_nodes = _simply_filter_df(filename, att, value)
+        else:
+            filename = self._node_class_file
+            if attribute == 'class_1':
+                # need to check both the generic and the specific names
+                global_match = _simply_filter_df(filename, att, value)
+                specific_match = _simply_filter_df(
+                    filename,
+                    att,
+                    self.specific_neuron_class(value)
+                )
+                valid_nodes = global_match.union(specific_match)
+            else:
+                valid_nodes = _simply_filter_df(filename, att, value)
+
+        return valid_nodes
+
     # public methods
-    # --- additions
     def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
         """
         Load the synapse ids for the neuron.
-        should define the columns ['synapse_id','start_bid','end_bid']
+        should define the columns 
+        ['synapse_id','start_bid','end_bid', 'X', 'Y', 'Z']
         """
-        raise NotImplementedError('Method not implemented yet on FAFB.')
-    
-    def get_synapse_locations(self, synapse_ids: list[int]) -> pd.DataFrame:
-        """
-        Get the locations of the synapses.
-        """
-        raise NotImplementedError('Method not implemented yet on FAFB.')
+        type_dict = { # the rootids are so long that they are corrupted upon reading
+            # need to first read them as a string before converting to int
+            'pre_root_id':str, 'post_root_id':str,'x':int,'y':int,'z':int
+            }
+        all_synapses = pd.read_csv(self._synapses_file, dtype=type_dict)
+        all_synapses.columns = ['start_bid', 'end_bid', 'X', 'Y', 'Z']
+        all_synapses.ffill(inplace=True) # fill the NaNs with the previous value
+        all_synapses['synapse_id'] = all_synapses.index # do before filtering for potential comparison accross bodyids
+        all_synapses = all_synapses.astype({'start_bid':int, 'end_bid':int})
+
+        # filter for the synapses of the neuron
+        synapses = all_synapses[
+            all_synapses['start_bid'] == body_id
+        ]
+        return synapses
 
     def get_synapse_neuropil(self, synapse_ids: list[int]) -> pd.DataFrame:
-        raise NotImplementedError('Method not implemented yet on FAFB.')
+        raise NotImplementedError(
+            'No trivial match in FAFB between coordinates and neuropil...\
+            You can try to circumvent with the number of synapses in a neuropil for a given neuron.\
+            For that, load "neuropil_synapse_table.csv"'
+            )
     
     def sna(
             self,
@@ -1161,6 +1372,48 @@ class FAFB(ConnectomeReader):
             "neuropil", "hemilineage", "size", "nerve", "area", "length", "flow"
         ]
         return all_attr
+
+    def list_all_nodes(self) -> list[BodyId]:
+        """
+        List all the neurons existing in the connectome.
+        """
+        data = pd.read_csv(
+            self._node_stats_file,
+            usecols=[self._body_id],
+            dtype={self._body_id: str} # in case there are only ints in the file
+            )
+        return list(data[self._body_id].astype(int).values)
+
+    def get_neuron_bodyids(
+        self,
+        selection_dict: Optional[SelectionDict] = None,
+        nodes: Optional[list[BodyId] | list[int]] = None,
+    ) -> list[BodyId]:
+        """
+        Get the Ids of the neurons in the dataset.
+        Select (keep) according to the selection_dict.
+        Different criteria are treated as 'and' conditions.
+
+        For the specific case of "class_1" that refers to the NeuronClass,
+        we need to verify both the generic and the specific names.
+        """
+
+        # Treat each attribute in the selection dict independently:
+        # get the nodes that satisfy each condition, and return the intersection of all
+        if nodes is not None:
+            valid_nodes = set(nodes)
+        else:
+            valid_nodes = set(self.list_all_nodes())
+        for key, value in selection_dict.items():
+            specific_valid_nodes = self.__filter_neurons(
+                attribute=key,
+                value=value,
+                )
+            valid_nodes = valid_nodes.intersection(specific_valid_nodes)
+
+        return list(valid_nodes)
+            
+
 
 # Specific versions of FAFB
 class FAFB_v630(FAFB, connectome_version='v630'):

@@ -77,6 +77,7 @@ class Connections:
     def __init__(
         self,
         from_file: str,
+        CR: ConnectomeReader = MANC('v1.0'),
     ): ...
     @typing.overload
     def __init__(
@@ -108,17 +109,12 @@ class Connections:
 
         If not used as a standalone class, the initialize() method should be called after instantiation.
         """
-
+        self.CR = CR
         # load data
         if from_file is not None:
             self.__load(from_file)
         else:
             # Connectome reader dependent
-            self.CR = CR
-            self._body_id_name = self.CR.sna('body_id')
-            self._start_bid_name = self.CR.sna('start_bid')
-            self._end_bid_name = self.CR.sna('end_bid')
-            self._syn_count_name = self.CR.sna('syn_count')
             self.keep_only_traced_neurons = keep_only_traced_neurons
 
             # Neurons used in the connections
@@ -130,7 +126,6 @@ class Connections:
                 self.neurons_post = self.neurons_pre
             else:
                 self.neurons_post = neurons_post
-            self.nt_weights = nt_weights
             self.subgraphs = {}
 
             self.__initialize(split_neurons, not_connected)
@@ -166,7 +161,10 @@ class Connections:
         """
         Import the object from a pickle file.
         """
-        filename = os.path.join(params.CONNECTION_DIR, name + ".txt")
+        filename = os.path.join(
+            self.CR.get_connections_save_dir(),
+            name + ".txt"
+            )
         with open(filename, "rb") as file:
             neuron = pickle.load(file)
         self.__dict__.update(neuron)
@@ -178,7 +176,6 @@ class Connections:
         by the NeuronAtrribute type.
         """
         connections_ = self.CR.get_connections(
-            columns = ['start_bid', 'syn_count', 'end_bid'],
             keep_only_traced_neurons = self.keep_only_traced_neurons,
             )
         # filter out only the connections relevant here
@@ -193,22 +190,8 @@ class Connections:
         # add relevant information for the processing steps
 
         ## add the neurotransmitter type to the connections
-        nttypes = self.CR.load_data_neuron_set(
-            self.neurons_pre,
-            ['nt_type'],
-        )
-        connections_ = pd.merge(
-            connections_,
-            nttypes,
-            left_on='start_bid',
-            right_on='body_id',
-            how="left",
-            suffixes=("", ""),
-        )
-
-        connections_ = connections_.drop(columns=['body_id'])
         weight_vec = np.array(
-            [self.nt_weights[x] for x in connections_['nt_type']]
+            [self.CR.nt_weights[x] for x in connections_['nt_type']]
         )
         connections_["eff_weight"] = connections_["syn_count"] * weight_vec
 
@@ -415,8 +398,6 @@ class Connections:
         Map the tuples (bodyId, subdivision) to a unique identifier (uid) number that will
         be used to reference the newly defined neurons, e.g. as graph node ids.
         """
-        # reference all unique tuples in (":START_ID(Body-ID)", "subdivision_start")
-        # and (":END_ID(Body-ID)", "subdivision_end") from the self.connections dataframe
         unique_objects = list(
             set(
                 zip(

@@ -41,14 +41,6 @@ FIG_DIR = os.path.join(Path(__file__).absolute().parent.parent, "figures")
 os.makedirs(FIG_DIR, exist_ok=True)
 
 # --- Parameters for the analysis --- #
-NT_WEIGHTS = {
-    "acetylcholine": +1,
-    "gaba": -1,
-    "glutamate": -1,
-    "unknown": 0,
-    None: 0,
-    np.nan: 0,
-}
 # nb: GLUT being inhibitory is still unclear, you can change it here before
 # running the data preparation
 SYNAPSE_CUTOFF = 5  # number of synapses to consider a connection
