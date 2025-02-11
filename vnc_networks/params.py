@@ -147,15 +147,15 @@ NeuronClass = typing.Literal[
     "central",
     "endocrine",
     "optic",
-    "visual centrifugal",
-    "visual projection",
+    "visual_centrifugal",
+    "visual_projection",
     "other",
     # VNC specific
     "intrinsic",
     "glia",
-    "sensory ascending",
+    "sensory_ascending",
     "efferent",
-    "efferent ascending",
+    "efferent_ascending",
     "unknown",
     "sensory_unknown",
     "interneuron_unknown",
@@ -169,8 +169,14 @@ SelectionDict = dict[NeuronAttribute, str | int | float | bool | BodyId]
 # --- Parameters for the network representation --- #
 NT_TYPES = {
     "gaba": {"color": INHIB_COLOR, "linestyle": "-"},  # ":"
+    "GABA": {"color": INHIB_COLOR, "linestyle": "-"},  # ":"
     "acetylcholine": {"color": EXCIT_COLOR, "linestyle": "-"},  # "--"
+    "ACH": {"color": EXCIT_COLOR, "linestyle": "-"},  # "--"
     "glutamate": {"color": GLUT_COLOR, "linestyle": "-"},
+    "GLUT": {"color": GLUT_COLOR, "linestyle": "-"},
+    "DA": {"color": LIGHTGREY, "linestyle": "-"},
+    "OCT": {"color": LIGHTGREY, "linestyle": "-"},
+    "SER": {"color": LIGHTGREY, "linestyle": "-"},
     "unknown": {"color": LIGHTGREY, "linestyle": "-"},
     None: {"color": LIGHTGREY, "linestyle": "-"},
     np.nan: {"color": LIGHTGREY, "linestyle": "-"},

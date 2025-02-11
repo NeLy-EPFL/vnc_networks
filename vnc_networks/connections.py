@@ -85,7 +85,7 @@ class Connections:
         CR: ConnectomeReader = MANC('v1.0'),
         neurons_pre: Optional[list[int] | list[BodyId]] = None,
         neurons_post: Optional[list[int] | list[BodyId]] = None,
-        nt_weights: Mapping[str, int] = params.NT_WEIGHTS,
+        nt_weights: Optional[Mapping[str, int]] = None,
         split_neurons: Optional[list[Neuron]] = None,
         not_connected: Optional[list[BodyId] | list[int]] = None,
         keep_only_traced_neurons: bool = True,
@@ -97,7 +97,7 @@ class Connections:
         from_file: Optional[str] = None,
         neurons_pre: Optional[list[int] | list[BodyId]] = None,
         neurons_post: Optional[list[int] | list[BodyId]] = None,
-        nt_weights: Mapping[str, int] = params.NT_WEIGHTS,
+        nt_weights: Optional[Mapping[str, int]] = None,
         split_neurons: Optional[list[Neuron]] = None,
         not_connected: Optional[list[BodyId] | list[int]] = None,
         keep_only_traced_neurons: bool = True,
@@ -110,6 +110,10 @@ class Connections:
         If not used as a standalone class, the initialize() method should be called after instantiation.
         """
         self.CR = CR
+        if nt_weights is None: # possible to overwrite the default values
+            self.nt_weights = CR.nt_weights
+        else:
+            self.nt_weights = nt_weights
         # load data
         if from_file is not None:
             self.__load(from_file)
@@ -191,7 +195,7 @@ class Connections:
 
         ## add the neurotransmitter type to the connections
         weight_vec = np.array(
-            [self.CR.nt_weights[x] for x in connections_['nt_type']]
+            [self.nt_weights[x] for x in connections_['nt_type']]
         )
         connections_["eff_weight"] = connections_["syn_count"] * weight_vec
 
