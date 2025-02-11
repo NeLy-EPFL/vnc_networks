@@ -20,7 +20,7 @@ dependencies = [
   "numpy",
   "seaborn",
   "scipy",
-  "matplotlib",
+  "matplotlib < 3.9",
   "matplotlib-venn",
   "scikit-learn",
   "networkx",

@@ -87,7 +87,10 @@ class Neuron:
         """
         Initialise the neuron from a file.
         """
-        with open(os.path.join(params.NEURON_DIR, name + ".txt"), "rb") as file:
+        with open(
+            os.path.join(self.CR.get_neuron_save_dir(), name + ".txt"),
+            "rb"
+            ) as file:
             neuron = pickle.load(file)
         self.__dict__.update(neuron)
 
@@ -104,36 +107,13 @@ class Neuron:
 
     def __load_synapse_ids(self):
         # Independently of the file structure, we should get a pd.dataframe
-        # with columns ['synapse_id', 'start_bid', 'end_bid']
+        # with columns 
+        # ['synapse_id', 'start_bid', 'end_bid', 'X', 'Y', 'Z']
         
         if 'synapse_df' in self.__dict__: # already done
             return
         
         self.synapse_df = self.CR.get_synapse_df(self.body_id)
-
-    def __load_synapse_locations(self):
-        """
-        Add three columns: 'X', 'Y' and 'Z' to the synapse df.
-
-        Parameters
-        ----------
-        subset : list, optional
-            The subset of synapse ids to convert.
-            The default is None, which converts all synapse ids.
-        """
-        if 'synapse_df' not in self.__dict__:
-            self.__load_synapse_ids()
-
-        if "location" in self.synapse_df.columns:  # already done
-            return
-        
-        data = self.CR.get_synapse_locations(self.synapse_df["synapse_id"].values)
-
-        # merge with existing synapse df
-        self.synapse_df = self.synapse_df.merge(
-            data, on="synapse_id", how="inner"
-        )
-        return
 
     def __categorical_neuropil_information(self):
         """
@@ -184,7 +164,6 @@ class Neuron:
         """
         # check if the synapse df is loaded
         self.__load_synapse_ids()
-        self.__load_synapse_locations()
 
         # threshold if for a given neuron, the number of synapses is below the threshold
         if threshold:
@@ -412,7 +391,7 @@ class Neuron:
             )
         if savefig:
             name = os.path.join(
-                params.PLOT_DIR,
+                self.CR.get_plots_dir(),
                 f"synapse_distribution_{self.body_id}_color_by_{color_by}.pdf",
                 )
             plt.savefig(
@@ -430,7 +409,7 @@ class Neuron:
         name : str
             The name of the file to save to.
         """
-        with open(os.path.join(params.NEURON_DIR, name + ".txt"), "wb") as file:
+        with open(os.path.join(self.CR.get_neuron_save_dir(), name + ".txt"), "wb") as file:
             pickle.dump(self.__dict__, file)
 
 
