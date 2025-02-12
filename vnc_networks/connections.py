@@ -77,6 +77,7 @@ class Connections:
     def __init__(
         self,
         from_file: str,
+        CR: ConnectomeReader = MANC('v1.0'),
     ): ...
     @typing.overload
     def __init__(
@@ -84,7 +85,7 @@ class Connections:
         CR: ConnectomeReader = MANC('v1.0'),
         neurons_pre: Optional[list[int] | list[BodyId]] = None,
         neurons_post: Optional[list[int] | list[BodyId]] = None,
-        nt_weights: Mapping[str, int] = params.NT_WEIGHTS,
+        nt_weights: Optional[Mapping[str, int]] = None,
         split_neurons: Optional[list[Neuron]] = None,
         not_connected: Optional[list[BodyId] | list[int]] = None,
         keep_only_traced_neurons: bool = True,
@@ -96,7 +97,7 @@ class Connections:
         from_file: Optional[str] = None,
         neurons_pre: Optional[list[int] | list[BodyId]] = None,
         neurons_post: Optional[list[int] | list[BodyId]] = None,
-        nt_weights: Mapping[str, int] = params.NT_WEIGHTS,
+        nt_weights: Optional[Mapping[str, int]] = None,
         split_neurons: Optional[list[Neuron]] = None,
         not_connected: Optional[list[BodyId] | list[int]] = None,
         keep_only_traced_neurons: bool = True,
@@ -108,17 +109,16 @@ class Connections:
 
         If not used as a standalone class, the initialize() method should be called after instantiation.
         """
-
+        self.CR = CR
+        if nt_weights is None: # possible to overwrite the default values
+            self.nt_weights = CR.nt_weights
+        else:
+            self.nt_weights = nt_weights
         # load data
         if from_file is not None:
             self.__load(from_file)
         else:
             # Connectome reader dependent
-            self.CR = CR
-            self._body_id_name = self.CR.sna('body_id')
-            self._start_bid_name = self.CR.sna('start_bid')
-            self._end_bid_name = self.CR.sna('end_bid')
-            self._syn_count_name = self.CR.sna('syn_count')
             self.keep_only_traced_neurons = keep_only_traced_neurons
 
             # Neurons used in the connections
@@ -130,7 +130,6 @@ class Connections:
                 self.neurons_post = self.neurons_pre
             else:
                 self.neurons_post = neurons_post
-            self.nt_weights = nt_weights
             self.subgraphs = {}
 
             self.__initialize(split_neurons, not_connected)
@@ -166,7 +165,10 @@ class Connections:
         """
         Import the object from a pickle file.
         """
-        filename = os.path.join(params.CONNECTION_DIR, name + ".txt")
+        filename = os.path.join(
+            self.CR.get_connections_save_dir(),
+            name + ".txt"
+            )
         with open(filename, "rb") as file:
             neuron = pickle.load(file)
         self.__dict__.update(neuron)
@@ -178,7 +180,6 @@ class Connections:
         by the NeuronAtrribute type.
         """
         connections_ = self.CR.get_connections(
-            columns = ['start_bid', 'syn_count', 'end_bid'],
             keep_only_traced_neurons = self.keep_only_traced_neurons,
             )
         # filter out only the connections relevant here
@@ -193,20 +194,6 @@ class Connections:
         # add relevant information for the processing steps
 
         ## add the neurotransmitter type to the connections
-        nttypes = self.CR.load_data_neuron_set(
-            self.neurons_pre,
-            ['nt_type'],
-        )
-        connections_ = pd.merge(
-            connections_,
-            nttypes,
-            left_on='start_bid',
-            right_on='body_id',
-            how="left",
-            suffixes=("", ""),
-        )
-
-        connections_ = connections_.drop(columns=['body_id'])
         weight_vec = np.array(
             [self.nt_weights[x] for x in connections_['nt_type']]
         )
@@ -415,8 +402,6 @@ class Connections:
         Map the tuples (bodyId, subdivision) to a unique identifier (uid) number that will
         be used to reference the newly defined neurons, e.g. as graph node ids.
         """
-        # reference all unique tuples in (":START_ID(Body-ID)", "subdivision_start")
-        # and (":END_ID(Body-ID)", "subdivision_end") from the self.connections dataframe
         unique_objects = list(
             set(
                 zip(
@@ -1032,7 +1017,9 @@ class Connections:
         By default, the normalized adjacency matrix is used.
         """
         return cmatrix.CMatrix(
-            self.get_adjacency_matrix(type_=type_), self.get_lookup()
+            self.get_adjacency_matrix(type_=type_),
+            self.get_lookup(),
+            CR = self.CR,
         )
 
     def get_lookup(self):
@@ -1576,7 +1563,9 @@ class Connections:
                     f"Class Connections::: > display_adjacency_matrix(): Unknown method {method}"
                 )
 
-        plt.savefig(os.path.join(params.PLOT_DIR, title + "_matrix.pdf"))
+        plt.savefig(
+            os.path.join(self.CR.get_plots_dir(), title + "_matrix.pdf")
+            )
         return
 
     @typing.overload
@@ -1657,7 +1646,9 @@ class Connections:
         )
         ax.set_title(title)
         if save:
-            plt.savefig(os.path.join(params.PLOT_DIR, title + "_graph.pdf"))
+            plt.savefig(
+                os.path.join(self.CR.get_plots_dir(), title + "_graph.pdf")
+                )
         if return_pos:
             return ax, pos
         return ax
@@ -1732,7 +1723,9 @@ class Connections:
                 attribute,
             )
         if save:
-            plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.pdf"))
+            plt.savefig(
+                os.path.join(self.CR.get_plots_dir(), title + "_sorted_graph.pdf")
+                )
             return ax
 
     def plot_xyz(
@@ -1788,7 +1781,9 @@ class Connections:
             # draw the plot
             _ = nx_design.plot_xyz(graph_, x, y, sorting=sorting)
         # save the plot
-        plt.savefig(os.path.join(params.PLOT_DIR, title + "3d_plot.pdf"))
+        plt.savefig(
+            os.path.join(self.CR.get_plots_dir(), title + "3d_plot.pdf")
+            )
         return
 
     def draw_3d_custom_axis(
@@ -1827,7 +1822,7 @@ class Connections:
             y,
             sorting=[x_sorting, y_sorting, z_sorting],
         )
-        plt.savefig(os.path.join(params.PLOT_DIR, title + "3dx_plot.pdf"))
+        plt.savefig(os.path.join(self.CR.get_plots_dir(), title + "3dx_plot.pdf"))
 
     @typing.overload
     def draw_graph_concentric_by_attribute(
@@ -1894,7 +1889,7 @@ class Connections:
         )
         ax.set_title(title)
         if save:
-            plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.pdf"))
+            plt.savefig(os.path.join(self.CR.get_plots_dir(), title + "_sorted_graph.pdf"))
         if return_pos:
             return ax, pos
         return ax
@@ -1955,7 +1950,7 @@ class Connections:
         )
         ax.set_title(title)
         if save:
-            plt.savefig(os.path.join(params.PLOT_DIR, title + "_sorted_graph.pdf"))
+            plt.savefig(os.path.join(self.CR.get_plots_dir(), title + "_sorted_graph.pdf"))
         if return_pos:
             return ax, pos
         return ax
@@ -2053,7 +2048,7 @@ class Connections:
         """
         Save the connections object to a pickle file.
         """
-        filename = os.path.join(params.CONNECTION_DIR, name + ".txt")
+        filename = os.path.join(self.CR.get_connections_save_dir(), name + ".txt")
         with open(filename, "wb") as f:
             pickle.dump(self.__dict__, f)
 
