@@ -11,6 +11,7 @@ External access to nodes should be done through their body ids, which are unique
 The lookup table is used to convert between body ids and matrix indices. This
 conversion is kept internally to the class.
 """
+
 import copy
 import os
 import typing
@@ -33,7 +34,6 @@ from .utils import matrix_design, matrix_utils
 
 
 class CMatrix:
-
     def __deepcopy__(self, memo):
         """
         Deepcopy the cmatrix.
@@ -47,14 +47,14 @@ class CMatrix:
                 setattr(new_instance, k, v)
             else:
                 setattr(new_instance, k, copy.deepcopy(v, memo))
-        
+
         return new_instance
 
     def __init__(
         self,
         matrix: sc.sparse.csr_matrix,
         lookup: pd.DataFrame,
-        CR: ConnectomeReader = MANC('v1.0'),
+        CR: ConnectomeReader = MANC("v1.0"),
     ):
         """
         Initialises the cmatrix class, standing for connectome matrix.
@@ -92,7 +92,7 @@ class CMatrix:
             raise ValueError(
                 "The lookup must include column indices up to the length of the matrix."
             )
-        
+
         self.CR = CR
 
     # private methods
@@ -140,10 +140,10 @@ class CMatrix:
         return
 
     def __restrict_row_indices(
-            self,
-            indices: list,
-            allow_empty: bool = True,
-        ):
+        self,
+        indices: list,
+        allow_empty: bool = True,
+    ):
         """
         Restricts the adjacency matrix to a subset of indices.
 
@@ -339,15 +339,17 @@ class CMatrix:
         """
         if len(order) != self.matrix.shape[0]:
             raise ValueError("The order must have the same length as the matrix.")
-        
+
         lookup = self.get_lookup().copy()
+
         def __mapping(_x: int, _order: list[int]):
             if _x in _order:
                 return _order.index(_x)
             return np.nan
+
         # sort the column 'row_index' according to the order
         old_order = lookup["row_index"].tolist()
-        lookup["row_index"] = [__mapping(x,order) for x in old_order]
+        lookup["row_index"] = [__mapping(x, order) for x in old_order]
         self.lookup = lookup
         return
 
@@ -358,15 +360,17 @@ class CMatrix:
         """
         if len(order) != self.matrix.shape[1]:
             raise ValueError("The order must have the same length as the matrix.")
-        
+
         lookup = self.get_lookup().copy()
+
         def __mapping(_x: int, _order: list[int]):
             if _x in _order:
                 return _order.index(_x)
             return np.nan
+
         # sort he column 'column_index' according to the order
         old_order = lookup["column_index"].tolist()
-        lookup["column_index"] = [__mapping(x,order) for x in old_order]
+        lookup["column_index"] = [__mapping(x, order) for x in old_order]
         self.lookup = lookup
         return
 
@@ -567,11 +571,11 @@ class CMatrix:
         # restrict the data to the indices
         self.__restrict_row_indices(row_indices)
         self.__restrict_column_indices(column_indices)
-        
+
         # reorder the matrix and lookup if necessary
         if not keep_initial_order:
             # Get the updated indices
-            row_indices = self.get_row_indices( #
+            row_indices = self.get_row_indices(  #
                 row_ids, allow_empty=allow_empty, input_type=input_type
             )
             column_indices = self.get_column_indices(
@@ -586,7 +590,12 @@ class CMatrix:
 
         return
 
-    def restrict_nodes(self, nodes: list[UID], allow_empty: bool = True):
+    def restrict_nodes(
+        self,
+        nodes: list[UID],
+        allow_empty: bool = True,
+        keep_initial_order: bool = True,
+    ):
         """
         Restricts the adjacency matrix to a subset of nodes (uids).
 
@@ -600,7 +609,11 @@ class CMatrix:
         """
         # restrict the matrix amd lookup to the indices
         self.restrict_from_to(
-            row_ids=nodes, column_ids=nodes, allow_empty=allow_empty, input_type="uid"
+            row_ids=nodes,
+            column_ids=nodes,
+            allow_empty=allow_empty,
+            input_type="uid",
+            keep_initial_order=keep_initial_order,
         )
         return
 
@@ -711,7 +724,7 @@ class CMatrix:
         Clusters the adjacency matrix using hierarchical clustering.
         Here the clustering problem is seen as a representation of vector n in
         feature space m. Therefore similar connections to similar neurons
-        yields a small effective distance and therefore clusering. 
+        yields a small effective distance and therefore clusering.
         If applied to distance/similarity matrix, use the similarity
         representation of the matrix given the input type.
         """
@@ -723,7 +736,7 @@ class CMatrix:
 
         # Compute the clusters
         labels = sch.fcluster(Z, t=cutoff, criterion="distance")
-        clusters = defaultdict(list) # Group points by their cluster labels
+        clusters = defaultdict(list)  # Group points by their cluster labels
         for idx, label in enumerate(labels):
             clusters[label].append(idx)
         clusters = list(clusters.values())
@@ -838,10 +851,10 @@ class CMatrix:
         return upstream_uids
 
     def list_neurons_upstream_set(
-            self,
-            uids: list[UID],
-            ratio: float = 0.5,
-        ) -> list[UID]:
+        self,
+        uids: list[UID],
+        ratio: float = 0.5,
+    ) -> list[UID]:
         """
         List all the neurons that are upstream of {ratio}% of the input neurons.
         Useful to find neurons that frequently input to a group for instance.
@@ -931,7 +944,7 @@ class CMatrix:
         ] = "cosine",
         method: typing.Literal[
             "hierarchical", "markov", "hierarchical_linkage", "DBSCAN"
-            ] = "markov",
+        ] = "markov",
         cutoff: float = 0.5,
         cluster_size_cutoff: int = 2,
         show_plot: bool = False,
@@ -991,14 +1004,14 @@ class CMatrix:
                 # convert distance to similarity
                 dense_ = new_cmatrix.matrix.todense()
                 dense_ = 1 - dense_
-                new_cmatrix.matrix = sc.sparse.csr_matrix(dense_)  
+                new_cmatrix.matrix = sc.sparse.csr_matrix(dense_)
                 clusters = new_cmatrix.markov_clustering()
             case "hierarchical":
                 # convert distance to similarity
                 dense_ = new_cmatrix.matrix.todense()
                 dense_ = 1 - dense_
                 new_cmatrix.matrix = sc.sparse.csr_matrix(dense_)
-                # hierarchical clustering, returns the clusters obtained by 
+                # hierarchical clustering, returns the clusters obtained by
                 # scanning the sorted matrix for the cutoff value
                 _ = new_cmatrix.hierarchical_clustering()
                 # detect the clusters
@@ -1011,7 +1024,9 @@ class CMatrix:
                     average_similarity = np.mean(clustered_mat[i, start_cluster:i])
                     if average_similarity < cutoff:
                         new_cluster = list(
-                            np.linspace(start_cluster, i - 1, i - start_cluster, dtype=int)
+                            np.linspace(
+                                start_cluster, i - 1, i - start_cluster, dtype=int
+                            )
                         )
                         if len(new_cluster) >= cluster_size_cutoff:
                             clusters.append(new_cluster)
@@ -1030,16 +1045,16 @@ class CMatrix:
                 # works on the distance matrix, not similarity
                 # density-based clustering
                 # Apply DBSCAN clustering
-                db = DBSCAN(metric='precomputed', eps=cutoff, min_samples=2)
+                db = DBSCAN(metric="precomputed", eps=cutoff, min_samples=2)
                 distance_matrix = np.array(new_cmatrix.get_matrix().todense())
                 labels = db.fit_predict(distance_matrix)
-                
+
                 # Group points by their cluster labels
                 clusters = defaultdict(list)
                 for idx, label in enumerate(labels):
                     if label != -1:  # Ignore noise points
                         clusters[label].append(idx)
-                
+
                 # Convert to list of lists
                 clusters = list(clusters.values())
             case _:
@@ -1078,10 +1093,7 @@ class CMatrix:
                 mat[cluster[0] : cluster[-1] + 1, cluster[0] : cluster[-1] + 1] = 1
             ax, title = new_cmatrix.imshow(savefig=False)
             ax.imshow(mat, cmap="binary", alpha=0.3)
-            full_title = os.path.join(
-                self.CR.get_plots_dir(),
-                title
-            )
+            full_title = os.path.join(self.CR.get_plots_dir(), title)
             plt.savefig(full_title)
             plt.close()
 
@@ -1089,11 +1101,11 @@ class CMatrix:
 
     # --- visualisation
     def spy(
-            self,
-            title: str = "test",
-            ax: matplotlib.axes.Axes | None = None,
-            savefig: bool = False,
-        ):
+        self,
+        title: str = "test",
+        ax: matplotlib.axes.Axes | None = None,
+        savefig: bool = False,
+    ):
         """
         Visualises the sparsity pattern of the adjacency matrix.
 
@@ -1165,7 +1177,7 @@ class CMatrix:
             _, ax = plt.subplots(1, 1, figsize=params.FIGSIZE)
         mat = self.get_matrix()
         if snippet_up_to is not None:
-            mat = mat[:snippet_up_to,:][:, :snippet_up_to]
+            mat = mat[:snippet_up_to, :][:, :snippet_up_to]
         ax = matrix_design.imshow(
             mat,
             title=title,
