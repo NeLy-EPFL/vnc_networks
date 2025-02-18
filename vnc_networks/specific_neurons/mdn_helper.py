@@ -16,7 +16,8 @@ from ..neuron import Neuron
 from ..params import BodyId
 
 FOLDER_NAME = "MDN_specific"
-FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)
+FIG_DIR = MANC('v1.0').get_fig_dir()
+FOLDER = os.path.join(FIG_DIR, FOLDER_NAME)
 os.makedirs(FOLDER, exist_ok=True)
 
 
@@ -130,7 +131,7 @@ def get_vnc_split_MDNs_by_neuropil(
 
 def mdn_synapse_distribution(
         n_clusters: int = 3,
-        CR: ConnectomeReader = ConnectomeReader('v1.0', 'MANC')
+        CR: ConnectomeReader = MANC('v1.0')
         ):
     """
     show for each MDN the distribution of synapses in the neuropils.
@@ -193,7 +194,7 @@ def mdn_synapse_distribution(
 
 def get_connectome_with_MDN_t3_branches(
         n_clusters: int = 3,
-        CR: ConnectomeReader = ConnectomeReader('v1.0', 'MANC')
+        CR: ConnectomeReader = MANC('v1.0')
         ):
     """
     Build the connectome with the T3 neuropil branches of MDN split.

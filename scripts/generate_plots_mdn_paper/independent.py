@@ -17,13 +17,15 @@ from tqdm import tqdm
 
 from vnc_networks import NeuronAttribute, params
 from vnc_networks.connections import Connections
+from vnc_networks.connectome_reader import MANC
 from vnc_networks.neuron import Neuron
 from vnc_networks.specific_neurons import mdn_helper
 from vnc_networks.specific_neurons import motor_neurons_helper as mns_helper
 from vnc_networks.utils import matrix_design, plots_design
 
-FOLDER_NAME = "Figure_1_independent"
-FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)
+FOLDER_NAME = os.path.join("MDN_specific","Independent_circuits")
+FIG_DIR = MANC('v1.0').get_fig_dir()
+FOLDER = os.path.join(FIG_DIR, FOLDER_NAME)
 os.makedirs(FOLDER, exist_ok=True)
 
 

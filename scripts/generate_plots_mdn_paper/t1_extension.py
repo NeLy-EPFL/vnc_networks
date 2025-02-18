@@ -10,10 +10,11 @@ import os
 import matplotlib.pyplot as plt
 import mdn_paper_helper_functions as paper_funcs
 
-from vnc_networks import params
+from vnc_networks.connectome_reader import MANC
 
-FOLDER_NAME = "Figure_3_t1_extension"
-FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)
+FOLDER_NAME = os.path.join("MDN_specific","T1_extension")
+FIG_DIR = MANC('v1.0').get_fig_dir()
+FOLDER = os.path.join(FIG_DIR, FOLDER_NAME)
 os.makedirs(FOLDER, exist_ok=True)
 
 # -------------------------- Helper functions -------------------------- #

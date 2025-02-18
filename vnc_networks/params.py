@@ -14,7 +14,10 @@ import seaborn as sns
 
 # --- Where to find the raw data sets --- #
 # Need to add the raw data dumps manually given the file sizes
-RAW_DATA_DIR = os.path.join(Path(__file__).absolute().parent.parent, "data_dump")
+RAW_DATA_DIR = '/home/hurtak/multi_connectomes/vnc_networks/data_dump'
+# tmp fix when using as an external package
+
+#RAW_DATA_DIR = os.path.join(Path(__file__).absolute().parent.parent, "data_dump")
 os.makedirs(RAW_DATA_DIR, exist_ok=True)
 
 # --- Where to save the preprocessed data sets --- #
@@ -103,6 +106,7 @@ UID = typing.NewType("UID", int)
 
 NeuronAttribute = typing.Literal[
     "body_id", # common to all
+    "synapse_id",
     # connectivity
     "syn_count",
     "nb_pre_synapses",
@@ -127,7 +131,8 @@ NeuronAttribute = typing.Literal[
     "size", # common to all
     "area",
     "length",
-    "position",
+    "position", # for neurons
+    "location", # for synapses
     # genetics
     "hemilineage", # common to all
     # tracing related
