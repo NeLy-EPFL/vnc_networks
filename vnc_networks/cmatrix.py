@@ -766,7 +766,7 @@ class CMatrix:
         clusters : list
             The list of clusters detected in the matrix.
         """
-        matrix = np.array(self.get_matrix().todense())
+        matrix = self.get_matrix()
         clusters = matrix_utils.markov_clustering(
             matrix, inflation=inflation, iterations=iterations
         )
@@ -774,7 +774,12 @@ class CMatrix:
         self.matrix = self.get_matrix()[new_order, :][:, new_order]
         self.__reorder_row_indexing(new_order)
         self.__reorder_column_indexing(new_order)
-        return clusters
+
+        # update the indexing
+        mapping = {new_order[i]: i for i in range(len(new_order))}
+        # apply the mapping to clusters
+        updated_clusters = [[mapping[i] for i in c] for c in clusters]
+        return updated_clusters
 
     def absolute(self):
         """
@@ -1005,7 +1010,8 @@ class CMatrix:
                 dense_ = new_cmatrix.matrix.todense()
                 dense_ = 1 - dense_
                 new_cmatrix.matrix = sc.sparse.csr_matrix(dense_)
-                clusters = new_cmatrix.markov_clustering()
+                all_clusters = new_cmatrix.markov_clustering()
+                clusters = [c for c in all_clusters if len(c) >= cluster_size_cutoff]
             case "hierarchical":
                 # convert distance to similarity
                 dense_ = new_cmatrix.matrix.todense()
