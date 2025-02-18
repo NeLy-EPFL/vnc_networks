@@ -183,6 +183,7 @@ class ConnectomeReader(ABC):
             "start_bid": self._start_bid,
             "end_bid": self._end_bid,
             "syn_count": self._syn_count,
+            "synapse_id": self._syn_id,
             # connectivity
             # function
             "nt_type": self._nt_type,
@@ -216,6 +217,7 @@ class ConnectomeReader(ABC):
             self._start_bid: "start_bid",
             self._end_bid: "end_bid",
             self._syn_count: "syn_count",
+            self._syn_id: "synapse_id",
             # connectivity
             # function
             self._nt_type: "nt_type",
@@ -387,6 +389,12 @@ class ConnectomeReader(ABC):
         """
         return self._neuron_save_dir
 
+    def get_fig_dir(self) -> str:
+        """
+        Returns the directory where figures are saved.
+        """
+        return self._plot_save_dir
+
     @staticmethod
     def node_base_attributes() -> list[NeuronAttribute]:
         """
@@ -483,7 +491,8 @@ class MANC(ConnectomeReader):
         self._neuropil = "somaNeuromere:string"
         self._hemilineage = "hemilineage:string"
         self._size = "size:long"
-        self._position = "position:point{srid:9157}"
+        self._position = "position:point{srid:9157}" # for neurons
+        self._location = "location:point{srid:9157}" # for synapses
         self._target = "target:string"
         # specific to MANC -> need to add to ::sna()
         self._type = "type:string"
@@ -634,8 +643,6 @@ class MANC(ConnectomeReader):
         self._sensory_unknown = "Sensory TBD"
         self._interneuron_unknown = "Interneuron TBD"
 
-
-
     def _load_specific_directories(self):
         """
         Need to define the directories that are common to all connectomes.
@@ -719,7 +726,7 @@ class MANC(ConnectomeReader):
             how="left",
             suffixes=("", ""),
         )
-        connections_ = connections_.drop(columns=['body_id'])
+        connections = connections.drop(columns=['body_id'])
 
         return connections
 
@@ -794,13 +801,13 @@ class MANC(ConnectomeReader):
         synapse_df["end_bid"] = synapse_df["synset_id"].apply(
             lambda x: int(x.split("_")[1])
         )  # body id of the postsynaptic neuron
-        synapse_df["position"] = synapse_df["synset_id"].apply(
+        synapse_df["location"] = synapse_df["synset_id"].apply(
             lambda x: x.split("_")[2]
         )  # pre or post
 
         # remove the synapses that belong to partner neurons
-        synapse_df = synapse_df[synapse_df["position"] == "pre"]
-        synapse_df.drop(columns=["position"], inplace=True)
+        synapse_df = synapse_df[synapse_df["location"] == "pre"]
+        synapse_df.drop(columns=["location"], inplace=True)
 
         # add a column with 'tracing_status' of the postsynaptic neuron if it exists
         if self.exists_tracing_status():
@@ -810,7 +817,13 @@ class MANC(ConnectomeReader):
             )
             read_columns = nodes_data.columns
             nodes_data.columns = [self.decode_neuron_attribute(c) for c in read_columns]
-            synapse_df = synapse_df.merge(nodes_data, on="end_bid", how="left")
+            synapse_df = synapse_df.merge(
+                nodes_data,
+                left_on="end_bid",
+                right_on="body_id",
+                how="left"
+                )
+            synapse_df.drop(columns=["body_id"], inplace=True)
             # remove the rows where the postsynaptic neuron is not traced
             synapse_df = synapse_df[synapse_df["tracing_status"] == self.traced_entry]
             synapse_df.drop(columns=["tracing_status"], inplace=True)
@@ -895,6 +908,7 @@ class MANC(ConnectomeReader):
                 "nb_post_synapses": self._nb_post_synapses,
                 "nb_pre_neurons": self._nb_pre_neurons,
                 "nb_post_neurons": self._nb_post_neurons,
+                "location": self._location, # synapse position
             }
             try:
                 converted_type = mapping.get(generic_n_a)
@@ -929,6 +943,7 @@ class MANC(ConnectomeReader):
                 self._nb_post_synapses: "nb_post_synapses",
                 self._nb_pre_neurons: "nb_pre_neurons",
                 self._nb_post_neurons: "nb_post_neurons",
+                self._location: "location", # synapse position
             }
             try:
                 converted_attr = mapping.get(specific_attribute)
@@ -1161,6 +1176,7 @@ class FAFB(ConnectomeReader):
         
         # common to all
         self._body_id = "root_id"
+        self._syn_id = "synapse_id"
         self._start_bid = "pre_root_id"
         self._end_bid = "post_root_id"
         self._syn_count = "syn_count"

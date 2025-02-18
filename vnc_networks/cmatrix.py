@@ -33,6 +33,23 @@ from .utils import matrix_design, matrix_utils
 
 
 class CMatrix:
+
+    def __deepcopy__(self, memo):
+        """
+        Deepcopy the cmatrix.
+        Only the CR is not deep copied, just referenced.
+        """
+        new_instance = self.__class__.__new__(self.__class__)
+        memo[id(self)] = new_instance
+
+        for k, v in self.__dict__.items():
+            if k == "CR":
+                setattr(new_instance, k, v)
+            else:
+                setattr(new_instance, k, copy.deepcopy(v, memo))
+        
+        return new_instance
+
     def __init__(
         self,
         matrix: sc.sparse.csr_matrix,

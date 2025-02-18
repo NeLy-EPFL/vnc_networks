@@ -13,22 +13,23 @@ import numpy as np
 import pandas as pd
 
 from vnc_networks import NeuronAttribute, params
+from vnc_networks.connectome_reader import MANC
 from vnc_networks.specific_neurons import mdn_helper
 from vnc_networks.specific_neurons import motor_neurons_helper as mns_helper
 from vnc_networks.utils import matrix_design, nx_design, nx_utils
 
-FOLDER_NAME = "Figure_5_t3_oscillations"
-FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)
+FOLDER_NAME = os.path.join("MDN_specific","T3_oscillations")
+FIG_DIR = MANC('v1.0').get_fig_dir()
+FOLDER = os.path.join(FIG_DIR, FOLDER_NAME)
 os.makedirs(FOLDER, exist_ok=True)
 
 
 # -------------------------- Helper functions -------------------------- #
 def get_length_n_t3_connections(n_hops: int = 2):
     # Loading the connectivity data
-    full_VNC = mdn_helper.get_vnc_split_MDNs_by_neuropil(
+    VNC = mdn_helper.get_vnc_split_MDNs_by_neuropil(
         not_connected=mdn_helper.get_mdn_bodyids()
     )
-    VNC = full_VNC.get_connections_with_only_traced_neurons()
     mdns = mdn_helper.get_subdivided_mdns(VNC, neuropil="hl", side="RHS")
     target_neurons = mns_helper.get_leg_motor_neurons(VNC, leg="h", side="RHS")
 
@@ -734,19 +735,19 @@ def compare_mn_clusters_control_vs_mdnl2():
 
 
 if __name__ == "__main__":
-    show_length2_t3()
-    hind_leg_muscles_graph(muscle_ = 'Tr flexor')
+    #show_length2_t3()
+    #hind_leg_muscles_graph(muscle_ = 'Tr flexor')
     cluster_file = cluster_t3_graph(n_hops=2) # to run only once
-    cluster_file = os.path.join(FOLDER, 'clusters.csv')
-    display_l2_t3_graph_with_clusters(cluster_file)
-    motor_neuron_clusters_file = display_l2_t3_to_motor_neuron_clusters(
-       cluster_file
-       )
-    motor_neuron_clusters_file = os.path.join(FOLDER, 'motor_clusters.csv')
-    intersection_upstream_motor_neuron_pools(motor_neuron_clusters_file)
-    t3_nttype_interneurons(nt_type='gaba', n_hops=2, min_degree=5)
-    focus_strongest_inhibitors_t3(min_degree=5)
-    focus_strongest_inhibitors_t3_effective(min_degree=5)
+    #cluster_file = os.path.join(FOLDER, 'clusters.csv')
+    #display_l2_t3_graph_with_clusters(cluster_file)
+    #motor_neuron_clusters_file = display_l2_t3_to_motor_neuron_clusters(
+    #   cluster_file
+    #   )
+    #motor_neuron_clusters_file = os.path.join(FOLDER, 'motor_clusters.csv')
+    #intersection_upstream_motor_neuron_pools(motor_neuron_clusters_file)
+    #t3_nttype_interneurons(nt_type='gaba', n_hops=2, min_degree=5)
+    #focus_strongest_inhibitors_t3(min_degree=5)
+    #focus_strongest_inhibitors_t3_effective(min_degree=5)
     #central_inhibitors = [267449,345370,291605,84314]
     #secondary_inhibitors = [123784,158676,229541,246719] # control 'motor primitive clusters'
     #focus_specific_neurons_effective(secondary_inhibitors)

@@ -30,10 +30,27 @@ from .utils import plots_design
 
 class Neuron:
 
+    def __deepcopy__(self, memo):
+        """
+        Deepcopy the neuron.
+        Only the CR is not deep copied, just referenced.
+        """
+        new_instance = self.__class__.__new__(self.__class__)
+        memo[id(self)] = new_instance
+
+        for k, v in self.__dict__.items():
+            if k == "CR":
+                setattr(new_instance, k, v)
+            else:
+                setattr(new_instance, k, copy.deepcopy(v, memo))
+        
+        return new_instance
+
     @typing.overload
     def __init__(
         self,
         from_file: str,
+        CR: ConnectomeReader = MANC('v1.0'),
     ):...
     @typing.overload
     def __init__(
@@ -67,6 +84,10 @@ class Neuron:
             The name of the file to load the neuron from.
             The default is None.
         """
+        self.CR = CR # will not be saved to file
+        self.connectome_name = CR.connectome_name
+        self.connectome_version = CR.connectome_version
+
         if from_file is not None:
             self.__load(from_file)
         else:
@@ -74,7 +95,6 @@ class Neuron:
                 body_id is not None
             ), "To initialise a `Neuron`, you must provide either a `body_id` or `from_file`, but both were None."
             self.body_id = body_id
-            self.CR = CR
             self.data = CR.load_data_neuron(body_id, CR.node_base_attributes())
             self.__initialise_base_attributes()
 
@@ -92,7 +112,12 @@ class Neuron:
             "rb"
             ) as file:
             neuron = pickle.load(file)
-        self.__dict__.update(neuron)
+        for key, value in neuron.items():
+            if key == "connectome_name":
+                assert value == self.CR.connectome_name, "file created with another connectome!"
+            if key == "connectome_version":
+                assert value == self.CR.connectome_version, "file created with another connectome version!"
+            setattr(self, key, value)
 
     def __initialise_base_attributes(self):
         self.nt_type = self.data['nt_type'].values[0]
@@ -409,8 +434,15 @@ class Neuron:
         name : str
             The name of the file to save to.
         """
-        with open(os.path.join(self.CR.get_neuron_save_dir(), name + ".txt"), "wb") as file:
-            pickle.dump(self.__dict__, file)
+        # save __dict__ except for the CR attribute
+        to_save = {key: value for key, value in self.__dict__.items() if key != "CR"}
+        with open(
+            os.path.join(self.CR.get_neuron_save_dir(), name + ".txt"),
+            "wb"
+            ) as file:
+            pickle.dump(to_save, file)
+            
+
 
 
 # --- helper functions
@@ -438,7 +470,6 @@ def split_neuron_by_neuropil(
     Saves the subdivisions in a new neuron to file, which can be loaded by its
     name.
     """
-    # TODO: update the saving and loading directory management as a function of CR
     name = "neuron-" + str(neuron_id) + "_neuropil-split"
     # check there are files starting with name
     #files = [f for f in os.listdir(params.NEURON_DIR) if f.startswith(name)]

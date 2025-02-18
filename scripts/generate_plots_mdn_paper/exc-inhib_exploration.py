@@ -22,12 +22,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from vnc_networks import params
+from vnc_networks.connectome_reader import MANC
 from vnc_networks.specific_neurons import all_neurons_helper, mdn_helper
 from vnc_networks.specific_neurons import motor_neurons_helper as mns_helper
 from vnc_networks.utils import matrix_design, matrix_utils
 
-FOLDER_NAME = "explo_exc-inhib"
-FOLDER = os.path.join(params.FIG_DIR, FOLDER_NAME)
+FOLDER_NAME = os.path.join("MDN_specific","Excitation-Inhibition")
+FIG_DIR = MANC('v1.0').get_fig_dir()
+FOLDER = os.path.join(FIG_DIR, FOLDER_NAME)
 os.makedirs(FOLDER, exist_ok=True)
 
 

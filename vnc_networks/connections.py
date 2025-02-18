@@ -77,6 +77,7 @@ class Connections:
     def __init__(
         self,
         from_file: str,
+        path: Optional[str] = None,
         CR: ConnectomeReader = MANC('v1.0'),
     ): ...
     @typing.overload
@@ -95,6 +96,7 @@ class Connections:
         self,
         CR: ConnectomeReader = MANC('v1.0'),
         from_file: Optional[str] = None,
+        path: Optional[str] = None,
         neurons_pre: Optional[list[int] | list[BodyId]] = None,
         neurons_post: Optional[list[int] | list[BodyId]] = None,
         nt_weights: Optional[Mapping[str, int]] = None,
@@ -116,7 +118,7 @@ class Connections:
             self.nt_weights = nt_weights
         # load data
         if from_file is not None:
-            self.__load(from_file)
+            self.__load(from_file, path = path)
         else:
             # Connectome reader dependent
             self.keep_only_traced_neurons = keep_only_traced_neurons
@@ -161,17 +163,24 @@ class Connections:
         self.__build_adjacency_matrices()
         return
 
-    def __load(self, name: str):
+    def __load(self, name: str, path: Optional[str] = None):
         """
         Import the object from a pickle file.
         """
+        if path is None:
+            path = self.CR.get_connections_save_dir()
         filename = os.path.join(
-            self.CR.get_connections_save_dir(),
+            path,
             name + ".txt"
             )
         with open(filename, "rb") as file:
-            neuron = pickle.load(file)
-        self.__dict__.update(neuron)
+            connection_dict = pickle.load(file)
+        for key, value in connection_dict.items():
+            if key == "connectome_name":
+                assert value == self.CR.connectome_name, "file created with another connectome!"
+            if key == "connectome_version":
+                assert value == self.CR.connectome_version, "file created with another connectome version!"
+            setattr(self, key, value)
 
     def __get_connections(self):
         """
@@ -580,7 +589,7 @@ class Connections:
             "body_id",
             "node_label",
         ]
-        _ = self.__get_node_attributes("class_1")
+        self.__load_node_attributes("class_1")
         nx.set_node_attributes(
             self.graph,
             nx.get_node_attributes(self.graph, "class_1"),
@@ -667,12 +676,22 @@ class Connections:
         return
 
     def __get_node_attributes(
+            self,
+            attribute: typing.Literal["uid", "body_id"] | NeuronAttribute,
+        ) -> dict:
+        """
+        Get the node attributes from the graph.
+        """
+        self.__load_node_attributes(attribute)
+        return nx.get_node_attributes(self.graph, attribute)
+
+    def __load_node_attributes(
         self,
         attribute: typing.Literal["uid", "body_id"] | NeuronAttribute,
         default="None",
-    ):
+    ) -> None:
         """
-        Get the node attributes for the graph.
+        Load the node attributes for the graph.
 
         The attribute is a generic attribute, not the specific ones defined in the
         connectome reader. The conversion is done under the hood when calling
@@ -728,7 +747,58 @@ class Connections:
                 }
                 nx.set_node_attributes(self.graph, attr_list, attribute)
                 self.__defined_attributes_in_graph.append(attribute)
-            return nx.get_node_attributes(self.graph, attribute)
+        return
+    
+    @typing.overload
+    def set_graph(self): ...
+    @ typing.overload
+    def set_graph(
+        self,
+        graph: nx.DiGraph,
+        connections: pd.DataFrame,
+        ): ...
+
+    def set_graph(
+        self,
+        graph: Optional[nx.DiGraph] = None,
+        connections: Optional[pd.DataFrame] = None,
+        ):
+        """
+        Copy the graph, and update the normalised weights of the edges.
+        """
+        if graph is None:
+            self.__build_graph()
+        else:
+            edges = [
+                (source, target) for source, target in zip(
+                    connections["start_uid"], connections["end_uid"]  
+                )
+            ]
+            graph_ = copy.deepcopy(graph)
+            self.graph = graph_.edge_subgraph(edges).copy() # copy necessary otherwise we get only a view object
+            # modify the edge attributes
+            nx.set_edge_attributes(
+                self.graph,
+                {
+                    (u, v): {"syn_count_norm": data}
+                    for u, v, data in zip(
+                        connections["start_uid"],
+                        connections["end_uid"],
+                        connections["syn_count_norm"]
+                    )
+                },
+            )
+            nx.set_edge_attributes(
+                self.graph,
+                {
+                    (u, v): {"eff_weight_norm": data}
+                    for u, v, data in zip(
+                        connections["start_uid"],
+                        connections["end_uid"],
+                        connections["eff_weight_norm"]
+                    )
+                },
+            )
 
     # public methods
     # --- copy
@@ -1141,7 +1211,7 @@ class Connections:
 
         uid: int or list[int]
         """
-        self.__get_node_attributes(attribute)  # defines it if not present
+        self.__load_node_attributes(attribute)  # defines it if not present
         all = nx.get_node_attributes(self.graph, attribute)
         if isinstance(uid, list):
             return [all[u] for u in uid]
@@ -1412,12 +1482,6 @@ class Connections:
         self.connections = connections
         return
 
-    def set_graph(self, graph: Optional[nx.DiGraph] = None):
-        if graph is None:
-            self.__build_graph()
-        else:
-            self.graph = graph
-
     def set_nt_weights(self, nt_weights: dict[str, int]):
         self.nt_weights = nt_weights
         return
@@ -1431,7 +1495,7 @@ class Connections:
         Include node attributes in the graph.
         """
         for attribute in attributes:
-            _ = self.__get_node_attributes(attribute)
+            self.__load_node_attributes(attribute)
         return
 
     # --- computations
@@ -1685,7 +1749,7 @@ class Connections:
         if attribute is None:
             attribute = "hemilineage"
         # ensures the attribute is present in the graph
-        _ = self.__get_node_attributes(attribute)
+        self.__load_node_attributes(attribute)
         # restrict the number of edges visualised to the threshold weight
         graph_ = nx_utils.threshold_graph(self.graph, syn_threshold)
 
@@ -1761,7 +1825,7 @@ class Connections:
         assert isinstance(graph_, nx.DiGraph)
         # ensure that the sorting parameter is in the nodes of the graph
         if sorting in typing.get_args(NeuronAttribute):
-            _ = self.__get_node_attributes(sorting)
+            self.__load_node_attributes(sorting)
 
         if sorting == "from_index":
             z = [node for node in self.graph.nodes if not node in x and not node in y]
@@ -1810,7 +1874,7 @@ class Connections:
                 "centrality",
                 "output_clustering",
             ]:
-                _ = self.__get_node_attributes(sorting_method)
+                self.__load_node_attributes(sorting_method)
         # restrict x and y to the nodes in the graph
         graph_ = self.get_graph()
         x = [n for n in x if n in graph_.nodes]
@@ -1872,7 +1936,7 @@ class Connections:
         for readability.
         """
         # ensures the attribute is present in the graph
-        _ = self.__get_node_attributes(attribute)
+        self.__load_node_attributes(attribute)
         # threshold synapses for visualisation
         graph_ = nx_utils.threshold_graph(self.graph, syn_threshold)
         center_nodes = [n for n in center_nodes if n in graph_.nodes]
@@ -2044,13 +2108,16 @@ class Connections:
         return properties
 
     # --- saving
-    def save(self, name: str):
+    def save(self, name: str, path: Optional[str] = None):
         """
         Save the connections object to a pickle file.
         """
-        filename = os.path.join(self.CR.get_connections_save_dir(), name + ".txt")
+        if path is None:
+            path = self.CR.get_connections_save_dir()
+        filename = os.path.join(path, name + ".txt")
+        to_save = {key: value for key, value in self.__dict__.items() if key != "CR"}
         with open(filename, "wb") as f:
-            pickle.dump(self.__dict__, f)
+            pickle.dump(to_save, f)
 
     # --- clearing
     def empty(self):

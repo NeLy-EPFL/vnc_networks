@@ -14,6 +14,9 @@ import seaborn as sns
 
 # --- Where to find the raw data sets --- #
 # Need to add the raw data dumps manually given the file sizes
+# RAW_DATA_DIR = '/home/hurtak/multi_connectomes/vnc_networks/data_dump'
+# tmp fix when using as an external package
+
 RAW_DATA_DIR = os.path.join(Path(__file__).absolute().parent.parent, "data_dump")
 os.makedirs(RAW_DATA_DIR, exist_ok=True)
 
@@ -21,18 +24,16 @@ os.makedirs(RAW_DATA_DIR, exist_ok=True)
 # Used to store a preprocessed version of the data, to avoid re-running the
 # preprocessing steps each time
 PREPROCESSED_DATA_DIR = os.path.join(
-    Path(__file__).absolute().parent.parent,
-    "preprocessed"
-    )
+    Path(__file__).absolute().parent.parent, "preprocessed"
+)
 os.makedirs(PREPROCESSED_DATA_DIR, exist_ok=True)
 
 # --- Where to save the processed data --- #
 # Used to store the processed data, i.e. the data that is generated during
 # the analysis
 PROCESSED_DATA_DIR = os.path.join(
-    Path(__file__).absolute().parent.parent,
-    "data_processed"
-    )
+    Path(__file__).absolute().parent.parent, "data_processed"
+)
 os.makedirs(PROCESSED_DATA_DIR, exist_ok=True)
 
 # --- Where to save the figures --- #
@@ -95,14 +96,15 @@ AXIS_OFFSET = 2
 LINEWIDTH = 2
 
 # --- New types used in the code --- #
-BodyId = typing.NewType("BodyId", int) # always associated to a field 'body_id'
+BodyId = typing.NewType("BodyId", int)  # always associated to a field 'body_id'
 """ID of a neuron body in the connectome. Ranges from 10000 to 841369768457 (MANC v1.0)"""
 
 UID = typing.NewType("UID", int)
 """Unique ID of a neuron in the connections object. Note that this will not match a neuron's `BodyId`"""
 
 NeuronAttribute = typing.Literal[
-    "body_id", # common to all
+    "body_id",  # common to all
+    "synapse_id",
     # connectivity
     "syn_count",
     "nb_pre_synapses",
@@ -114,22 +116,23 @@ NeuronAttribute = typing.Literal[
     "entry_nerve",
     "exit_nerve",
     # function
-    "nt_type", # common to all
-    "nt_proba", # common to all
+    "nt_type",  # common to all
+    "nt_proba",  # common to all
     # classification
-    "class_1", # upper classification level, common to all
-    "class_2", # lower classification level, common to all
-    "name", # common to all
+    "class_1",  # upper classification level, common to all
+    "class_2",  # lower classification level, common to all
+    "name",  # common to all
     "type",
     # morphology
-    "side", # common to all
-    "neuropil", # common to all
-    "size", # common to all
+    "side",  # common to all
+    "neuropil",  # common to all
+    "size",  # common to all
     "area",
     "length",
-    "position",
+    "position",  # for neurons
+    "location",  # for synapses
     # genetics
-    "hemilineage", # common to all
+    "hemilineage",  # common to all
     # tracing related
     "tracing_status",
 ]
@@ -206,4 +209,3 @@ NEURON_CLASSES: dict[NeuronClass, dict[typing.Literal["color"], str]] = {
     "other": {"color": LIGHTGREY},
     "glia": {"color": LIGHTGREY},
 }
-

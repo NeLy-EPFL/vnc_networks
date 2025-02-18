@@ -50,9 +50,10 @@ class TestInstanciation:
         """
         Test the instanciation of the ConnectomeReader class.
         """
-        from vnc_networks.connectome_reader import MANC
+        from vnc_networks.connectome_reader import FAFB, MANC
 
         # Should work
+        valid_reader_brain = FAFB('v630')
         valid_reader = MANC('v1.0')
         assert valid_reader is not None
         body_id_name = valid_reader.sna('body_id')
