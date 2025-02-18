@@ -28,6 +28,7 @@ dependencies = [
   "pyarrow",
   "setuptools",
   "tqdm",
+  "markov_clustering",
 ]
 
 [tool.setuptools.packages.find]

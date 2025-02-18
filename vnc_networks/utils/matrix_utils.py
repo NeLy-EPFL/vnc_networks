@@ -235,12 +235,13 @@ def build_distance_matrix(
     input: sparse matrix
     output: distance matrix
     """
+
     def _remove_nans(matrix):
         """
         input: matrix
         output: matrix without NaNs
-        For Cosine distance, if a vector has norm 0 then the value is NaN. 
-        Design choice: set NaNs to 1 if they are off the diagonal, and to 0 if 
+        For Cosine distance, if a vector has norm 0 then the value is NaN.
+        Design choice: set NaNs to 1 if they are off the diagonal, and to 0 if
         they are on the diagonal so that that entry is similar to itself only.
         """
         # set NaNs to 1 if they are off the diagonal
@@ -293,9 +294,6 @@ def markov_clustering(matrix, inflation=2, iterations=100):
     """
     import markov_clustering as mcl
 
-    # if the matrix is a scipy sparse matrix, convert to dense
-    if sc.sparse.issparse(matrix):
-        matrix = matrix.todense()
     result = mcl.run_mcl(matrix, inflation=inflation, iterations=iterations)
     clusters = mcl.get_clusters(result)
 
