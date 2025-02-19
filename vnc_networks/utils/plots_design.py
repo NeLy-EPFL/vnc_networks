@@ -18,7 +18,11 @@ from matplotlib_venn import venn3
 from .. import params
 
 
-def make_nice_spines(ax: matplotlib.axes.Axes, linewidth=params.LINEWIDTH):
+def make_nice_spines(
+    ax: matplotlib.axes.Axes,
+    linewidth=params.LINEWIDTH,
+    setticks: bool = True,
+):
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["left"].set_position(("outward", 2 * linewidth))
@@ -33,7 +37,8 @@ def make_nice_spines(ax: matplotlib.axes.Axes, linewidth=params.LINEWIDTH):
     # axis label legends
     ax.xaxis.label.set_size(params.LABEL_SIZE)
     ax.yaxis.label.set_size(params.LABEL_SIZE)
-    ax = set_ticks(ax)
+    if setticks:
+        ax = set_ticks(ax)
     return ax
 
 

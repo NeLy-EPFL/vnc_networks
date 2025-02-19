@@ -29,7 +29,6 @@ from .utils import plots_design
 
 
 class Neuron:
-
     def __deepcopy__(self, memo):
         """
         Deepcopy the neuron.
@@ -43,27 +42,27 @@ class Neuron:
                 setattr(new_instance, k, v)
             else:
                 setattr(new_instance, k, copy.deepcopy(v, memo))
-        
+
         return new_instance
 
     @typing.overload
     def __init__(
         self,
         from_file: str,
-        CR: ConnectomeReader = MANC('v1.0'),
-    ):...
+        CR: ConnectomeReader = MANC("v1.0"),
+    ): ...
     @typing.overload
     def __init__(
         self,
         body_id: BodyId | int,
-        CR: ConnectomeReader = MANC('v1.0'),
-    ):...
+        CR: ConnectomeReader = MANC("v1.0"),
+    ): ...
 
     def __init__(
         self,
         body_id: Optional[BodyId | int] = None,
-        CR: ConnectomeReader = MANC('v1.0'),
-        from_file: Optional[str] = None
+        CR: ConnectomeReader = MANC("v1.0"),
+        from_file: Optional[str] = None,
     ):
         """
         Initialise the neuron.
@@ -84,16 +83,16 @@ class Neuron:
             The name of the file to load the neuron from.
             The default is None.
         """
-        self.CR = CR # will not be saved to file
+        self.CR = CR  # will not be saved to file
         self.connectome_name = CR.connectome_name
         self.connectome_version = CR.connectome_version
 
         if from_file is not None:
             self.__load(from_file)
         else:
-            assert (
-                body_id is not None
-            ), "To initialise a `Neuron`, you must provide either a `body_id` or `from_file`, but both were None."
+            assert body_id is not None, (
+                "To initialise a `Neuron`, you must provide either a `body_id` or `from_file`, but both were None."
+            )
             self.body_id = body_id
             self.data = CR.load_data_neuron(body_id, CR.node_base_attributes())
             self.__initialise_base_attributes()
@@ -108,36 +107,39 @@ class Neuron:
         Initialise the neuron from a file.
         """
         with open(
-            os.path.join(self.CR.get_neuron_save_dir(), name + ".txt"),
-            "rb"
-            ) as file:
+            os.path.join(self.CR.get_neuron_save_dir(), name + ".txt"), "rb"
+        ) as file:
             neuron = pickle.load(file)
         for key, value in neuron.items():
             if key == "connectome_name":
-                assert value == self.CR.connectome_name, "file created with another connectome!"
+                assert value == self.CR.connectome_name, (
+                    "file created with another connectome!"
+                )
             if key == "connectome_version":
-                assert value == self.CR.connectome_version, "file created with another connectome version!"
+                assert value == self.CR.connectome_version, (
+                    "file created with another connectome version!"
+                )
             setattr(self, key, value)
 
     def __initialise_base_attributes(self):
-        self.nt_type = self.data['nt_type'].values[0]
-        self.nt_proba = self.data['nt_proba'].values[0]
-        self.class_1 = self.data['class_1'].values[0]
-        self.class_2 = self.data['class_2'].values[0]
-        self.name = self.data['name'].values[0]
-        self.side = self.data['side'].values[0]
-        self.neuropil = self.data['neuropil'].values[0]
-        self.size = self.data['size'].values[0]
-        self.hemilineage = self.data['hemilineage'].values[0]
+        self.nt_type = self.data["nt_type"].values[0]
+        self.nt_proba = self.data["nt_proba"].values[0]
+        self.class_1 = self.data["class_1"].values[0]
+        self.class_2 = self.data["class_2"].values[0]
+        self.name = self.data["name"].values[0]
+        self.side = self.data["side"].values[0]
+        self.neuropil = self.data["neuropil"].values[0]
+        self.size = self.data["size"].values[0]
+        self.hemilineage = self.data["hemilineage"].values[0]
 
     def __load_synapse_ids(self):
         # Independently of the file structure, we should get a pd.dataframe
-        # with columns 
+        # with columns
         # ['synapse_id', 'start_bid', 'end_bid', 'X', 'Y', 'Z']
-        
-        if 'synapse_df' in self.__dict__: # already done
+
+        if "synapse_df" in self.__dict__:  # already done
             return
-        
+
         self.synapse_df = self.CR.get_synapse_df(self.body_id)
 
     def __categorical_neuropil_information(self):
@@ -150,18 +152,16 @@ class Neuron:
             The subset of synapse ids to convert.
             The default is None, which converts all synapse ids.
         """
-        if 'synapse_df' not in self.__dict__:
+        if "synapse_df" not in self.__dict__:
             self.__load_synapse_ids()
-            
+
         if "neuropil" in self.synapse_df.columns:  # already done
             return
-        
+
         data = self.CR.get_synapse_neuropil(self.synapse_df["synapse_id"].values)
 
         # merge with existing synapse df
-        self.synapse_df = self.synapse_df.merge(
-            data, on="synapse_id", how="inner"
-        )
+        self.synapse_df = self.synapse_df.merge(data, on="synapse_id", how="inner")
         return
 
     # public methods
@@ -173,11 +173,16 @@ class Neuron:
         """
         Get the synapse table of the connections.
         """
-        if 'synapse_df' not in self.__dict__:
+        if "synapse_df" not in self.__dict__:
             self.__load_synapse_ids()
         return copy.deepcopy(self.synapse_df)
 
-    def get_synapse_distribution(self, threshold: bool = False):
+    def get_synapse_distribution(
+        self,
+        threshold: bool = False,
+        z_attribute: Optional[str] = None,
+        angle: int = 0,
+    ):
         """
         Get the synapse distribution for the neuron.
 
@@ -186,6 +191,13 @@ class Neuron:
         threshold : bool, optional
             Whether to apply a threshold to the synapse distribution.
             The default is False.
+        z_attribute : str, optional
+            The attribute to use for the z-axis.
+            The default is None, returning the Z coordinate.
+        angle : int, optional
+            The angle in degrees to rotate the synapse distribution along the
+            x-axis, i.e. Y and Z are modified.
+            The default is 0.
         """
         # check if the synapse df is loaded
         self.__load_synapse_ids()
@@ -199,10 +211,22 @@ class Neuron:
             synapses = self.synapse_df[self.synapse_df["end_bid"].isin(to_keep)]
         else:
             synapses = self.synapse_df
+
+        if z_attribute is not None and z_attribute not in self.synapse_df.columns:
+            raise AttributeError(f"Attribute {z_attribute} not in synapse dataframe.")
+
         # get the synapse positions
+        angle = np.radians(angle)
         X = synapses["X"].values
-        Y = synapses["Y"].values
-        Z = synapses["Z"].values
+        Y = np.cos(angle) * synapses["Y"].values - np.sin(angle) * synapses["Z"].values
+        if z_attribute is None:
+            Z = (
+                np.sin(angle) * synapses["Y"].values
+                + np.cos(angle) * synapses["Z"].values
+            )
+        else:
+            Z = synapses[z_attribute].values
+
         # save the positions in a convenient format in the neuron object
         return X, Y, Z
 
@@ -300,9 +324,9 @@ class Neuron:
         Clear the subdivisions table from neurons that have their bodyid in
         the not_connected list.
         """
-        assert (
-            self.subdivisions is not None
-        ), "Trying to clear not_connected but subdivisions is None"
+        assert self.subdivisions is not None, (
+            "Trying to clear not_connected but subdivisions is None"
+        )
         self.subdivisions = self.subdivisions[
             ~self.subdivisions["end_bid"].isin(not_connected)
         ]
@@ -380,12 +404,13 @@ class Neuron:
         cmap: str | matplotlib.colors.Colormap | typing.Any = params.colorblind_palette,
         ax: Optional[matplotlib.axes.Axes] = None,
         savefig: bool = True,
+        angle: int = 0,
     ):
         """
         Plot the synapse distribution for the neuron.
         """
         plt.get_cmap()
-        X, Y, Z = self.get_synapse_distribution(threshold=threshold)
+        X, Y, Z = self.get_synapse_distribution(threshold=threshold, angle=angle)
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=params.FIGSIZE, dpi=params.DPI)
         assert ax is not None  # needed for type hinting
@@ -418,7 +443,7 @@ class Neuron:
             name = os.path.join(
                 self.CR.get_plots_dir(),
                 f"synapse_distribution_{self.body_id}_color_by_{color_by}.pdf",
-                )
+            )
             plt.savefig(
                 name,
             )
@@ -437,34 +462,29 @@ class Neuron:
         # save __dict__ except for the CR attribute
         to_save = {key: value for key, value in self.__dict__.items() if key != "CR"}
         with open(
-            os.path.join(self.CR.get_neuron_save_dir(), name + ".txt"),
-            "wb"
-            ) as file:
+            os.path.join(self.CR.get_neuron_save_dir(), name + ".txt"), "wb"
+        ) as file:
             pickle.dump(to_save, file)
-            
-
 
 
 # --- helper functions
 
-@typing.overload
-def split_neuron_by_neuropil(
-        neuron_id,
-        save: bool = True,
-        return_type: typing.Literal["Neuron", "name"] = "Neuron"
-        ) -> Neuron:...
+
 @typing.overload
 def split_neuron_by_neuropil(
     neuron_id,
     save: bool = True,
-    return_type: typing.Literal["Neuron", "name"] = "name"
-    ) -> str:...
+    return_type: typing.Literal["Neuron", "name"] = "Neuron",
+) -> Neuron: ...
+@typing.overload
+def split_neuron_by_neuropil(
+    neuron_id, save: bool = True, return_type: typing.Literal["Neuron", "name"] = "name"
+) -> str: ...
+
 
 def split_neuron_by_neuropil(
-        neuron_id,
-        save: bool = True,
-        return_type: typing.Literal["Neuron", "name"] = "name"
-        ):
+    neuron_id, save: bool = True, return_type: typing.Literal["Neuron", "name"] = "name"
+):
     """
     Define neuron subdivisions based on synapse distribution.
     Saves the subdivisions in a new neuron to file, which can be loaded by its
@@ -472,10 +492,10 @@ def split_neuron_by_neuropil(
     """
     name = "neuron-" + str(neuron_id) + "_neuropil-split"
     # check there are files starting with name
-    #files = [f for f in os.listdir(params.NEURON_DIR) if f.startswith(name)]
-    #if files:
+    # files = [f for f in os.listdir(params.NEURON_DIR) if f.startswith(name)]
+    # if files:
     #    return name
-    #else:
+    # else:
     neuron = Neuron(neuron_id)
     _ = neuron.get_synapse_distribution(threshold=True)
     neuron.create_synapse_groups(attribute="neuropil")

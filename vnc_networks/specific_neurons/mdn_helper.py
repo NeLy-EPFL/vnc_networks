@@ -16,12 +16,12 @@ from ..neuron import Neuron
 from ..params import BodyId
 
 FOLDER_NAME = "MDN_specific"
-FIG_DIR = MANC('v1.0').get_fig_dir()
+FIG_DIR = MANC("v1.0").get_fig_dir()
 FOLDER = os.path.join(FIG_DIR, FOLDER_NAME)
 os.makedirs(FOLDER, exist_ok=True)
 
 
-def get_mdn_bodyids(CR: ConnectomeReader = MANC('v1.0')):
+def get_mdn_bodyids(CR: ConnectomeReader = MANC("v1.0")):
     bids = CR.get_neuron_bodyids({"type": "MDN"})
     return bids
 
@@ -111,8 +111,12 @@ def get_vnc_split_MDNs_by_neuropil(
     """
     Get the VNC Connections object with MDNs split by neuropil.
     """
+    CR = MANC("v1.0")
     try:
-        VNC = Connections(from_file="VNC_split_MDNs_by_neuropil")
+        VNC = Connections(
+            from_file="VNC_split_MDNs_by_neuropil",
+            CR=CR,
+        )
         print("Loaded VNC Connections object with MDNs split by neuropil.")
     except FileNotFoundError:
         print("Creating VNC Connections object with MDNs split by neuropil...")
@@ -122,17 +126,15 @@ def get_vnc_split_MDNs_by_neuropil(
             MDN = Neuron(from_file=neuron_name)
             MDNs.append(MDN)
         VNC = Connections(
+            CR=CR,
             split_neurons=MDNs,
             not_connected=not_connected,
-            )  # full VNC, split MDNs according to the synapse data
+        )  # full VNC, split MDNs according to the synapse data
         VNC.save(name="VNC_split_MDNs_by_neuropil")
     return VNC
 
 
-def mdn_synapse_distribution(
-        n_clusters: int = 3,
-        CR: ConnectomeReader = MANC('v1.0')
-        ):
+def mdn_synapse_distribution(n_clusters: int = 3, CR: ConnectomeReader = MANC("v1.0")):
     """
     show for each MDN the distribution of synapses in the neuropils.
     Each row is an MDN.
@@ -193,9 +195,8 @@ def mdn_synapse_distribution(
 
 
 def get_connectome_with_MDN_t3_branches(
-        n_clusters: int = 3,
-        CR: ConnectomeReader = MANC('v1.0')
-        ):
+    n_clusters: int = 3, CR: ConnectomeReader = MANC("v1.0")
+):
     """
     Build the connectome with the T3 neuropil branches of MDN split.
     """

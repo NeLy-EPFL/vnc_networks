@@ -7,6 +7,7 @@ from typing import Optional
 
 import matplotlib.axes
 import matplotlib.pyplot as plt
+import numpy as np
 import scipy as sc
 
 from .. import params
@@ -14,10 +15,10 @@ from ..utils import plots_design
 
 
 def spy(
-        matrix,
-        title: Optional[str] = None,
-        ax: Optional[matplotlib.axes.Axes] = None,
-        ):
+    matrix,
+    title: Optional[str] = None,
+    ax: Optional[matplotlib.axes.Axes] = None,
+):
     """
     Visualizes the sparsity pattern of a matrix.
 
@@ -62,10 +63,14 @@ def imshow(
         matrix_ = matrix
     # Set the maximum value to the maximum absolute value if not provided
     if vmax is None:
-        vmax = max(abs(matrix_.min()), matrix_.max())
+        vmax = max(abs(np.nanmin(matrix_)), np.nanmax(matrix_))
+        if vmin is None:
+            vmin = -1 * vmax
     assert vmax is not None
     if vmin is None:
-        vmin = -1 * vmax
+        vmin = -1 * max(abs(np.nanmin(matrix_)), np.nanmax(matrix_))
+    assert vmin is not None
+
     c = ax.imshow(
         matrix_,
         cmap=cmap,
@@ -81,7 +86,7 @@ def imshow(
         ax.set_yticks(range(len(row_labels)), labels=row_labels)
     if col_labels is not None:
         ax.set_xticks(range(len(col_labels)), labels=col_labels)
-    ax = plots_design.make_nice_spines(ax)
+    ax = plots_design.make_nice_spines(ax, setticks=False)
 
     # colorbar
     cbar = plt.colorbar(c, ax=ax)
