@@ -239,7 +239,9 @@ class CMatrix:
             raise ValueError(f"uid(s) not found: {empty_matches}")
         else:
             if len(empty_matches) > 0:
-                print(f"Warning: {len(empty_matches)} uid(s) not found.")
+                print(
+                    f"Warning: {len(empty_matches)} uid(s) not found : {empty_matches}"
+                )
         return row_indices, column_indices
 
     def __convert_index_to_uid(
@@ -1121,7 +1123,7 @@ class CMatrix:
             The title of the visualisation. The default is None.
         """
         if ax is None:
-            _, ax = plt.subplots(1, 1, figsize=params.FIG_SIZE)
+            _, ax = plt.subplots(1, 1, figsize=params.FIGSIZE)
         _ = matrix_design.spy(self.get_matrix(), title=title, ax=ax)
         if savefig:
             title_ = os.path.join(self.CR.get_plots_dir(), title + "_spy.pdf")
