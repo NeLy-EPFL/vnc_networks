@@ -13,7 +13,9 @@ from ..params import UID
 def get_leg_motor_neurons(
     data: Connections,
     leg: Optional[typing.Literal["f", "m", "h"]] = None,
-    side: Optional[typing.Literal["LHS", "RHS"]] = None,
+    side: Optional[
+        typing.Literal["LHS", "L", "left", "Left", "RHS", "R", "right", "Right"]
+    ] = None,
 ) -> set[UID]:
     """
     Get the uids of leg motor neurons.
@@ -23,8 +25,12 @@ def get_leg_motor_neurons(
     side: LHS or RHS
     """
     if side is not None:
-        if side not in ["LHS", "RHS"]:
-            raise ValueError("side must be either LHS or RHS")
+        if side in ["LHS", "L", "left", "Left"]:
+            side = "LHS"
+        elif side in ["RHS", "R", "right", "Right"]:
+            side = "RHS"
+        else:
+            raise ValueError("Side not recognized.")
     match leg:
         case "f":
             target = ["fl"]
@@ -45,9 +51,7 @@ def get_leg_motor_neurons(
                 }
             )
         else:
-            neurons_post = data.get_neuron_ids(
-                {"class_2": t, "class_1": "motor"}
-            )
+            neurons_post = data.get_neuron_ids({"class_2": t, "class_1": "motor"})
         leg_motor_neurons.extend(neurons_post)
     return set(leg_motor_neurons)
 
