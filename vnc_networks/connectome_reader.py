@@ -518,10 +518,10 @@ class MANC(ConnectomeReader):
         self._tracing_status = "status:string"
         self._entry_nerve = "entryNerve:string"
         self._exit_nerve = "exitNerve:string"
-        self._nb_pre_synapses = "pre:int",
-        self._nb_post_synapses = "post:int",
-        self._nb_pre_neurons = "upstream:int",
-        self._nb_post_neurons = "downstream:int",
+        self._nb_pre_synapses = "pre:int"
+        self._nb_post_synapses = "post:int"
+        self._nb_pre_neurons = "upstream:int"
+        self._nb_post_neurons = "downstream:int"
         # Synapse specific
         self._start_synset_id = ":START_ID(SynSet-ID)"
         self._end_synset_id = ":END_ID(SynSet-ID)"
