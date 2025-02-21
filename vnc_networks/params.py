@@ -105,6 +105,8 @@ UID = typing.NewType("UID", int)
 
 NeuronAttribute = typing.Literal[
     "body_id",  # common to all
+    "start_bid",
+    "end_bid",
     "synapse_id",
     # connectivity
     "syn_count",

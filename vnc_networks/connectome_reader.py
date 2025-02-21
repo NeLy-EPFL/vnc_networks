@@ -231,7 +231,7 @@ class ConnectomeReader(ABC):
         """
         Decode the specific attribute to the generic one.
         """
-        mapping = {
+        mapping: dict[str, NeuronAttribute] = {
             self._body_id: "body_id",
             self._start_bid: "start_bid",
             self._end_bid: "end_bid",
