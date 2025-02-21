@@ -43,12 +43,10 @@ class TestImport:
             assert False
 
 
-
-
-class TestInstanciation:
-    def test_connectome_reader_instanciation(self):
+class TestInstantiation:
+    def test_connectome_reader_instantiation(self):
         """
-        Test the instanciation of the ConnectomeReader class.
+        Test the instantiation of the ConnectomeReader class.
         """
         from vnc_networks.connectome_reader import FAFB, MANC
 
