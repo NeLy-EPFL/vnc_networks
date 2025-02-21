@@ -1136,6 +1136,127 @@ class MANC_v_1_2(MANC, connectome_version='v1.2'):
     def __init__(self, connectome_version: str):
         super().__init__(connectome_version)
 
+    def _load_specific_namefields(self):
+        self._body_id = "bodyId"
+        self._start_bid = "bodyId_pre"
+        self._end_bid = "bodyId_post"
+        self._syn_count = "weight"
+        self._nt_type = "predictedNt"
+        self._nt_proba = "predictedNtProb"
+        self._class_1 = "class"
+        self._class_2 = "subclass"
+        self._side = "somaSide"
+        self._neuropil = "somaNeuromere"
+        self._hemilineage = "hemilineage"
+        self._size = "size"
+        self._position = "location"  # for neurons
+        # self._location = "location:point{srid:9157}"  # for synapses
+        self._target = "target"
+
+        # specific to MANC -> need to add to ::sna()
+        self._type = "type"
+        self._tracing_status = "status"
+        self._entry_nerve = "entryNerve"
+        self._exit_nerve = "exitNerve"
+        self._nb_pre_synapses = "pre"
+        self._nb_post_synapses = "post"
+        self._nb_pre_neurons = "upstream"
+        self._nb_post_neurons = "downstream"
+
+        # Synapse specific
+        self._synapse_x = "x_pre"
+        self._synapse_y = "y_pre"
+        self._synapse_z = "z_pre"
+        self._syn_neuropil = "roi_pre"
+
+    def _load_specific_neuron_classes(self):
+        """
+        Name the neuron classes.
+        """
+        MANC._load_specific_neuron_classes(self)
+        # MANC 1.2 is the same as MANC 1.0 except Glia was renamed to glia
+        self._glia = "glia"
+
+    def _load_specific_directories(self):
+        """
+        Need to define the directories that are common to all connectomes.
+        """
+        ConnectomeReader._load_specific_directories(self)  # data saving directories
+
+        self._connectome_dir = os.path.join(
+            params.RAW_DATA_DIR,
+            self.connectome_name,
+            self.connectome_version,
+        )
+
+        self._nodes_file = os.path.join(self._connectome_dir, "neurons.ftr")
+        self._synapses_file = os.path.join(self._connectome_dir, "synapses.ftr")
+        self._connections_file = os.path.join(self._connectome_dir, "connections.ftr")
+
+    def _load_synapse_locations(self, synapse_ids: list[int]) -> pd.DataFrame:
+        """
+        Get the locations of the synapses.
+        """
+        synapses = pd.read_feather(self._synapses_file)
+        # create synapse ids from the index
+        synapses["synapse_id"] = synapses.index
+        synapses = synapses.loc[synapses["synapse_id"].isin(synapse_ids)]
+        synapses = synapses[
+            [
+                "synapse_id",
+                self._synapse_x,
+                self._synapse_y,
+                self._synapse_z,
+            ]
+        ]
+        synapses.columns = ["synapse_id", "X", "Y", "Z"]
+        return synapses
+
+    def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
+        """
+        Load the synapse ids for the neuron.
+        should define the columns
+        ['synapse_id','start_bid','end_bid', 'X', 'Y', 'Z']
+        """
+        # synapse set to synapse
+        synapses = pd.read_feather(self._synapses_file)
+        # create synapse ids from the index
+        synapses["synapse_id"] = synapses.index
+        synapses = synapses.loc[synapses[self._start_bid] == body_id]
+
+        synapses = synapses[
+            [
+                "synapse_id",
+                self._start_bid,
+                self._end_bid,
+                self._synapse_x,
+                self._synapse_y,
+                self._synapse_z,
+            ]
+        ]
+        synapses.columns = ["synapse_id", "start_bid", "end_bid", "X", "Y", "Z"]
+        return synapses
+
+    def get_synapse_neuropil(self, synapse_ids: list[int]) -> pd.DataFrame:
+        """
+        Get the neuropil of the synapses.
+        In MANC, this means finding the name of the neuropil column for which
+        the entry is True.
+        """
+        synapses = pd.read_feather(self._synapses_file)
+        # create synapse ids from the index
+        synapses["synapse_id"] = synapses.index
+        synapses = synapses.loc[synapses["synapse_id"].isin(synapse_ids)]
+        synapses = synapses[
+            [
+                "synapse_id",
+                self._syn_neuropil,
+            ]
+        ]
+        synapses.columns = ["synapse_id", "neuropil"]
+        return synapses
+
+
 # === FAFB: Female Adult Fly Brain
 class FAFB(ConnectomeReader):
     _versions = {} # Will contain the specific versions of FAFB
