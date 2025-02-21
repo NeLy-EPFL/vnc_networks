@@ -149,7 +149,7 @@ class ConnectomeReader(ABC):
     @abstractmethod
     def get_neuron_bodyids(
         self,
-        selection_dict: Optional[SelectionDict] = None,
+        selection_dict: SelectionDict = {},
         nodes: Optional[list[BodyId] | list[int]] = None,
     ) -> list[BodyId]:
         """
@@ -1046,7 +1046,7 @@ class MANC(ConnectomeReader):
 
     def get_neuron_bodyids(
         self,
-        selection_dict: Optional[SelectionDict] = None,
+        selection_dict: SelectionDict = {},
         nodes: Optional[list[BodyId] | list[int]] = None,
     ) -> list[BodyId]:
         """
@@ -1511,7 +1511,7 @@ class FAFB(ConnectomeReader):
 
     def get_neuron_bodyids(
         self,
-        selection_dict: Optional[SelectionDict] = None,
+        selection_dict: SelectionDict = {},
         nodes: Optional[list[BodyId] | list[int]] = None,
     ) -> list[BodyId]:
         """
