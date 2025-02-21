@@ -1150,6 +1150,7 @@ class MANC_v_1_2(MANC, connectome_version='v1.2'):
         self._nt_proba = "predictedNtProb"
         self._class_1 = "class"
         self._class_2 = "subclass"
+        self._name = "systematicType"
         self._side = "somaSide"
         self._neuropil = "somaNeuromere"
         self._hemilineage = "hemilineage"
