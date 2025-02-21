@@ -166,7 +166,7 @@ class ConnectomeReader(ABC):
     def load_data_neuron_set(
         self,
         ids: list[BodyId] | list[int],
-        attributes: Optional[list[NeuronAttribute]] = None,
+        attributes: list[NeuronAttribute] = [],
     ) -> pd.DataFrame:
         """
         Load the data of a set of neurons with certain ids.
@@ -1091,7 +1091,7 @@ class MANC(ConnectomeReader):
     def load_data_neuron_set(
         self,
         ids: list[BodyId] | list[int],
-        attributes: Optional[list[NeuronAttribute]] = None,
+        attributes: list[NeuronAttribute] = [],
     ) -> pd.DataFrame:
         """
         Load the data of a set of neurons with certain ids.
@@ -1122,8 +1122,9 @@ class MANC(ConnectomeReader):
         # rename the columns to the generic names
         read_columns = neurons.columns # ordering can be different than columns_to_read
         neurons.columns = [self.decode_neuron_attribute(c) for c in read_columns]
-        
-        if attributes is not None:
+
+        # return columns in the order they were requested in attributes
+        if len(attributes) > 0:
             return neurons[neurons['body_id'].isin(ids)][columns_to_write]
         return neurons[neurons['body_id'].isin(ids)]
 
@@ -1541,7 +1542,7 @@ class FAFB(ConnectomeReader):
     def load_data_neuron_set(   
         self,
         ids: list[BodyId] | list[int],
-        attributes: Optional[list[NeuronAttribute]] = None,
+        attributes: list[NeuronAttribute] = [],
     ) -> pd.DataFrame:
         """
         Load the data of a set of neurons with certain ids.
