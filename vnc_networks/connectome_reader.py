@@ -987,7 +987,7 @@ class MANC(ConnectomeReader):
         except KeyError:
             # look for specific classes only defined in this connectome
             mapping = {
-                "intrinsic": self._intrinsic_neuron,
+                "intrinsic": self._intrinsic,
                 "glia": self._glia,
                 "sensory_ascending": self._sensory_ascending,
                 "efferent": self._efferent,
@@ -1015,7 +1015,7 @@ class MANC(ConnectomeReader):
             converted_class = super().decode_neuron_class(specific_class)
         except KeyError:
             # look for specific classes only defined in this connectome
-            mapping = {
+            mapping: dict[str, NeuronClass] = {
                 self._intrinsic: "intrinsic",
                 self._glia: "glia",
                 self._sensory_ascending: "sensory_ascending",
@@ -1024,7 +1024,6 @@ class MANC(ConnectomeReader):
                 self._unknown: "unknown",
                 self._sensory_unknown: "sensory_unknown",
                 self._interneuron_unknown: "interneuron_unknown",
-                None: "unknown",
             }
             try:
                 converted_class = mapping.get(specific_class)
