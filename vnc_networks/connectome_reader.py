@@ -41,6 +41,13 @@ class ConnectomeReader(ABC):
     _location = "location"
     _target = "target"
 
+    # Names of neuron types
+    # these get overwritten by custom connectomes which use different names
+    _sensory = "sensory"
+    _motor = "motor"
+    _ascending = "ascending"
+    _descending = "descending"
+
     @abstractmethod
     def __init__(self):
 
@@ -116,10 +123,6 @@ class ConnectomeReader(ABC):
     # --- abstract methods
     @abstractmethod
     def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
-        """
-        Get the synapses of a neuron.
-        """
-        pass
         """
         Get the locations of the synapses.
         """
@@ -276,14 +279,14 @@ class ConnectomeReader(ABC):
         }
         equivalent_name = mapping.get(generic_n_c)
         if equivalent_name is None:
-            raise KeyError # this will be caught and handeled by child instances
+            raise KeyError  # this will be caught and handled by child instances
         return equivalent_name
     
     def decode_neuron_class(self, specific_class: str) -> NeuronClass:
         """
         Decode the specific class to the generic one.
         """
-        mapping = {
+        mapping: dict[str, NeuronClass] = {
             self._sensory: "sensory",
             self._motor: "motor",
             self._ascending: "ascending",
@@ -341,7 +344,7 @@ class ConnectomeReader(ABC):
     def load_data_neuron(
         self,
         id_: BodyId | int,
-        attributes: Optional[list[NeuronAttribute]] = None,
+        attributes: list[NeuronAttribute] = [],
     ) -> pd.DataFrame:
         """
         Load the data of a neuron with a certain id.
