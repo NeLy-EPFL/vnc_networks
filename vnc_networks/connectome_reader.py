@@ -21,6 +21,25 @@ from .params import BodyId, NeuronAttribute, NeuronClass, SelectionDict
 
 # --- Parent class, abstract --- #
 class ConnectomeReader(ABC):
+    # Names of common properties
+    # these get overwritten by custom connectomes which use different names
+    _body_id = "body_id"
+    _syn_id = "syn_id"
+    _start_bid = "start_bid"
+    _end_bid = "end_bid"
+    _syn_count = "syn_count"
+    _nt_type = "nt_type"
+    _nt_proba = "nt_proba"
+    _class_1 = "class_1"
+    _class_2 = "class_2"
+    _name = "name"
+    _side = "side"
+    _neuropil = "neuropil"
+    _hemilineage = "hemilineage"
+    _size = "size"
+    _position = "position"
+    _location = "location"
+    _target = "target"
 
     @abstractmethod
     def __init__(self):
