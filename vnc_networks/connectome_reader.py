@@ -281,22 +281,23 @@ class ConnectomeReader(ABC):
         if equivalent_name is None:
             raise KeyError  # this will be caught and handled by child instances
         return equivalent_name
-    
-    def decode_neuron_class(self, specific_class: str) -> NeuronClass:
+
+    def decode_neuron_class(self, specific_class: str | None) -> NeuronClass:
         """
         Decode the specific class to the generic one.
         """
-        mapping: dict[str, NeuronClass] = {
+        mapping: dict[str | None, NeuronClass] = {
             self._sensory: "sensory",
             self._motor: "motor",
             self._ascending: "ascending",
             self._descending: "descending",
+            None: "unknown",
         }
         equivalent_name = mapping.get(specific_class)
         if equivalent_name is None:
             raise KeyError
         return equivalent_name
-    
+
     # --- common methods
     def get_connections(
             self,
@@ -1009,8 +1010,8 @@ class MANC(ConnectomeReader):
                     The class {generic_n_c} is not defined in {self.connectome_name}."
                     )
         return converted_type
-    
-    def decode_neuron_class(self, specific_class: str) -> NeuronClass:
+
+    def decode_neuron_class(self, specific_class: str | None) -> NeuronClass:
         """
         Decode the specific class to the generic one.
         """
@@ -1018,7 +1019,7 @@ class MANC(ConnectomeReader):
             converted_class = super().decode_neuron_class(specific_class)
         except KeyError:
             # look for specific classes only defined in this connectome
-            mapping: dict[str, NeuronClass] = {
+            mapping: dict[str | None, NeuronClass] = {
                 self._intrinsic: "intrinsic",
                 self._glia: "glia",
                 self._sensory_ascending: "sensory_ascending",
@@ -1027,6 +1028,7 @@ class MANC(ConnectomeReader):
                 self._unknown: "unknown",
                 self._sensory_unknown: "sensory_unknown",
                 self._interneuron_unknown: "interneuron_unknown",
+                None: "unknown",
             }
             try:
                 converted_class = mapping.get(specific_class)
@@ -1584,8 +1586,8 @@ class FAFB(ConnectomeReader):
                     The class {generic_n_c} is not defined in {self.connectome_name}."
                     )
         return converted_type
-    
-    def decode_neuron_class(self, specific_class: str) -> NeuronClass:
+
+    def decode_neuron_class(self, specific_class: str | None) -> NeuronClass:
         """
         Decode the specific class to the generic one.
         """
@@ -1593,13 +1595,14 @@ class FAFB(ConnectomeReader):
             converted_class = super().decode_neuron_class(specific_class)
         except KeyError:
             # look for specific classes only defined in this connectome
-            mapping = {
+            mapping: dict[str | None, NeuronClass] = {
                 self._central: "central",
                 self._endocrine: "endocrine",
                 self._optic: "optic",
                 self._visual_centrifugal: "visual_centrifugal",
                 self._visual_projection: "visual_projection",
                 self._other: "other",
+                None: "unknown",
             }
             try:
                 converted_class = mapping.get(specific_class)
