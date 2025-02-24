@@ -2,6 +2,9 @@
 Initialisation tests for the code.
 """
 
+import pytest
+
+
 class TestImport:
     def test_import(self):
         """
@@ -58,11 +61,5 @@ class TestInstantiation:
         assert body_id_name == ":ID(Body-ID)", "Incorrect name conversion"
 
         # Should raise an error
-        try:
-            invalid_reader = MANC('v1.1')
-            assert False
-        except ValueError:
-            assert True
-
-
-
+        with pytest.raises(ValueError):
+            invalid_reader = MANC("v1.1")  # type: ignore because we're explicitly testing that this throws an error

@@ -40,9 +40,7 @@ class TestDataLoading:
         from vnc_networks.connections import Connections
 
         # Instantiate a Connections object
-        valid_connections = Connections(
-            vnc_networks.connectome_reader.MANC_v_1_2("v1.2")
-        )
+        valid_connections = Connections(vnc_networks.connectome_reader.MANC("v1.2"))
         assert valid_connections is not None, "Connections object not instantiated"
         cr_name = valid_connections.CR.connectome_name
         assert cr_name == "manc", "Incorrect connectome name"
