@@ -160,6 +160,29 @@ class ConnectomeReader(ABC):
         ...
 
     @abstractmethod
+    def load_data_neuron(
+        self,
+        id_: BodyId | int,
+        attributes: list[NeuronAttribute] = [],
+    ) -> pd.DataFrame:
+        """
+        Load the data of a neuron with a certain id.
+
+        Parameters
+        ----------
+        id : BodyId | int
+            The id of the neuron.
+        attributes : list
+            The attributes to load.
+
+        Returns
+        -------
+        pandas.DataFrame
+            The data of the neuron.
+        """
+        ...
+
+    @abstractmethod
     def load_data_neuron_set(
         self,
         ids: list[BodyId] | list[int],
@@ -335,44 +358,6 @@ class ConnectomeReader(ABC):
         # verify if the class is indeed a neuron class for this dataset
         specific_class = self.specific_neuron_class(class_)
         return self.get_neuron_bodyids({self.class_1: specific_class})
-
-    def load_data_neuron(
-        self,
-        id_: BodyId | int,
-        attributes: list[NeuronAttribute] = [],
-    ) -> pd.DataFrame:
-        """
-        Load the data of a neuron with a certain id.
-        
-        Parameters
-        ----------
-        id : BodyId | int
-            The id of the neuron.
-        attributes : list
-            The attributes to load.
-
-        Returns
-        -------
-        pandas.DataFrame
-            The data of the neuron.
-        """
-        # Identify columns to load
-        columns_to_read = [
-            self.sna(a) for a in attributes
-        ]
-        columns_to_write = attributes
-        if 'body_id' not in attributes:
-            columns_to_read.append(self._body_id) # specific name field
-            columns_to_write.append('body_id') # generic name field
-
-        # Load data
-        neurons = pd.read_feather(self._nodes_file, columns=columns_to_read)
-        # rename the columns to the generic names
-        read_columns = neurons.columns # ordering can be different than columns_to_read
-        neurons.columns = [self.decode_neuron_attribute(c) for c in read_columns]
-        if attributes is not None:
-            return neurons[neurons['body_id'] == id_][columns_to_write]
-        return neurons[neurons['body_id'] == id_]
 
     def specific_selection_dict(
             self,
@@ -731,6 +716,42 @@ class MANCReader(ConnectomeReader):
             neurons = neurons[neurons[self._body_id].isin(nodes)]
 
         return list(neurons[self._body_id].values)
+
+    def load_data_neuron(
+        self,
+        id_: BodyId | int,
+        attributes: list[NeuronAttribute] = [],
+    ) -> pd.DataFrame:
+        """
+        Load the data of a neuron with a certain id.
+
+        Parameters
+        ----------
+        id : BodyId | int
+            The id of the neuron.
+        attributes : list
+            The attributes to load.
+
+        Returns
+        -------
+        pandas.DataFrame
+            The data of the neuron.
+        """
+        # Identify columns to load
+        columns_to_read = [self.sna(a) for a in attributes]
+        columns_to_write = attributes
+        if "body_id" not in attributes:
+            columns_to_read.append(self._body_id)  # specific name field
+            columns_to_write.append("body_id")  # generic name field
+
+        # Load data
+        neurons = pd.read_feather(self._nodes_file, columns=columns_to_read)
+        # rename the columns to the generic names
+        read_columns = neurons.columns  # ordering can be different than columns_to_read
+        neurons.columns = [self.decode_neuron_attribute(c) for c in read_columns]
+        if attributes is not None:
+            return neurons[neurons["body_id"] == id_][columns_to_write]
+        return neurons[neurons["body_id"] == id_]
 
     def load_data_neuron_set(
         self,
@@ -1627,6 +1648,28 @@ class FAFBReader(ConnectomeReader):
             valid_nodes = valid_nodes.intersection(specific_valid_nodes)
 
         return list(valid_nodes)
+
+    def load_data_neuron(
+        self,
+        id_: BodyId | int,
+        attributes: list[NeuronAttribute] = [],
+    ) -> pd.DataFrame:
+        """
+        Load the data of a neuron with a certain id.
+
+        Parameters
+        ----------
+        id : BodyId | int
+            The id of the neuron.
+        attributes : list
+            The attributes to load.
+
+        Returns
+        -------
+        pandas.DataFrame
+            The data of the neuron.
+        """
+        return self.load_data_neuron_set([id_], attributes)
 
     def load_data_neuron_set(   
         self,
