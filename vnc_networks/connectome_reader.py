@@ -55,9 +55,40 @@ class ConnectomeReader(ABC):
         # specific namefields
         self._load_specific_namefields()
         self._load_specific_neuron_classes()
-        self._load_specific_directories()
-        
-        
+        self._load_data_directories()
+        self._create_output_directories()
+
+    def _create_output_directories(self):
+        """
+        Creates the directories where data is stored.
+        """
+        # preprocessed data saving
+        preprocessing_dir = params.PREPROCESSED_DATA_DIR
+        self._neuron_save_dir = os.path.join(
+            preprocessing_dir, self.connectome_name, self.connectome_version, "neurons"
+        )
+        os.makedirs(self._neuron_save_dir, exist_ok=True)
+        self._connections_save_dir = os.path.join(
+            preprocessing_dir,
+            self.connectome_name,
+            self.connectome_version,
+            "connections",
+        )
+        os.makedirs(self._connections_save_dir, exist_ok=True)
+
+        # data saving directories
+        processed_dir = params.PROCESSED_DATA_DIR
+        self._data_save_dir = os.path.join(
+            processed_dir, self.connectome_name, self.connectome_version
+        )
+        os.makedirs(self._data_save_dir, exist_ok=True)
+
+        plots_dir = params.FIG_DIR
+        self._plot_save_dir = os.path.join(
+            plots_dir, self.connectome_name, self.connectome_version
+        )
+        os.makedirs(self._plot_save_dir, exist_ok=True)
+
     # ----- virtual private methods -----
     @abstractmethod
     def _load_specific_namefields(self): ...
@@ -65,45 +96,9 @@ class ConnectomeReader(ABC):
     @abstractmethod
     def _load_specific_neuron_classes(self): ...
 
-    @abstractmethod 
-    def _load_specific_directories(self):
-        """
-        Creates the directories where data is stored.
-        """
-        # preprocessed data saving
-        preprocessing_dir = params.PREPROCESSED_DATA_DIR
-        self._neuron_save_dir = os.path.join(
-            preprocessing_dir,
-            self.connectome_name,
-            self.connectome_version,
-            "neurons"
-            )
-        os.makedirs(self._neuron_save_dir, exist_ok=True)
-        self._connections_save_dir = os.path.join(
-            preprocessing_dir,
-            self.connectome_name,
-            self.connectome_version,
-            "connections"
-            )
-        os.makedirs(self._connections_save_dir, exist_ok=True)
+    @abstractmethod
+    def _load_data_directories(self): ...
 
-        # data saving directories
-        processed_dir = params.PROCESSED_DATA_DIR
-        self._data_save_dir = os.path.join(
-            processed_dir,
-            self.connectome_name,
-            self.connectome_version
-            )
-        os.makedirs(self._data_save_dir, exist_ok=True)
-
-        plots_dir = params.FIG_DIR
-        self._plot_save_dir = os.path.join(
-            plots_dir,
-            self.connectome_name,
-            self.connectome_version
-            )
-        os.makedirs(self._plot_save_dir, exist_ok=True)
-        
     @abstractmethod
     def _get_traced_bids(self) -> pd.DataFrame:
         """
@@ -633,12 +628,10 @@ class MANCReader(ConnectomeReader):
         self._sensory_unknown = "Sensory TBD"
         self._interneuron_unknown = "Interneuron TBD"
 
-    def _load_specific_directories(self):
+    def _load_data_directories(self):
         """
         Need to define the directories that are common to all connectomes.
         """
-        super()._load_specific_directories() # data saving directories
-        
         self._connectome_dir = os.path.join(
             params.RAW_DATA_DIR,
             self.connectome_name,
@@ -1151,12 +1144,10 @@ class MANC_v_1_2(MANCReader):
         # MANC 1.2 is the same as MANC 1.0 except Glia was renamed to glia
         self._glia = "glia"
 
-    def _load_specific_directories(self):
+    def _load_data_directories(self):
         """
         Need to define the directories that are common to all connectomes.
         """
-        ConnectomeReader._load_specific_directories(self)  # data saving directories
-
         self._connectome_dir = os.path.join(
             params.RAW_DATA_DIR,
             self.connectome_name,
@@ -1316,12 +1307,10 @@ class FAFBReader(ConnectomeReader):
         self._visual_projection = "visual_projection"
         self._other = "other"
 
-    def _load_specific_directories(self):
+    def _load_data_directories(self):
         """
         Need to define the directories that are common to all connectomes.
         """
-        super()._load_specific_directories() # data saving directories
-        
         self._connectome_dir = os.path.join(
             params.RAW_DATA_DIR,
             self.connectome_name,
