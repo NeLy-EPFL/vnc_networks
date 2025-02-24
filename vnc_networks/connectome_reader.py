@@ -48,8 +48,9 @@ class ConnectomeReader(ABC):
     _ascending = "ascending"
     _descending = "descending"
 
-    @abstractmethod
-    def __init__(self):
+    def __init__(self, connectome_name: str, connectome_version: str):
+        self.connectome_name = connectome_name
+        self.connectome_version = connectome_version
 
         # specific namefields
         self._load_specific_namefields()
@@ -445,42 +446,12 @@ class ConnectomeReader(ABC):
 # --- Specific classes --- #
 
 # === MANC: Male Adult Neuronal Connectome
-class MANC(ConnectomeReader):
-    _versions = {} # Will contain the specific versions of MANC
-
-    def __new__(
-            cls,
-            connectome_version: str,
-            *args,
-            **kwargs,
-        ):
-        """
-        Instantiate the child class corresponding to the version of MANC.
-        """
-        if connectome_version in cls._versions:
-            return super().__new__(cls._versions[connectome_version])
-        raise ValueError("MANC version not recognized.")
-    
-    def __init_subclass__(
-            cls,
-            connectome_version: Optional[str] = None,
-            **kwargs,
-        ):
-        """
-        Register the existing versions of MANC.
-        """
-        super().__init_subclass__(**kwargs)
-        if connectome_version is not None:
-            MANC._versions[connectome_version] = cls
-    
-    @abstractmethod
+class MANCReader(ConnectomeReader):
     def __init__(
-            self,
-            connectome_version: str,
-            ): # 2nd argument is useless, only for compatibility
-        
-        self.connectome_name = 'manc'
-        self.connectome_version = connectome_version
+        self,
+        connectome_version: str,
+    ):  # 2nd argument is useless, only for compatibility
+        super().__init__("manc", connectome_version)
 
         self.nt_weights = {
             "acetylcholine": +1,
@@ -491,8 +462,6 @@ class MANC(ConnectomeReader):
             np.nan: 0,
         }
 
-        super().__init__()
-        
     # ----- overwritten methods -----
     def _load_specific_namefields(self):
         """
@@ -1131,13 +1100,14 @@ class MANC(ConnectomeReader):
         return neurons[neurons['body_id'].isin(ids)]
 
 # Specific versions of MANC
-class MANC_v_1_0(MANC, connectome_version='v1.0'):
-    def __init__(self, connectome_version: str):
-        super().__init__(connectome_version)
+class MANC_v_1_0(MANCReader):
+    def __init__(self):
+        super().__init__("v1.0")
 
-class MANC_v_1_2(MANC, connectome_version='v1.2'):
-    def __init__(self, connectome_version: str):
-        super().__init__(connectome_version)
+
+class MANC_v_1_2(MANCReader):
+    def __init__(self):
+        super().__init__("v1.2")
 
     def _load_specific_namefields(self):
         self._body_id = "bodyId"
@@ -1177,7 +1147,7 @@ class MANC_v_1_2(MANC, connectome_version='v1.2'):
         """
         Name the neuron classes.
         """
-        MANC._load_specific_neuron_classes(self)
+        MANCReader._load_specific_neuron_classes(self)
         # MANC 1.2 is the same as MANC 1.0 except Glia was renamed to glia
         self._glia = "glia"
 
@@ -1261,43 +1231,32 @@ class MANC_v_1_2(MANC, connectome_version='v1.2'):
         return synapses
 
 
+@typing.overload
+def MANC(version: typing.Literal["v1.0"]) -> MANC_v_1_0: ...
+
+
+@typing.overload
+def MANC(version: typing.Literal["v1.2"]) -> MANC_v_1_2: ...
+
+
+def MANC(version: typing.Literal["v1.0", "v1.2"]) -> MANCReader:
+    match version:
+        case "v1.0":
+            return MANC_v_1_0()
+        case "v1.2":
+            return MANC_v_1_2()
+    raise ValueError(
+        f"Version {version} is not a supported version for the MANC connectome. Supported versions are v1.0 and v1.2"
+    )
+
+
 # === FAFB: Female Adult Fly Brain
-class FAFB(ConnectomeReader):
-    _versions = {} # Will contain the specific versions of FAFB
-
-    def __new__(
-            cls,
-            connectome_version: str,
-            *args,
-            **kwargs,
-        ):
-        """
-        Instantiate the child class corresponding to the version of FAFB.
-        """
-        if connectome_version in cls._versions:
-            return super().__new__(cls._versions[connectome_version])
-        raise ValueError("FAFB version not recognized.")
-    
-    def __init_subclass__(
-            cls,
-            connectome_version: Optional[str] = None,
-            **kwargs,
-        ):
-        """
-        Register the existing versions of FAFB.
-        """
-        super().__init_subclass__(**kwargs)
-        if connectome_version is not None:
-            FAFB._versions[connectome_version] = cls
-
-    @abstractmethod    
+class FAFBReader(ConnectomeReader):
     def __init__(
-            self,
-            connectome_version: str,
-            ):
-        
-        self.connectome_name = 'fafb'
-        self.connectome_version = connectome_version
+        self,
+        connectome_version: str,
+    ):
+        super().__init__("fafb", connectome_version)
 
         self.nt_weights = {
             "ACH": +1,
@@ -1309,7 +1268,6 @@ class FAFB(ConnectomeReader):
             None: 0,
             np.nan: 0,
         }
-        super().__init__()
 
     # ----- overwritten methods -----
     def _load_specific_namefields(self):
@@ -1747,13 +1705,30 @@ class FAFB(ConnectomeReader):
 
 
 # Specific versions of FAFB
-class FAFB_v630(FAFB, connectome_version='v630'):
-    def __init__(self, connectome_version: str):
-        super().__init__(connectome_version)
-
-class FAFB_v783(FAFB, connectome_version='v783'):
-    def __init__(self, connectome_version: str):
-        super().__init__(connectome_version)
+class FAFB_v630(FAFBReader):
+    def __init__(self):
+        super().__init__("v630")
 
 
-                
+class FAFB_v783(FAFBReader):
+    def __init__(self):
+        super().__init__("v783")
+
+
+@typing.overload
+def FAFB(version: typing.Literal["v630"]) -> FAFB_v630: ...
+
+
+@typing.overload
+def FAFB(version: typing.Literal["v783"]) -> FAFB_v783: ...
+
+
+def FAFB(version: typing.Literal["v630", "v783"]) -> FAFBReader:
+    match version:
+        case "v630":
+            return FAFB_v630()
+        case "v783":
+            return FAFB_v783()
+    raise ValueError(
+        f"Version {version} is not a supported version for the FAFB connectome. Supported versions are v630 and v783"
+    )
