@@ -100,7 +100,7 @@ class ConnectomeReader(ABC):
     def _load_data_directories(self): ...
 
     @abstractmethod
-    def _get_traced_bids(self) -> pd.DataFrame:
+    def _get_traced_bids(self) -> list[BodyId]:
         """
         Get the body ids of the traced neurons.
         """
@@ -664,7 +664,7 @@ class MANCReader(ConnectomeReader):
             "Neuprint_Synapses_manc_v1.ftr"
         )
 
-    def _get_traced_bids(self) -> pd.DataFrame:
+    def _get_traced_bids(self) -> list[BodyId]:
         """
         Get the body ids of the traced neurons.
         """
@@ -675,7 +675,7 @@ class MANCReader(ConnectomeReader):
         nodes_data = nodes_data[
             nodes_data[self._tracing_status] == self.traced_entry
             ]
-        traced_bids = nodes_data[self._body_id].values
+        traced_bids = list(nodes_data[self._body_id].values)
         return traced_bids
 
     def _load_connections(self) -> pd.DataFrame:
@@ -1345,7 +1345,7 @@ class FAFBReader(ConnectomeReader):
             "synapse_coordinates.csv"
             )
 
-    def _get_traced_bids(self) -> pd.DataFrame:
+    def _get_traced_bids(self) -> list[BodyId]:
         """
         Get the body ids of the traced neurons.
         """
