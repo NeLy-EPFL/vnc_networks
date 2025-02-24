@@ -59,12 +59,10 @@ class ConnectomeReader(ABC):
         
     # ----- virtual private methods -----
     @abstractmethod
-    def _load_specific_namefields(self):
-        pass
+    def _load_specific_namefields(self): ...
 
     @abstractmethod
-    def _load_specific_neuron_classes(self):
-        pass   
+    def _load_specific_neuron_classes(self): ...
 
     @abstractmethod 
     def _load_specific_directories(self):
@@ -110,14 +108,14 @@ class ConnectomeReader(ABC):
         """
         Get the body ids of the traced neurons.
         """
-        pass
+        ...
 
     @abstractmethod
     def _load_connections(self) -> pd.DataFrame:
         """
         Load the connections of the connectome.
         """
-        pass
+        ...
 
     # ----- public methods -----
     # --- abstract methods
@@ -126,28 +124,28 @@ class ConnectomeReader(ABC):
         """
         Get the locations of the synapses.
         """
-        pass
+        ...
 
     @abstractmethod
     def get_synapse_neuropil(self, synapse_ids: list[int]) -> pd.DataFrame:
         """
         Get the neuropil of the synapses.
         """
-        pass
+        ...
  
     @abstractmethod
     def list_possible_attributes(self) -> list[str]:
         """
         List the possible attributes for a neuron.
         """
-        pass
+        ...
 
     @abstractmethod
     def list_all_nodes(self) -> list[BodyId]:
         """
         List all the pre-synaptic neurons existing in the connectome.
         """
-        pass
+        ...
 
     @abstractmethod
     def get_neuron_bodyids(
@@ -163,7 +161,7 @@ class ConnectomeReader(ABC):
         For the specific case of "class_1" that refers to the NeuronClass,
         we need to verify both the generic and the specific names.
         """
-        pass
+        ...
 
     @abstractmethod
     def load_data_neuron_set(
@@ -186,7 +184,7 @@ class ConnectomeReader(ABC):
         pandas.DataFrame
             The data of the neurons.
         """
-        pass
+        ...
 
     # --- partially reused methods
     def sna(
