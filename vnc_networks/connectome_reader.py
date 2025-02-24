@@ -1229,6 +1229,17 @@ def MANC(version: typing.Literal["v1.2"]) -> MANC_v_1_2: ...
 
 
 def MANC(version: typing.Literal["v1.0", "v1.2"]) -> MANCReader:
+    """Get a connectome reader for one of the versions of the Male Adult Neuronal Connectome (MANC).
+
+    Args:
+        version (typing.Literal["v1.0", "v1.2"]): The two valid versions of MANC
+
+    Raises:
+        ValueError: If an incorrect connectome version is provided
+
+    Returns:
+        MANCReader: Either MANC_v_1_0 or MANC_v_1_2
+    """
     match version:
         case "v1.0":
             return MANC_v_1_0()
@@ -1712,6 +1723,17 @@ def FAFB(version: typing.Literal["v783"]) -> FAFB_v783: ...
 
 
 def FAFB(version: typing.Literal["v630", "v783"]) -> FAFBReader:
+    """Get a connectome reader for one of the versions of the Full Adult Fly Brain connectome (FAFB).
+
+    Args:
+        version (typing.Literal["v630", "v783"]): The two valid versions of FAFB
+
+    Raises:
+        ValueError: If an incorrect connectome version is provided
+
+    Returns:
+        FAFBReader: Either FAFB_v630 or FAFB_v783
+    """
     match version:
         case "v630":
             return FAFB_v630()
