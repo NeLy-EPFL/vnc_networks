@@ -440,6 +440,20 @@ class ConnectomeReader(ABC):
 
 # === MANC: Male Adult Neuronal Connectome
 class MANCReader(ConnectomeReader):
+    # these will get implemented by specific MANC versions
+    # data files
+    _nodes_file: str
+    _connections_file: str
+    # neuron attributes
+    _type: str
+    _tracing_status: str
+    _entry_nerve: str
+    _exit_nerve: str
+    _nb_pre_synapses: str
+    _nb_post_synapses: str
+    _nb_pre_neurons: str
+    _nb_post_neurons: str
+
     def __init__(
         self,
         connectome_version: str,
@@ -454,6 +468,313 @@ class MANCReader(ConnectomeReader):
             None: 0,
             np.nan: 0,
         }
+
+    # ----- overwritten methods -----
+    def _load_specific_neuron_classes(self):
+        """
+        Name the neuron classes.
+        """
+        # common types
+        self._sensory = "sensory neuron"
+        self._motor = "motor neuron"
+        self._ascending = "ascending neuron"
+        self._descending = "descending neuron"
+        # specific types
+        self._intrinsic = "intrinsic neuron"
+        self._glia = "Glia"
+        self._sensory_ascending = "sensory ascending"
+        self._efferent = "efferent neuron"
+        self._efferent_ascending = "efferent ascending"
+        self._unknown = "TBD"
+        self._sensory_unknown = "Sensory TBD"
+        self._interneuron_unknown = "Interneuron TBD"
+
+    def _get_traced_bids(self) -> list[BodyId]:
+        """
+        Get the body ids of the traced neurons.
+        """
+        nodes_data = pd.read_feather(
+            self._nodes_file, columns=[self._body_id, self._tracing_status]
+        )
+        nodes_data = nodes_data[nodes_data[self._tracing_status] == self.traced_entry]
+        traced_bids = list(nodes_data[self._body_id].values)
+        return traced_bids
+
+    def _load_connections(self) -> pd.DataFrame:
+        """
+        Load the connections of the connectome.
+        Needs to gather the columns ['start_bid', 'end_bid', 'syn_count', 'nt_type'].
+        """
+        # Loading data in the connections file
+        columns = ["start_bid", "end_bid", "syn_count"]
+        columns_to_read = [self.sna(a) for a in columns]
+        connections = pd.read_feather(self._connections_file, columns=columns_to_read)
+        read_columns = (
+            connections.columns
+        )  # ordering can be different than columns_to_read
+        connections.columns = [self.decode_neuron_attribute(c) for c in read_columns]
+
+        # add nt_type information
+        data = pd.read_feather(self._nodes_file, columns=[self._body_id, self._nt_type])
+        read_columns = data.columns
+        data.columns = [self.decode_neuron_attribute(c) for c in read_columns]
+        connections = pd.merge(
+            connections,
+            data,
+            left_on="start_bid",
+            right_on="body_id",
+            how="left",
+            suffixes=("", ""),
+        )
+        connections = connections.drop(columns=["body_id"])
+
+        return connections
+
+    # public methods
+    def list_possible_attributes(self) -> list[str]:
+        """
+        List the possible attributes for a neuron.
+        """
+        all_attr = [
+            "nt_type",
+            "nt_proba",
+            "class_1",
+            "class_2",
+            "name",
+            "type",
+            "side",
+            "neuropil",
+            "hemilineage",
+            "size",
+            "tracing_status",
+            "entry_nerve",
+            "exit_nerve",
+            "position",
+            "nb_pre_synapses",
+            "nb_post_synapses",
+            "nb_pre_neurons",
+            "nb_post_neurons",
+        ]
+        return all_attr
+
+    def sna(  # specific_neuron_attribute, abbreviated due to frequent use
+        self, generic_n_a: NeuronAttribute
+    ) -> str:
+        """
+        Converts the generic Neuron Attribute to the specific one.
+        It first tries to map the attribute defined for all connectomes. If it
+        fails, it looks for specific attributes only defined in this connectome.
+        """
+        try:
+            converted_type = super().sna(generic_n_a)
+        except KeyError:
+            # look for specific attributes only defined in this connectome
+            mapping = {
+                "type": self._type,
+                "tracing_status": self._tracing_status,
+                "entry_nerve": self._entry_nerve,
+                "exit_nerve": self._exit_nerve,
+                "nb_pre_synapses": self._nb_pre_synapses,
+                "nb_post_synapses": self._nb_post_synapses,
+                "nb_pre_neurons": self._nb_pre_neurons,
+                "nb_post_neurons": self._nb_post_neurons,
+                "location": self._location,  # synapse position
+            }
+            try:
+                converted_type = mapping.get(generic_n_a)
+                if converted_type is None:
+                    raise KeyError
+                # if the converted type is a tuple, get the first element
+                if isinstance(converted_type, tuple):
+                    converted_type = converted_type[0]
+            except KeyError:
+                raise ValueError(
+                    f"ConnectomeReader::sna().\
+                    The attribute {generic_n_a} is not defined in {self.connectome_name}."
+                )
+        return converted_type
+
+    def decode_neuron_attribute(self, specific_attribute: str) -> NeuronAttribute:
+        """
+        Decode the specific attribute to the generic one.
+        """
+        try:
+            converted_attr = super().decode_neuron_attribute(specific_attribute)
+        except KeyError:
+            # look for specific attributes only defined in this connectome
+            mapping: dict[str, NeuronAttribute] = {
+                self._type: "type",
+                self._tracing_status: "tracing_status",
+                self._entry_nerve: "entry_nerve",
+                self._exit_nerve: "exit_nerve",
+                self._nb_pre_synapses: "nb_pre_synapses",
+                self._nb_post_synapses: "nb_post_synapses",
+                self._nb_pre_neurons: "nb_pre_neurons",
+                self._nb_post_neurons: "nb_post_neurons",
+                self._location: "location",  # synapse position
+            }
+            try:
+                converted_attr = mapping.get(specific_attribute)
+                if converted_attr is None:
+                    raise KeyError
+            except KeyError:
+                raise ValueError(
+                    f"ConnectomeReader::decode_neuron_attribute().\
+                    The attribute {specific_attribute} is not defined in {self.connectome_name}."
+                )
+        return converted_attr
+
+    def specific_neuron_class(self, generic_n_c: NeuronClass):
+        """
+        Converts the generic Neuron Class to the specific one.
+        """
+        try:
+            converted_type = super().specific_neuron_class(generic_n_c)
+        except KeyError:
+            # look for specific classes only defined in this connectome
+            mapping = {
+                "intrinsic": self._intrinsic,
+                "glia": self._glia,
+                "sensory_ascending": self._sensory_ascending,
+                "efferent": self._efferent,
+                "efferent_ascending": self._efferent_ascending,
+                "unknown": self._unknown,
+                "sensory_unknown": self._sensory_unknown,
+                "interneuron_unknown": self._interneuron_unknown,
+            }
+            try:
+                converted_type = mapping.get(generic_n_c)
+                if converted_type is None:
+                    raise KeyError
+            except KeyError:
+                raise ValueError(
+                    f"ConnectomeReader::specific_neuron_class().\
+                    The class {generic_n_c} is not defined in {self.connectome_name}."
+                )
+        return converted_type
+
+    def decode_neuron_class(self, specific_class: str | None) -> NeuronClass:
+        """
+        Decode the specific class to the generic one.
+        """
+        try:
+            converted_class = super().decode_neuron_class(specific_class)
+        except KeyError:
+            # look for specific classes only defined in this connectome
+            mapping: dict[str | None, NeuronClass] = {
+                self._intrinsic: "intrinsic",
+                self._glia: "glia",
+                self._sensory_ascending: "sensory_ascending",
+                self._efferent: "efferent",
+                self._efferent_ascending: "efferent_ascending",
+                self._unknown: "unknown",
+                self._sensory_unknown: "sensory_unknown",
+                self._interneuron_unknown: "interneuron_unknown",
+                None: "unknown",
+            }
+            try:
+                converted_class = mapping.get(specific_class)
+                if converted_class is None:
+                    raise KeyError
+            except KeyError:
+                raise ValueError(
+                    f"ConnectomeReader::decode_neuron_class().\
+                    The class {specific_class} is not defined in {self.connectome_name}."
+                )
+        return converted_class
+
+    def list_all_nodes(self) -> list[BodyId]:
+        """
+        List all the neurons existing in the connectome.
+        """
+        data = pd.read_feather(self._nodes_file, columns=[self._body_id])
+        return list(data[self._body_id].values)
+
+    def get_neuron_bodyids(
+        self,
+        selection_dict: SelectionDict = {},
+        nodes: Optional[list[BodyId] | list[int]] = None,
+    ) -> list[BodyId]:
+        """
+        Get the Ids of the neurons in the dataset.
+        Select (keep) according to the selection_dict.
+        Different criteria are treated as 'and' conditions.
+
+        For the specific case of "class_1" that refers to the NeuronClass,
+        we need to verify both the generic and the specific names.
+        """
+        s_dict = self.specific_selection_dict(selection_dict)
+
+        # Identify columns to load
+        columns_to_read = [self.sna(a) for a in selection_dict.keys()]
+        columns_to_write = list(selection_dict.keys())
+        if "body_id" not in selection_dict.keys():
+            columns_to_read.append(self._body_id)  # specific name field
+            columns_to_write.append("body_id")  # generic name field
+
+        neurons = pd.read_feather(self._nodes_file, columns=list(columns_to_read))
+
+        if s_dict is not None:
+            for key in s_dict.keys():
+                if key == self.sna("class_1"):
+                    requested_value = s_dict[
+                        key
+                    ]  # can be 'sensory' or 'sensory neuron'
+                    try:  # will work if a generic NeuronClass is given
+                        specific_value = self.specific_neuron_class(requested_value)
+                    except KeyError:  # will work if a specific NeuronClass is given
+                        specific_value = requested_value
+                    neurons = neurons[neurons[self._class_1] == specific_value]
+                else:
+                    neurons = neurons[neurons[key] == s_dict[key]]
+        if nodes is not None:
+            neurons = neurons[neurons[self._body_id].isin(nodes)]
+
+        return list(neurons[self._body_id].values)
+
+    def load_data_neuron_set(
+        self,
+        ids: list[BodyId] | list[int],
+        attributes: list[NeuronAttribute] = [],
+    ) -> pd.DataFrame:
+        """
+        Load the data of a set of neurons with certain ids.
+
+        Parameters
+        ----------
+        ids : list
+            The bodyids of the neurons.
+        attributes : list
+            The attributes to load.
+
+        Returns
+        -------
+        pandas.DataFrame
+            The data of the neurons.
+        """
+        # Identify columns to load
+        columns_to_read = [self.sna(a) for a in attributes]
+        columns_to_write = attributes
+        if "body_id" not in attributes:
+            columns_to_read.append(self._body_id)  # specific name field
+            columns_to_write.append("body_id")  # generic name field
+
+        # Load data
+        neurons = pd.read_feather(self._nodes_file, columns=columns_to_read)
+        # rename the columns to the generic names
+        read_columns = neurons.columns  # ordering can be different than columns_to_read
+        neurons.columns = [self.decode_neuron_attribute(c) for c in read_columns]
+
+        # return columns in the order they were requested in attributes
+        if len(attributes) > 0:
+            return neurons[neurons["body_id"].isin(ids)][columns_to_write]
+        return neurons[neurons["body_id"].isin(ids)]
+
+
+# Specific versions of MANC
+class MANC_v_1_0(MANCReader):
+    def __init__(self):
+        super().__init__("v1.0")
 
     # ----- overwritten methods -----
     def _load_specific_namefields(self):
@@ -474,8 +795,8 @@ class MANCReader(ConnectomeReader):
         self._neuropil = "somaNeuromere:string"
         self._hemilineage = "hemilineage:string"
         self._size = "size:long"
-        self._position = "position:point{srid:9157}" # for neurons
-        self._location = "location:point{srid:9157}" # for synapses
+        self._position = "position:point{srid:9157}"  # for neurons
+        self._location = "location:point{srid:9157}"  # for synapses
         self._target = "target:string"
         # specific to MANC -> need to add to ::sna()
         self._type = "type:string"
@@ -495,7 +816,7 @@ class MANCReader(ConnectomeReader):
         self._syn_location = "location:point{srid:9157}"
 
         # Existing fields in the MANC v1.0 for future reference
-        '''
+        """
             ":ID(Body-ID)",
             "bodyId:long",
             "pre:int",
@@ -605,26 +926,7 @@ class MANCReader(ConnectomeReader):
             "mVAC(T2)(R):boolean",
             "mVAC(T3)(L):boolean",
             "mVAC(T3)(R):boolean",
-        '''
-            
-    def _load_specific_neuron_classes(self):
         """
-        Name the neuron classes.
-        """
-        # common types
-        self._sensory = "sensory neuron"
-        self._motor = "motor neuron"
-        self._ascending = "ascending neuron"
-        self._descending = "descending neuron"
-        # specific types
-        self._intrinsic = "intrinsic neuron"
-        self._glia = "Glia"
-        self._sensory_ascending = "sensory ascending"
-        self._efferent = "efferent neuron"
-        self._efferent_ascending = "efferent ascending"
-        self._unknown = "TBD"
-        self._sensory_unknown = "Sensory TBD"
-        self._interneuron_unknown = "Interneuron TBD"
 
     def _load_data_directories(self):
         """
@@ -638,78 +940,24 @@ class MANCReader(ConnectomeReader):
             f"neuprint_manc_{self.connectome_version}_ftr",
         )
         self._connections_file = os.path.join(
-            self._connectome_dir,
-            "Neuprint_Neuron_Connections_manc_v1.ftr"
-            )
-        
+            self._connectome_dir, "Neuprint_Neuron_Connections_manc_v1.ftr"
+        )
+
         # specific to MANC
         # all information for a neuron
-        self._nodes_file = os.path.join( 
-            self._connectome_dir,
-            "Neuprint_Neurons_manc_v1.ftr"
-            )
+        self._nodes_file = os.path.join(
+            self._connectome_dir, "Neuprint_Neurons_manc_v1.ftr"
+        )
         # synapses: neurons to synapse sets -> synapsesets to synapses -> synapses to synapse data
         self._synapseset_file = os.path.join(
-            self._connectome_dir,
-            "Neuprint_SynapseSet_to_Synapses_manc_v1.ftr"
+            self._connectome_dir, "Neuprint_SynapseSet_to_Synapses_manc_v1.ftr"
         )
         self._neuron_synapseset_file = os.path.join(
-            self._connectome_dir,
-            "Neuprint_Neuron_to_SynapseSet_manc_v1.ftr"
+            self._connectome_dir, "Neuprint_Neuron_to_SynapseSet_manc_v1.ftr"
         )
         self._synapse_file = os.path.join(
-            self._connectome_dir,
-            "Neuprint_Synapses_manc_v1.ftr"
+            self._connectome_dir, "Neuprint_Synapses_manc_v1.ftr"
         )
-
-    def _get_traced_bids(self) -> list[BodyId]:
-        """
-        Get the body ids of the traced neurons.
-        """
-        nodes_data = pd.read_feather(
-            self._nodes_file,
-            columns=[self._body_id, self._tracing_status]
-            )
-        nodes_data = nodes_data[
-            nodes_data[self._tracing_status] == self.traced_entry
-            ]
-        traced_bids = list(nodes_data[self._body_id].values)
-        return traced_bids
-
-    def _load_connections(self) -> pd.DataFrame:
-        """
-        Load the connections of the connectome.
-        Needs to gather the columns ['start_bid', 'end_bid', 'syn_count', 'nt_type'].
-        """
-        # Loading data in the connections file
-        columns = ['start_bid', 'end_bid', 'syn_count']
-        columns_to_read = [
-            self.sna(a) for a in columns
-        ]
-        connections = pd.read_feather(
-            self._connections_file, columns=columns_to_read
-            )
-        read_columns = connections.columns # ordering can be different than columns_to_read
-        connections.columns = [self.decode_neuron_attribute(c) for c in read_columns]
-
-        # add nt_type information
-        data = pd.read_feather(
-            self._nodes_file,
-            columns=[self._body_id, self._nt_type]
-        )
-        read_columns = data.columns
-        data.columns = [self.decode_neuron_attribute(c) for c in read_columns]
-        connections = pd.merge(
-            connections,
-            data,
-            left_on='start_bid',
-            right_on='body_id',
-            how="left",
-            suffixes=("", ""),
-        )
-        connections = connections.drop(columns=['body_id'])
-
-        return connections
 
     # --- specific private methods
     def _load_synapse_locations(self, synapse_ids: list[int]) -> pd.DataFrame:
@@ -717,27 +965,26 @@ class MANCReader(ConnectomeReader):
         Get the locations of the synapses.
         """
         data = pd.read_feather(
-            self._synapse_file,
-            columns = [self._syn_id, self._syn_location]
-            )
+            self._synapse_file, columns=[self._syn_id, self._syn_location]
+        )
         data = data.loc[data[self._syn_id].isin(synapse_ids)]
         read_columns = data.columns
         data.columns = [self.decode_neuron_attribute(c) for c in read_columns]
 
-        locations = data['location'].values
+        locations = data["location"].values
 
         # split the location into X, Y, Z
         X, Y, Z = [], [], []
         for loc in locations:
-            name = loc.replace('x','"x"').replace('y','"y"').replace('z','"z"')
+            name = loc.replace("x", '"x"').replace("y", '"y"').replace("z", '"z"')
             try:
                 pos = eval(name)  # read loc as a dict, use of x,y,z under the hood
             except TypeError:
                 pos = {"x": np.nan, "y": np.nan, "z": np.nan}
-                print(f'Type Error in reading location for {name}')
+                print(f"Type Error in reading location for {name}")
             except NameError:
                 pos = {"x": np.nan, "y": np.nan, "z": np.nan}
-                print(f'Name Error in reading location for {name}')
+                print(f"Name Error in reading location for {name}")
             if not isinstance(pos, dict):
                 pos = {"x": np.nan, "y": np.nan, "z": np.nan}
             X.append(pos["x"])
@@ -755,7 +1002,7 @@ class MANCReader(ConnectomeReader):
     def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
         """
         Load the synapse ids for the neuron.
-        should define the columns 
+        should define the columns
         ['synapse_id','start_bid','end_bid', 'X', 'Y', 'Z']
         """
         # neuron to synapse set
@@ -799,11 +1046,8 @@ class MANCReader(ConnectomeReader):
             read_columns = nodes_data.columns
             nodes_data.columns = [self.decode_neuron_attribute(c) for c in read_columns]
             synapse_df = synapse_df.merge(
-                nodes_data,
-                left_on="end_bid",
-                right_on="body_id",
-                how="left"
-                )
+                nodes_data, left_on="end_bid", right_on="body_id", how="left"
+            )
             synapse_df.drop(columns=["body_id"], inplace=True)
             # remove the rows where the postsynaptic neuron is not traced
             synapse_df = synapse_df[synapse_df["tracing_status"] == self.traced_entry]
@@ -814,20 +1058,18 @@ class MANCReader(ConnectomeReader):
         synapse_df = synapse_df.groupby(["start_bid", "end_bid"]).filter(
             lambda x: len(x) >= params.SYNAPSE_CUTOFF
         )
-        
+
         # Load the synapse locations
         syn_ids = list(synapse_df["synapse_id"].values)
         data = self._load_synapse_locations(syn_ids)
-        synapse_df = synapse_df.merge(
-            data, on="synapse_id", how="inner"
-            )
+        synapse_df = synapse_df.merge(data, on="synapse_id", how="inner")
 
         return synapse_df
-    
+
     def get_synapse_neuropil(self, synapse_ids: list[int]) -> pd.DataFrame:
         """
         Get the neuropil of the synapses.
-        In MANC, this means finding the name of the neuropil column for which 
+        In MANC, this means finding the name of the neuropil column for which
         the entry is True.
         """
         roi_file = os.path.join(self._connectome_dir, "all_ROIs.txt")
@@ -836,8 +1078,8 @@ class MANCReader(ConnectomeReader):
         # find the subset of the synapses in the dataset that we care about for this neuron
         # then for each possible ROI, check which synapses are in that ROI
         # store each synapse's ROI in the neuropil column
-        data = pd.read_feather(self._synapse_file, columns = [self._syn_id])
-        data.columns = ['synapse_id']
+        data = pd.read_feather(self._synapse_file, columns=[self._syn_id])
+        data.columns = ["synapse_id"]
         data["neuropil"] = "None"
 
         for roi in rois:
@@ -850,256 +1092,15 @@ class MANCReader(ConnectomeReader):
             synapses_in_roi = roi_column.loc[
                 roi_column[column_name] == True, self._syn_id
             ].values  # type: ignore
-            data.loc[
-                data["synapse_id"].isin(synapses_in_roi), "neuropil"
-            ] = roi
+            data.loc[data["synapse_id"].isin(synapses_in_roi), "neuropil"] = roi
         return data
-
-    def list_possible_attributes(self) -> list[str]:
-        """
-        List the possible attributes for a neuron.
-        """
-        all_attr = [
-            "nt_type", "nt_proba", "class_1", "class_2", "name", "type", "side",
-            "neuropil", "hemilineage", "size", "tracing_status", "entry_nerve",
-            "exit_nerve", "position", "nb_pre_synapses", "nb_post_synapses",
-            "nb_pre_neurons", "nb_post_neurons",
-        ]
-        return all_attr
-    
-    def sna( # specific_neuron_attribute, abbreviated due to frequent use
-            self,
-            generic_n_a: NeuronAttribute
-            ) -> str:
-        """
-        Converts the generic Neuron Attribute to the specific one.
-        It first tries to map the attribute defined for all connectomes. If it
-        fails, it looks for specific attributes only defined in this connectome.
-        """
-        try:
-            converted_type = super().sna(generic_n_a)
-        except KeyError:
-            # look for specific attributes only defined in this connectome
-            mapping = {
-                "type": self._type,
-                "tracing_status": self._tracing_status,
-                "entry_nerve": self._entry_nerve,
-                "exit_nerve": self._exit_nerve,
-                "nb_pre_synapses": self._nb_pre_synapses,
-                "nb_post_synapses": self._nb_post_synapses,
-                "nb_pre_neurons": self._nb_pre_neurons,
-                "nb_post_neurons": self._nb_post_neurons,
-                "location": self._location, # synapse position
-            }
-            try:
-                converted_type = mapping.get(generic_n_a)
-                if converted_type is None:
-                    raise KeyError
-                # if the converted type is a tuple, get the first element
-                if isinstance(converted_type, tuple):
-                    converted_type = converted_type[0]
-            except KeyError:
-                raise ValueError(
-                    f"ConnectomeReader::sna().\
-                    The attribute {generic_n_a} is not defined in {self.connectome_name}."
-                    )
-        return converted_type
-    
-    def decode_neuron_attribute(
-        self, specific_attribute: str
-        ) -> NeuronAttribute:
-        """
-        Decode the specific attribute to the generic one.
-        """
-        try:
-            converted_attr = super().decode_neuron_attribute(specific_attribute)
-        except KeyError:
-            # look for specific attributes only defined in this connectome
-            mapping: dict[str, NeuronAttribute] = {
-                self._type: "type",
-                self._tracing_status: "tracing_status",
-                self._entry_nerve: "entry_nerve",
-                self._exit_nerve: "exit_nerve",
-                self._nb_pre_synapses: "nb_pre_synapses",
-                self._nb_post_synapses: "nb_post_synapses",
-                self._nb_pre_neurons: "nb_pre_neurons",
-                self._nb_post_neurons: "nb_post_neurons",
-                self._location: "location",  # synapse position
-            }
-            try:
-                converted_attr = mapping.get(specific_attribute)
-                if converted_attr is None:
-                    raise KeyError
-            except KeyError:
-                raise ValueError(
-                    f"ConnectomeReader::decode_neuron_attribute().\
-                    The attribute {specific_attribute} is not defined in {self.connectome_name}."
-                    )
-        return converted_attr
-    
-    def specific_neuron_class(
-            self,
-            generic_n_c: NeuronClass
-            ):
-        """
-        Converts the generic Neuron Class to the specific one.
-        """
-        try:
-            converted_type = super().specific_neuron_class(generic_n_c)
-        except KeyError:
-            # look for specific classes only defined in this connectome
-            mapping = {
-                "intrinsic": self._intrinsic,
-                "glia": self._glia,
-                "sensory_ascending": self._sensory_ascending,
-                "efferent": self._efferent,
-                "efferent_ascending": self._efferent_ascending,
-                "unknown": self._unknown,
-                "sensory_unknown": self._sensory_unknown,
-                "interneuron_unknown": self._interneuron_unknown,
-            }
-            try:
-                converted_type = mapping.get(generic_n_c)
-                if converted_type is None:
-                    raise KeyError
-            except KeyError:
-                raise ValueError(
-                    f"ConnectomeReader::specific_neuron_class().\
-                    The class {generic_n_c} is not defined in {self.connectome_name}."
-                    )
-        return converted_type
-
-    def decode_neuron_class(self, specific_class: str | None) -> NeuronClass:
-        """
-        Decode the specific class to the generic one.
-        """
-        try:
-            converted_class = super().decode_neuron_class(specific_class)
-        except KeyError:
-            # look for specific classes only defined in this connectome
-            mapping: dict[str | None, NeuronClass] = {
-                self._intrinsic: "intrinsic",
-                self._glia: "glia",
-                self._sensory_ascending: "sensory_ascending",
-                self._efferent: "efferent",
-                self._efferent_ascending: "efferent_ascending",
-                self._unknown: "unknown",
-                self._sensory_unknown: "sensory_unknown",
-                self._interneuron_unknown: "interneuron_unknown",
-                None: "unknown",
-            }
-            try:
-                converted_class = mapping.get(specific_class)
-                if converted_class is None:
-                    raise KeyError
-            except KeyError:
-                raise ValueError(
-                    f"ConnectomeReader::decode_neuron_class().\
-                    The class {specific_class} is not defined in {self.connectome_name}."
-                    )   
-        return converted_class
-
-    def list_all_nodes(self) -> list[BodyId]:
-        """
-        List all the neurons existing in the connectome.
-        """
-        data = pd.read_feather(self._nodes_file, columns=[self._body_id])
-        return list(data[self._body_id].values)
-
-    def get_neuron_bodyids(
-        self,
-        selection_dict: SelectionDict = {},
-        nodes: Optional[list[BodyId] | list[int]] = None,
-    ) -> list[BodyId]:
-        """
-        Get the Ids of the neurons in the dataset.
-        Select (keep) according to the selection_dict.
-        Different criteria are treated as 'and' conditions.
-
-        For the specific case of "class_1" that refers to the NeuronClass,
-        we need to verify both the generic and the specific names.
-        """
-        s_dict = self.specific_selection_dict(selection_dict)
-
-        # Identify columns to load
-        columns_to_read = [
-            self.sna(a) for a in selection_dict.keys()
-        ]
-        columns_to_write = list(selection_dict.keys())
-        if 'body_id' not in selection_dict.keys():
-            columns_to_read.append(self._body_id) # specific name field
-            columns_to_write.append('body_id') # generic name field
-        
-        neurons = pd.read_feather(self._nodes_file, columns=list(columns_to_read))
-
-        if s_dict is not None:
-            for key in s_dict.keys():
-                if key == self.sna('class_1'):
-                    requested_value = s_dict[key] # can be 'sensory' or 'sensory neuron'
-                    try: # will work if a generic NeuronClass is given
-                        specific_value = self.specific_neuron_class(requested_value)
-                    except KeyError: # will work if a specific NeuronClass is given
-                        specific_value = requested_value
-                    neurons = neurons[
-                        neurons[self._class_1] == specific_value
-                        ]
-                else:
-                    neurons = neurons[neurons[key] == s_dict[key]]
-        if nodes is not None:
-            neurons = neurons[neurons[self._body_id].isin(nodes)]
-    
-        return list(neurons[self._body_id].values)
-
-    def load_data_neuron_set(
-        self,
-        ids: list[BodyId] | list[int],
-        attributes: list[NeuronAttribute] = [],
-    ) -> pd.DataFrame:
-        """
-        Load the data of a set of neurons with certain ids.
-
-        Parameters
-        ----------
-        ids : list
-            The bodyids of the neurons.
-        attributes : list
-            The attributes to load.
-
-        Returns
-        -------
-        pandas.DataFrame
-            The data of the neurons.
-        """
-        # Identify columns to load
-        columns_to_read = [
-            self.sna(a) for a in attributes
-        ]
-        columns_to_write = attributes
-        if 'body_id' not in attributes:
-            columns_to_read.append(self._body_id) # specific name field
-            columns_to_write.append('body_id') # generic name field
-
-        # Load data
-        neurons = pd.read_feather(self._nodes_file, columns=columns_to_read)
-        # rename the columns to the generic names
-        read_columns = neurons.columns # ordering can be different than columns_to_read
-        neurons.columns = [self.decode_neuron_attribute(c) for c in read_columns]
-
-        # return columns in the order they were requested in attributes
-        if len(attributes) > 0:
-            return neurons[neurons['body_id'].isin(ids)][columns_to_write]
-        return neurons[neurons['body_id'].isin(ids)]
-
-# Specific versions of MANC
-class MANC_v_1_0(MANCReader):
-    def __init__(self):
-        super().__init__("v1.0")
 
 
 class MANC_v_1_2(MANCReader):
     def __init__(self):
         super().__init__("v1.2")
 
+    # ----- overwritten methods -----
     def _load_specific_namefields(self):
         self._body_id = "bodyId"
         self._start_bid = "bodyId_pre"
@@ -1156,6 +1157,7 @@ class MANC_v_1_2(MANCReader):
         self._synapses_file = os.path.join(self._connectome_dir, "synapses.ftr")
         self._connections_file = os.path.join(self._connectome_dir, "connections.ftr")
 
+    # --- specific private methods
     def _load_synapse_locations(self, synapse_ids: list[int]) -> pd.DataFrame:
         """
         Get the locations of the synapses.
@@ -1175,6 +1177,7 @@ class MANC_v_1_2(MANCReader):
         synapses.columns = ["synapse_id", "X", "Y", "Z"]
         return synapses
 
+    # public methods
     def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
         """
         Load the synapse ids for the neuron.
