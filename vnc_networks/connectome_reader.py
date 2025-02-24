@@ -383,9 +383,7 @@ class ConnectomeReader(ABC):
         Example: the generic key 'class_1' input will be replaced with
         'class:string' for MANC and 'super_class' for FAFB.
         """
-        s_dict = {} 
-        for k, v in selection_dict.items():
-            s_dict[self.sna(k)] = v
+        s_dict = {self.sna(k): v for k, v in selection_dict.items()}
         return s_dict
     
     def get_plots_dir(self) -> str:
@@ -818,7 +816,7 @@ class MANCReader(ConnectomeReader):
         )
         
         # Load the synapse locations
-        syn_ids = synapse_df["synapse_id"].values
+        syn_ids = list(synapse_df["synapse_id"].values)
         data = self._load_synapse_locations(syn_ids)
         synapse_df = synapse_df.merge(
             data, on="synapse_id", how="inner"
