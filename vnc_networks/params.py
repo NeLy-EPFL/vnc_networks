@@ -132,6 +132,7 @@ NeuronAttribute = typing.Literal[
     "size",  # common to all
     "area",
     "length",
+    "flow",
     "position",  # for neurons
     "location",  # for synapses
     # genetics

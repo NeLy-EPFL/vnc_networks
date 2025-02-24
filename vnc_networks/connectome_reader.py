@@ -915,7 +915,7 @@ class MANCReader(ConnectomeReader):
             converted_attr = super().decode_neuron_attribute(specific_attribute)
         except KeyError:
             # look for specific attributes only defined in this connectome
-            mapping = {
+            mapping: dict[str, NeuronAttribute] = {
                 self._type: "type",
                 self._tracing_status: "tracing_status",
                 self._entry_nerve: "entry_nerve",
@@ -924,7 +924,7 @@ class MANCReader(ConnectomeReader):
                 self._nb_post_synapses: "nb_post_synapses",
                 self._nb_pre_neurons: "nb_pre_neurons",
                 self._nb_post_neurons: "nb_post_neurons",
-                self._location: "location", # synapse position
+                self._location: "location",  # synapse position
             }
             try:
                 converted_attr = mapping.get(specific_attribute)
@@ -1354,7 +1354,12 @@ class FAFBReader(ConnectomeReader):
         Load the connections of the connectome.
         Needs to gather the columns ['start_bid', 'end_bid', 'syn_count', 'nt_type'].
         """
-        columns = ['start_bid', 'end_bid', 'syn_count', 'nt_type']
+        columns: list[NeuronAttribute] = [
+            "start_bid",
+            "end_bid",
+            "syn_count",
+            "nt_type",
+        ]
         columns_to_read = [
             self.sna(a) for a in columns
         ]
@@ -1428,7 +1433,7 @@ class FAFBReader(ConnectomeReader):
         all_synapses = pd.read_csv(self._synapses_file, dtype=type_dict)
         all_synapses.columns = ['start_bid', 'end_bid', 'X', 'Y', 'Z'] # file order
         all_synapses.ffill(inplace=True) # fill the NaNs with the previous value
-        all_synapses['synapse_id'] = all_synapses.index # do before filtering for potential comparison accross bodyids
+        all_synapses['synapse_id'] = all_synapses.index # do before filtering for potential comparison across bodyids
         all_synapses = all_synapses.astype({'start_bid':int, 'end_bid':int})
 
         # filter for the synapses of the neuron
@@ -1484,7 +1489,7 @@ class FAFBReader(ConnectomeReader):
             converted_attr = super().decode_neuron_attribute(specific_attribute)
         except KeyError:
             # look for specific attributes only defined in this connectome
-            mapping = {
+            mapping: dict[str, NeuronAttribute] = {
                 self._nerve: "nerve",
                 self._area: "area",
                 self._length: "length",
@@ -1658,17 +1663,13 @@ class FAFBReader(ConnectomeReader):
         # split the data loading as a function of the files required
         # 1. nt_type, nt_proba, neuropil
         nt_fields = list(
-            {'nt_type', 'nt_proba', 'neuropil'}.intersection(
-            set(attributes)
-            ))
+            set(attributes).intersection({"nt_type", "nt_proba", "neuropil"})
+        )
         if len(nt_fields) > 0:
             data = _load_df(self._node_nt_type_file, nt_fields, ids)
             neurons = neurons.merge(data, on='body_id', how='inner')
         # 2. length, area, size
-        stat_fields = list(
-            {'length', 'area', 'size'}.intersection(
-            set(attributes)
-            ))
+        stat_fields = list(set(attributes).intersection({"length", "area", "size"}))
         if len(stat_fields) > 0:
             data = _load_df(self._node_stats_file, stat_fields, ids)
             neurons = neurons.merge(data, on='body_id', how='inner')    
