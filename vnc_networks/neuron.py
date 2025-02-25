@@ -163,6 +163,9 @@ class Neuron:
             start_bid=self.body_id,  # necessary only for MANC v1.2
         )
 
+        # replace None values with 'None'
+        data["neuropil"] = data["neuropil"].fillna("None")
+
         # merge with existing synapse df
         self.synapse_df = self.synapse_df.merge(data, on="synapse_id", how="inner")
         return

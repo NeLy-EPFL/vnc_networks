@@ -1224,6 +1224,28 @@ class MANC_v_1_2(MANCReader):
         ]
         synapses.columns = ["synapse_id", "start_bid", "end_bid", "X", "Y", "Z"]
 
+        # filter out non traced postsynaptic neurons
+        # add a column with 'tracing_status' of the postsynaptic neuron if it exists
+        if self.exists_tracing_status():
+            nodes_data = pd.read_feather(
+                self._nodes_file,
+                columns=[self._body_id, self._tracing_status],
+            )
+            read_columns = nodes_data.columns
+            nodes_data.columns = [self.decode_neuron_attribute(c) for c in read_columns]
+            synapses = synapses.merge(
+                nodes_data, left_on="end_bid", right_on="body_id", how="left"
+            )
+            synapses.drop(columns=["body_id"], inplace=True)
+            # remove the rows where the postsynaptic neuron is not traced
+            synapses = synapses.loc[synapses["tracing_status"] == self.traced_entry]
+            synapses.drop(columns=["tracing_status"], inplace=True)
+
+        # remove the rows where there are fewer than threshold synapses from
+        # a presynaptic neuron to a postsynaptic neuron
+        synapses = synapses.groupby(["start_bid", "end_bid"]).filter(
+            lambda x: len(x) >= params.SYNAPSE_CUTOFF
+        )
         return synapses
 
     def get_synapse_neuropil(
