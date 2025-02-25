@@ -193,15 +193,15 @@ NEURON_CLASSES: dict[NeuronClass, dict[typing.Literal["color"], str]] = {
     # orange: input related
     "ascending": {"color": DARKORANGE},
     "sensory": {"color": LIGHTORANGE},
-    "sensory ascending": {"color": LIGHTORANGE},
+    "sensory_ascending": {"color": LIGHTORANGE},
     "optic": {"color": LIGHTORANGE},
-    "visual projection": {"color": LIGHTORANGE},
+    "visual_projection": {"color": LIGHTORANGE},
     # blue: output related
     "descending": {"color": DARKBLUE},
     "motor": {"color": LIGHTBLUE},
     "efferent": {"color": LIGHTBLUE},
-    "efferent ascending": {"color": LIGHTBLUE},
-    "visual centrifugal": {"color": LIGHTBLUE},
+    "efferent_ascending": {"color": LIGHTBLUE},
+    "visual_centrifugal": {"color": LIGHTBLUE},
     # green: interneurons
     "intrinsic": {"color": GREEN},
     "central": {"color": GREEN},
