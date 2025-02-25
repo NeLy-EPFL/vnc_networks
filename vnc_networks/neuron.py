@@ -160,7 +160,6 @@ class Neuron:
 
         data = self.CR.get_synapse_neuropil(
             synapse_ids=self.synapse_df["synapse_id"].values,
-            start_bid=self.body_id,  # necessary only for MANC v1.2
         )
 
         # replace None values with 'None'
