@@ -1184,8 +1184,6 @@ class MANC_v_1_2(MANCReader):
         Get the locations of the synapses.
         """
         synapses = pd.read_feather(self._synapses_file)
-        # create synapse ids from the index
-        synapses["synapse_id"] = synapses.index
         synapses = synapses.loc[synapses["synapse_id"].isin(synapse_ids)]
         synapses = synapses[
             [
@@ -1231,8 +1229,6 @@ class MANC_v_1_2(MANCReader):
         the entry is True.
         """
         synapses = pd.read_feather(self._synapses_file)
-        # create synapse ids from the index
-        synapses["synapse_id"] = synapses.index
         synapses = synapses.loc[synapses["synapse_id"].isin(synapse_ids)]
         synapses = synapses[
             [
