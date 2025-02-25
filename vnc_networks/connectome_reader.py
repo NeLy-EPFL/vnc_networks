@@ -126,7 +126,6 @@ class ConnectomeReader(ABC):
     def get_synapse_neuropil(
         self,
         synapse_ids: list[int],
-        start_bid: Optional[BodyId] = None,  # useless, only for compatibility
     ) -> pd.DataFrame:
         """
         Get the neuropil of the synapses.
@@ -1085,7 +1084,6 @@ class MANC_v_1_0(MANCReader):
     def get_synapse_neuropil(
         self,
         synapse_ids: list[int],
-        start_bid: Optional[BodyId] = None,  # useless, only for compatibility
     ) -> pd.DataFrame:
         """
         Get the neuropil of the synapses.
@@ -1152,6 +1150,7 @@ class MANC_v_1_2(MANCReader):
         self._nb_post_neurons = "downstream"
 
         # Synapse specific
+        self._syn_id = "synapse_id"
         self._synapse_x = "x_pre"
         self._synapse_y = "y_pre"
         self._synapse_z = "z_pre"
@@ -1186,11 +1185,10 @@ class MANC_v_1_2(MANCReader):
         """
         synapses = pd.read_feather(self._synapses_file)
         # create synapse ids from the index
-        synapses["synapse_id"] = synapses.index
-        synapses = synapses.loc[synapses["synapse_id"].isin(synapse_ids)]
+        synapses = synapses.loc[synapses[self._syn_id].isin(synapse_ids)]
         synapses = synapses[
             [
-                "synapse_id",
+                self._syn_id,
                 self._synapse_x,
                 self._synapse_y,
                 self._synapse_z,
@@ -1208,13 +1206,13 @@ class MANC_v_1_2(MANCReader):
         """
         # synapse set to synapse
         synapses = pd.read_feather(self._synapses_file)
-        # create synapse ids from the index
-        synapses["synapse_id"] = synapses.index
+
+        # filter on the presynaptic neuron
         synapses = synapses.loc[synapses[self._start_bid] == body_id]
 
         synapses = synapses[
             [
-                "synapse_id",
+                self._syn_id,
                 self._start_bid,
                 self._end_bid,
                 self._synapse_x,
@@ -1251,7 +1249,6 @@ class MANC_v_1_2(MANCReader):
     def get_synapse_neuropil(
         self,
         synapse_ids: list[int],
-        start_bid: BodyId,
     ) -> pd.DataFrame:
         """
         Get the neuropil of the synapses.
@@ -1260,17 +1257,11 @@ class MANC_v_1_2(MANCReader):
         """
         synapses = pd.read_feather(self._synapses_file)
 
-        # create synapse ids from the index
-        synapses["synapse_id"] = synapses.index
-
-        # filter on pre_bodyid
-        synapses = synapses.loc[synapses[self._start_bid] == start_bid]
-
         # filter on synapse_ids
-        synapses = synapses.loc[synapses["synapse_id"].isin(synapse_ids)]
+        synapses = synapses.loc[synapses[self._syn_id].isin(synapse_ids)]
         synapses = synapses[
             [
-                "synapse_id",
+                self._syn_id,
                 self._syn_neuropil,
             ]
         ]
@@ -1506,7 +1497,6 @@ class FAFBReader(ConnectomeReader):
     def get_synapse_neuropil(
         self,
         synapse_ids: list[int],
-        start_bid: Optional[BodyId] = None,  # useless, only for compatibility
     ) -> pd.DataFrame:
         raise NotImplementedError(
             'No trivial match in FAFB between coordinates and neuropil...\
