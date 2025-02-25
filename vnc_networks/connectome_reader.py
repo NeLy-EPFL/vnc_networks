@@ -116,7 +116,7 @@ class ConnectomeReader(ABC):
     # ----- public methods -----
     # --- abstract methods
     @abstractmethod
-    def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
+    def get_synapse_df(self, body_id: BodyId | int) -> pd.DataFrame:
         """
         Get the locations of the synapses.
         """
@@ -1020,7 +1020,7 @@ class MANC_v_1_0(MANCReader):
         return data
 
     # public methods
-    def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
+    def get_synapse_df(self, body_id: BodyId | int) -> pd.DataFrame:
         """
         Load the synapse ids for the neuron.
         should define the columns
@@ -1199,7 +1199,7 @@ class MANC_v_1_2(MANCReader):
         return synapses
 
     # public methods
-    def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
+    def get_synapse_df(self, body_id: BodyId | int) -> pd.DataFrame:
         """
         Load the synapse ids for the neuron.
         should define the columns
@@ -1455,7 +1455,7 @@ class FAFBReader(ConnectomeReader):
         return valid_nodes
 
     # public methods
-    def get_synapse_df(self, body_id: BodyId) -> pd.DataFrame:
+    def get_synapse_df(self, body_id: BodyId | int) -> pd.DataFrame:
         """
         Load the synapse ids for the neuron.
         should define the columns 
