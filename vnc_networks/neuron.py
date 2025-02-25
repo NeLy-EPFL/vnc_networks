@@ -49,19 +49,19 @@ class Neuron:
     def __init__(
         self,
         from_file: str,
-        CR: ConnectomeReader = MANC("v1.0"),
+        CR: ConnectomeReader = MANC("v1.2"),
     ): ...
     @typing.overload
     def __init__(
         self,
         body_id: BodyId | int,
-        CR: ConnectomeReader = MANC("v1.0"),
+        CR: ConnectomeReader = MANC("v1.2"),
     ): ...
 
     def __init__(
         self,
         body_id: Optional[BodyId | int] = None,
-        CR: ConnectomeReader = MANC("v1.0"),
+        CR: ConnectomeReader = MANC("v1.2"),
         from_file: Optional[str] = None,
     ):
         """
@@ -158,7 +158,10 @@ class Neuron:
         if "neuropil" in self.synapse_df.columns:  # already done
             return
 
-        data = self.CR.get_synapse_neuropil(self.synapse_df["synapse_id"].values)
+        data = self.CR.get_synapse_neuropil(
+            synapse_ids=self.synapse_df["synapse_id"].values,
+            start_bid=self.body_id,  # necessary only for MANC v1.2
+        )
 
         # merge with existing synapse df
         self.synapse_df = self.synapse_df.merge(data, on="synapse_id", how="inner")
@@ -473,17 +476,24 @@ class Neuron:
 @typing.overload
 def split_neuron_by_neuropil(
     neuron_id,
+    CR: ConnectomeReader = MANC("v1.2"),
     save: bool = True,
     return_type: typing.Literal["Neuron", "name"] = "Neuron",
 ) -> Neuron: ...
 @typing.overload
 def split_neuron_by_neuropil(
-    neuron_id, save: bool = True, return_type: typing.Literal["Neuron", "name"] = "name"
+    neuron_id,
+    CR: ConnectomeReader = MANC("v1.2"),
+    save: bool = True,
+    return_type: typing.Literal["Neuron", "name"] = "name",
 ) -> str: ...
 
 
 def split_neuron_by_neuropil(
-    neuron_id, save: bool = True, return_type: typing.Literal["Neuron", "name"] = "name"
+    neuron_id,
+    CR: ConnectomeReader = MANC("v1.2"),
+    save: bool = True,
+    return_type: typing.Literal["Neuron", "name"] = "name",
 ):
     """
     Define neuron subdivisions based on synapse distribution.
@@ -496,7 +506,7 @@ def split_neuron_by_neuropil(
     # if files:
     #    return name
     # else:
-    neuron = Neuron(neuron_id)
+    neuron = Neuron(neuron_id, CR=CR)
     _ = neuron.get_synapse_distribution(threshold=True)
     neuron.create_synapse_groups(attribute="neuropil")
     if save:
