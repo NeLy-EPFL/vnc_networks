@@ -7,6 +7,7 @@ File containing parameters for the project.
 
 import os
 import typing
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -213,3 +214,12 @@ NEURON_CLASSES: dict[NeuronClass, dict[typing.Literal["color"], str]] = {
     "other": {"color": LIGHTGREY},
     "glia": {"color": LIGHTGREY},
 }
+
+@dataclass
+class ConnectomePreprocessingOptions:
+    """Preprocessing options applied to different connectomes"""
+
+    min_synapse_count_cutoff: int = SYNAPSE_CUTOFF
+    """If two neurons have less than this many synapses connecting them, it is likely biological noise and we filter them out"""
+    glutamate_inhibitory: bool = True
+    """Whether we take glutamate synapses to be inhibitory, or otherwise excitatory"""
