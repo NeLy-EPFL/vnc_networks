@@ -8,7 +8,7 @@ class TestDataLoading:
     Test the data loading functions.
     """
 
-    def test_connections_instantiation(self):
+    def test_connections_instantiation_MANCv1_0(self):
         """
         Test the instantiation of the Connections class.
         """
@@ -19,7 +19,6 @@ class TestDataLoading:
         valid_connections = Connections(CR=MANC("v1.0"))
         assert valid_connections is not None, "Connections object not instantiated"
 
-        # default associated ConnectomeReader should be MANC v1.0
         cr_name = valid_connections.CR.connectome_name
         assert cr_name == "manc", "Incorrect connectome name"
         cr_version = valid_connections.CR.connectome_version
@@ -27,6 +26,7 @@ class TestDataLoading:
 
         # check the data loading
         df = valid_connections.get_dataframe()
+        assert df is not None, "Couldn't get connections dataframe"
 
         df_1 = df[(df["start_bid"] == 10000) & (df["end_bid"] == 14882)]
         assert df_1["eff_weight"].values[0] == 136, "Incorrect data values"
@@ -51,6 +51,7 @@ class TestDataLoading:
 
         # check the data loading
         df = valid_connections.get_dataframe()
+        assert df is not None, "Couldn't get connections dataframe"
 
         df_1 = df[(df["start_bid"] == 11218) & (df["end_bid"] == 10094)]
         assert df_1["eff_weight"].values[0] == 915, "Incorrect data values"
