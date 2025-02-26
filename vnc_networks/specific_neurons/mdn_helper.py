@@ -15,13 +15,15 @@ from ..connectome_reader import MANC, ConnectomeReader
 from ..neuron import Neuron
 from ..params import BodyId
 
+manc_version = "v1.2"  # used to be "v1.0"
+
 FOLDER_NAME = "MDN_specific"
-FIG_DIR = MANC("v1.0").get_fig_dir()
+FIG_DIR = MANC(manc_version).get_fig_dir()
 FOLDER = os.path.join(FIG_DIR, FOLDER_NAME)
 os.makedirs(FOLDER, exist_ok=True)
 
 
-def get_mdn_bodyids(CR: ConnectomeReader = MANC("v1.0")):
+def get_mdn_bodyids(CR: ConnectomeReader = MANC(manc_version)):
     bids = CR.get_neuron_bodyids({"type": "MDN"})
     return bids
 
@@ -107,11 +109,12 @@ def get_subdivided_mdns(
 
 def get_vnc_split_MDNs_by_neuropil(
     not_connected: Optional[list[BodyId] | list[int]] = None,
+    CR: ConnectomeReader = MANC(manc_version),
 ):
     """
     Get the VNC Connections object with MDNs split by neuropil.
     """
-    CR = MANC("v1.0")
+    CR = MANC(manc_version)
     try:
         VNC = Connections(
             from_file="VNC_split_MDNs_by_neuropil",
@@ -122,8 +125,8 @@ def get_vnc_split_MDNs_by_neuropil(
         print("Creating VNC Connections object with MDNs split by neuropil...")
         MDNs = []
         for neuron_id in get_mdn_bodyids():
-            neuron_name = neuron.split_neuron_by_neuropil(neuron_id)
-            MDN = Neuron(from_file=neuron_name)
+            neuron_name = neuron.split_neuron_by_neuropil(neuron_id, CR=CR)
+            MDN = Neuron(from_file=neuron_name, CR=CR)
             MDNs.append(MDN)
         VNC = Connections(
             CR=CR,
@@ -134,7 +137,9 @@ def get_vnc_split_MDNs_by_neuropil(
     return VNC
 
 
-def mdn_synapse_distribution(n_clusters: int = 3, CR: ConnectomeReader = MANC("v1.0")):
+def mdn_synapse_distribution(
+    n_clusters: int = 3, CR: ConnectomeReader = MANC(manc_version)
+):
     """
     show for each MDN the distribution of synapses in the neuropils.
     Each row is an MDN.
@@ -195,7 +200,7 @@ def mdn_synapse_distribution(n_clusters: int = 3, CR: ConnectomeReader = MANC("v
 
 
 def get_connectome_with_MDN_t3_branches(
-    n_clusters: int = 3, CR: ConnectomeReader = MANC("v1.0")
+    n_clusters: int = 3, CR: ConnectomeReader = MANC(manc_version)
 ):
     """
     Build the connectome with the T3 neuropil branches of MDN split.
