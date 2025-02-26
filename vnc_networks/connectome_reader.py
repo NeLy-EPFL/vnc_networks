@@ -16,7 +16,13 @@ import numpy as np
 import pandas as pd
 
 from . import params
-from .params import BodyId, NeuronAttribute, NeuronClass, SelectionDict
+from .params import (
+    BodyId,
+    ConnectomePreprocessingOptions,
+    NeuronAttribute,
+    NeuronClass,
+    SelectionDict,
+)
 
 
 # --- Parent class, abstract --- #
@@ -48,9 +54,18 @@ class ConnectomeReader(ABC):
     _ascending = "ascending"
     _descending = "descending"
 
-    def __init__(self, connectome_name: str, connectome_version: str):
+    def __init__(
+        self,
+        connectome_name: str,
+        connectome_version: str,
+        connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
+    ):
         self.connectome_name = connectome_name
         self.connectome_version = connectome_version
+        # if no explicit preprocessing options are provided, use the default
+        if connectome_preprocessing is None:
+            connectome_preprocessing = ConnectomePreprocessingOptions()
+        self.connectome_preprocessing = connectome_preprocessing
 
         # specific namefields
         self._load_specific_namefields()
@@ -436,13 +451,16 @@ class MANCReader(ConnectomeReader):
     def __init__(
         self,
         connectome_version: str,
+        connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
     ):  # 2nd argument is useless, only for compatibility
-        super().__init__("manc", connectome_version)
+        super().__init__("manc", connectome_version, connectome_preprocessing)
 
         self.nt_weights = {
             "acetylcholine": +1,
             "gaba": -1,
-            "glutamate": -1,
+            "glutamate": -1
+            if self.connectome_preprocessing.glutamate_inhibitory
+            else +1,
             "unknown": 0,
             None: 0,
             np.nan: 0,
@@ -788,8 +806,10 @@ class MANCReader(ConnectomeReader):
 
 # Specific versions of MANC
 class MANC_v_1_0(MANCReader):
-    def __init__(self):
-        super().__init__("v1.0")
+    def __init__(
+        self, connectome_preprocessing: ConnectomePreprocessingOptions | None = None
+    ):
+        super().__init__("v1.0", connectome_preprocessing)
 
     # ----- overwritten methods -----
     def _load_specific_namefields(self):
@@ -1071,7 +1091,7 @@ class MANC_v_1_0(MANCReader):
         # remove the rows where there are fewer than threshold synapses from
         # a presynaptic neuron to a postsynaptic neuron
         synapse_df = synapse_df.groupby(["start_bid", "end_bid"]).filter(
-            lambda x: len(x) >= params.SYNAPSE_CUTOFF
+            lambda x: len(x) >= self.connectome_preprocessing.min_synapse_count_cutoff
         )
 
         # Load the synapse locations
@@ -1117,8 +1137,10 @@ class MANC_v_1_0(MANCReader):
 
 
 class MANC_v_1_2(MANCReader):
-    def __init__(self):
-        super().__init__("v1.2")
+    def __init__(
+        self, connectome_preprocessing: ConnectomePreprocessingOptions | None = None
+    ):
+        super().__init__("v1.2", connectome_preprocessing)
 
     # ----- overwritten methods -----
     def _load_specific_namefields(self):
@@ -1244,7 +1266,7 @@ class MANC_v_1_2(MANCReader):
         # remove the rows where there are fewer than threshold synapses from
         # a presynaptic neuron to a postsynaptic neuron
         synapses = synapses.groupby(["start_bid", "end_bid"]).filter(
-            lambda x: len(x) >= params.SYNAPSE_CUTOFF
+            lambda x: len(x) >= self.connectome_preprocessing.min_synapse_count_cutoff
         )
         return synapses
 
@@ -1273,14 +1295,23 @@ class MANC_v_1_2(MANCReader):
 
 
 @typing.overload
-def MANC(version: typing.Literal["v1.0"]) -> MANC_v_1_0: ...
+def MANC(
+    version: typing.Literal["v1.0"],
+    connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
+) -> MANC_v_1_0: ...
 
 
 @typing.overload
-def MANC(version: typing.Literal["v1.2"]) -> MANC_v_1_2: ...
+def MANC(
+    version: typing.Literal["v1.2"],
+    connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
+) -> MANC_v_1_2: ...
 
 
-def MANC(version: typing.Literal["v1.0", "v1.2"]) -> MANCReader:
+def MANC(
+    version: typing.Literal["v1.0", "v1.2"],
+    connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
+) -> MANCReader:
     """Get a connectome reader for one of the versions of the Male Adult Neuronal Connectome (MANC).
 
     Args:
@@ -1294,9 +1325,9 @@ def MANC(version: typing.Literal["v1.0", "v1.2"]) -> MANCReader:
     """
     match version:
         case "v1.0":
-            return MANC_v_1_0()
+            return MANC_v_1_0(connectome_preprocessing)
         case "v1.2":
-            return MANC_v_1_2()
+            return MANC_v_1_2(connectome_preprocessing)
     raise ValueError(
         f"Version {version} is not a supported version for the MANC connectome. Supported versions are v1.0 and v1.2"
     )
@@ -1307,13 +1338,14 @@ class FAFBReader(ConnectomeReader):
     def __init__(
         self,
         connectome_version: str,
+        connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
     ):
-        super().__init__("fafb", connectome_version)
+        super().__init__("fafb", connectome_version, connectome_preprocessing)
 
         self.nt_weights = {
             "ACH": +1,
             "GABA": -1,
-            "GLUT": -1,
+            "GLUT": -1 if self.connectome_preprocessing.glutamate_inhibitory else +1,
             "DA": 0,
             "OCT": 0,
             "SER": 0,
@@ -1775,24 +1807,37 @@ class FAFBReader(ConnectomeReader):
 
 # Specific versions of FAFB
 class FAFB_v630(FAFBReader):
-    def __init__(self):
-        super().__init__("v630")
+    def __init__(
+        self, connectome_preprocessing: ConnectomePreprocessingOptions | None = None
+    ):
+        super().__init__("v630", connectome_preprocessing)
 
 
 class FAFB_v783(FAFBReader):
-    def __init__(self):
-        super().__init__("v783")
+    def __init__(
+        self, connectome_preprocessing: ConnectomePreprocessingOptions | None = None
+    ):
+        super().__init__("v783", connectome_preprocessing)
 
 
 @typing.overload
-def FAFB(version: typing.Literal["v630"]) -> FAFB_v630: ...
+def FAFB(
+    version: typing.Literal["v630"],
+    connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
+) -> FAFB_v630: ...
 
 
 @typing.overload
-def FAFB(version: typing.Literal["v783"]) -> FAFB_v783: ...
+def FAFB(
+    version: typing.Literal["v783"],
+    connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
+) -> FAFB_v783: ...
 
 
-def FAFB(version: typing.Literal["v630", "v783"]) -> FAFBReader:
+def FAFB(
+    version: typing.Literal["v630", "v783"],
+    connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
+) -> FAFBReader:
     """Get a connectome reader for one of the versions of the Full Adult Fly Brain connectome (FAFB).
 
     Args:
@@ -1806,9 +1851,9 @@ def FAFB(version: typing.Literal["v630", "v783"]) -> FAFBReader:
     """
     match version:
         case "v630":
-            return FAFB_v630()
+            return FAFB_v630(connectome_preprocessing)
         case "v783":
-            return FAFB_v783()
+            return FAFB_v783(connectome_preprocessing)
     raise ValueError(
         f"Version {version} is not a supported version for the FAFB connectome. Supported versions are v630 and v783"
     )
