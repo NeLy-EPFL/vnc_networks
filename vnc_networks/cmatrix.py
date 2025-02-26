@@ -379,7 +379,12 @@ class CMatrix:
     # public methods
 
     # --- getters
-    def get_matrix(self) -> sc.sparse.csr_matrix:
+    def get_matrix(
+        self,
+        row_ids: Optional[list] = None,
+        column_ids: Optional[list] = None,
+        input_type: typing.Literal["uid", "body_id", "index"] = "uid",
+    ) -> sc.sparse.csr_matrix:
         """
         Returns the adjacency matrix of the connectome.
 
@@ -388,7 +393,32 @@ class CMatrix:
         scipy.sparse.csr_matrix
             The adjacency matrix of the connectome.
         """
-        return self.matrix
+        if row_ids is None and column_ids is None:
+            return self.matrix
+
+        # If we need to return a subset
+        mat = copy.deepcopy(self.matrix)
+
+        # Indices to keep for rows
+        if input_type == "index":
+            if row_ids is not None:
+                rows = row_ids
+            else:
+                rows = self.get_row_indices()
+        else:
+            rows = self.get_row_indices(usb_uid=row_ids, input_type=input_type)
+
+        # Indicies to keep for columns
+        if input_type == "index":
+            if column_ids is not None:
+                cols = column_ids
+            else:
+                cols = self.get_column_indices()
+        else:
+            cols = self.get_column_indices(sub_uid=column_ids, input_type=input_type)
+
+        mat = mat[rows, :][:, cols]
+        return mat
 
     def get_lookup(self) -> pd.DataFrame:
         """
