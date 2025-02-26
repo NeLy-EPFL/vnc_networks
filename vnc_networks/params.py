@@ -7,6 +7,7 @@ File containing parameters for the project.
 
 import os
 import typing
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -105,6 +106,8 @@ UID = typing.NewType("UID", int)
 
 NeuronAttribute = typing.Literal[
     "body_id",  # common to all
+    "start_bid",
+    "end_bid",
     "synapse_id",
     # connectivity
     "syn_count",
@@ -130,6 +133,7 @@ NeuronAttribute = typing.Literal[
     "size",  # common to all
     "area",
     "length",
+    "flow",
     "position",  # for neurons
     "location",  # for synapses
     # genetics
@@ -190,15 +194,15 @@ NEURON_CLASSES: dict[NeuronClass, dict[typing.Literal["color"], str]] = {
     # orange: input related
     "ascending": {"color": DARKORANGE},
     "sensory": {"color": LIGHTORANGE},
-    "sensory ascending": {"color": LIGHTORANGE},
+    "sensory_ascending": {"color": LIGHTORANGE},
     "optic": {"color": LIGHTORANGE},
-    "visual projection": {"color": LIGHTORANGE},
+    "visual_projection": {"color": LIGHTORANGE},
     # blue: output related
     "descending": {"color": DARKBLUE},
     "motor": {"color": LIGHTBLUE},
     "efferent": {"color": LIGHTBLUE},
-    "efferent ascending": {"color": LIGHTBLUE},
-    "visual centrifugal": {"color": LIGHTBLUE},
+    "efferent_ascending": {"color": LIGHTBLUE},
+    "visual_centrifugal": {"color": LIGHTBLUE},
     # green: interneurons
     "intrinsic": {"color": GREEN},
     "central": {"color": GREEN},
@@ -210,3 +214,12 @@ NEURON_CLASSES: dict[NeuronClass, dict[typing.Literal["color"], str]] = {
     "other": {"color": LIGHTGREY},
     "glia": {"color": LIGHTGREY},
 }
+
+@dataclass
+class ConnectomePreprocessingOptions:
+    """Preprocessing options applied to different connectomes"""
+
+    min_synapse_count_cutoff: int = SYNAPSE_CUTOFF
+    """If two neurons have less than this many synapses connecting them, it is likely biological noise and we filter them out"""
+    glutamate_inhibitory: bool = True
+    """Whether we take glutamate synapses to be inhibitory, or otherwise excitatory"""

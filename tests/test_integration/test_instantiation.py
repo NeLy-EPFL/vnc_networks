@@ -2,6 +2,9 @@
 Initialisation tests for the code.
 """
 
+import pytest
+
+
 class TestImport:
     def test_import(self):
         """
@@ -43,12 +46,10 @@ class TestImport:
             assert False
 
 
-
-
-class TestInstanciation:
-    def test_connectome_reader_instanciation(self):
+class TestInstantiation:
+    def test_connectome_reader_instantiation(self):
         """
-        Test the instanciation of the ConnectomeReader class.
+        Test the instantiation of the ConnectomeReader class.
         """
         from vnc_networks.connectome_reader import FAFB, MANC
 
@@ -60,11 +61,5 @@ class TestInstanciation:
         assert body_id_name == ":ID(Body-ID)", "Incorrect name conversion"
 
         # Should raise an error
-        try:
-            invalid_reader = MANC('v1.1')
-            assert False
-        except ValueError:
-            assert True
-
-
-
+        with pytest.raises(ValueError):
+            invalid_reader = MANC("v1.1")  # type: ignore because we're explicitly testing that this throws an error
