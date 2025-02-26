@@ -406,7 +406,7 @@ class CMatrix:
             else:
                 rows = self.get_row_indices()
         else:
-            rows = self.get_row_indices(usb_uid=row_ids, input_type=input_type)
+            rows = self.get_row_indices(sub_uid=row_ids, input_type=input_type)
 
         # Indicies to keep for columns
         if input_type == "index":
