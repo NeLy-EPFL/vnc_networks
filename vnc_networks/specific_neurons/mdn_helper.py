@@ -73,9 +73,11 @@ def get_subdivided_mdns(
         "h",
         "hl",
     ],
-    side: typing.Literal[
-        "L", "Left", "l", "left", "LHS", "R", "Right", "r", "right", "RHS"
-    ],
+    side: Optional[
+        typing.Literal[
+            "L", "Left", "l", "left", "LHS", "R", "Right", "r", "right", "RHS"
+        ]
+    ] = None,
 ):
     """
     Get the uids of MDNs split by neuropil and side.
@@ -96,14 +98,17 @@ def get_subdivided_mdns(
         side_ = "R"
 
     mdns = VNC.get_neuron_ids({"type": "MDN"})
-    specific_mdns = [
-        mdn
-        for mdn in mdns
-        if (
-            (neuropil_ in VNC.get_node_label(mdn))
-            & (side_ == VNC.get_node_label(mdn)[-2])  # names finishing with (L|R)
-        )  # soma side not given for MDNs, but exists in the name
-    ]
+    if side is None:
+        specific_mdns = [mdn for mdn in mdns if neuropil_ in VNC.get_node_label(mdn)]
+    else:
+        specific_mdns = [
+            mdn
+            for mdn in mdns
+            if (
+                (neuropil_ in VNC.get_node_label(mdn))
+                & (side_ == VNC.get_node_label(mdn)[-2])  # names finishing with (L|R)
+            )  # soma side not given for MDNs, but exists in the name
+        ]
     return specific_mdns
 
 

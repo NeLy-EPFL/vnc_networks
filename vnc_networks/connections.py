@@ -1390,6 +1390,12 @@ class Connections:
         """
         return self.graph.out_degree(uid)
 
+    def get_in_degree(self, uid: UID | int):
+        """
+        Get the in degree of a node.
+        """
+        return self.graph.in_degree(uid)
+
     # --- setters
     def merge_nodes(self, nodes: list[UID] | list[int]):
         """
