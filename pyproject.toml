@@ -24,7 +24,8 @@ dependencies = [
   "matplotlib-venn",
   "scikit-learn",
   "networkx",
-  "pyvis",
+  # need the fix from https://github.com/WestHealth/pyvis/pull/222 to fix an error in windows
+  "pyvis @ git+https://github.com/leshabirukov/pyvis@issue/force-utf-8-in-write-html",
   "pyarrow",
   "setuptools",
   "tqdm",
