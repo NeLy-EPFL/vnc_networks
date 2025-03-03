@@ -40,7 +40,7 @@ def spy(
 
 def imshow(
     matrix,
-    title: str,
+    title: str = "",
     vmax: Optional[float] = None,
     vmin: Optional[float] = None,
     cmap=params.diverging_heatmap,

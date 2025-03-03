@@ -982,11 +982,11 @@ class CMatrix:
         method: typing.Literal[
             "hierarchical", "markov", "hierarchical_linkage", "DBSCAN"
         ] = "markov",
-        cutoff: float = 0.5,
         cluster_size_cutoff: int = 2,
         show_plot: bool = False,
         cluster_data_type: typing.Literal["uid", "index", "body_id"] = "uid",
         cluster_on_subset: list[int] | None = None,
+        **kwargs,
     ):
         """
         Detects the clusters in the adjacency matrix.
@@ -998,9 +998,6 @@ class CMatrix:
             The default is the bilateral 'cosine'.
         method : str
             The method used to detect the clusters. The default is 'hierarchical'.
-        cutoff : float
-            The cutoff value used to define the clusters. The default is 0.5.
-            Actual meaning depends on the method used.
         cluster_size_cutoff : int
             The minimum number of nodes in a cluster. The default is 2.
         show_plot : bool
@@ -1014,6 +1011,13 @@ class CMatrix:
             the list. Typical use case: the similarity matrix is computed on the
             set of motor and premotor neurons, but the clustering is performed
             on motor neurons only.
+        **kwargs: parameters for specific clustering methods. Can include (not exhaustive):
+            - cutoff : float, for method=hierarchical
+            The cutoff value used to define the clusters. The default is 0.5.
+            Actual meaning depends on the method used.
+            - inflation : float, for method=markov
+            Inflation parameter that effectively results in different cluster sizes.
+
 
         Returns
         -------
@@ -1036,15 +1040,21 @@ class CMatrix:
                 dense_ = 1 - dense_
                 new_cmatrix.matrix = sc.sparse.csr_matrix(dense_)
                 # hierarchical clustering, returns the tree level clusters
+                cutoff = kwargs.get("cutoff", 0.5)  # Default value if not provided
                 clusters = new_cmatrix.hierarchical_clustering(cutoff=cutoff)
             case "markov":
                 # convert distance to similarity
                 dense_ = new_cmatrix.matrix.todense()
                 dense_ = 1 - dense_
                 new_cmatrix.matrix = sc.sparse.csr_matrix(dense_)
-                all_clusters = new_cmatrix.markov_clustering()
+                inflation = kwargs.get("inflation", 3.0)
+                iterations = kwargs.get("iterations", 100)
+                all_clusters = new_cmatrix.markov_clustering(
+                    inflation=inflation, iterations=iterations
+                )
                 clusters = [c for c in all_clusters if len(c) >= cluster_size_cutoff]
             case "hierarchical":
+                cutoff = kwargs.get("cutoff", 0.5)  # Default value if not provided
                 # convert distance to similarity
                 dense_ = new_cmatrix.matrix.todense()
                 dense_ = 1 - dense_
@@ -1083,7 +1093,10 @@ class CMatrix:
                 # works on the distance matrix, not similarity
                 # density-based clustering
                 # Apply DBSCAN clustering
-                db = DBSCAN(metric="precomputed", eps=cutoff, min_samples=2)
+                metric = kwargs.get("metric", "precomputed")
+                eps = kwargs.get("eps", 0.5)
+                min_samples = kwargs.get("min_samples", 2)
+                db = DBSCAN(metric=metric, eps=eps, min_samples=min_samples)
                 distance_matrix = np.array(new_cmatrix.get_matrix().todense())
                 labels = db.fit_predict(distance_matrix)
 
