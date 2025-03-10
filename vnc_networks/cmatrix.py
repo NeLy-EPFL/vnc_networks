@@ -489,6 +489,7 @@ class CMatrix:
             # sort self.lookup by 'row_index' and return the 'row_index' column
             self.lookup.sort_values(by="row_index", inplace=True)
             return self.lookup["row_index"].tolist()
+
         if input_type == "body_id":
             sub_uid = self.__get_uids_from_bodyids(sub_uid)
         rows, _ = self.__convert_uid_to_index(  # already filters out the NaN values
@@ -1203,6 +1204,7 @@ class CMatrix:
         ax: matplotlib.axes.Axes | None = None,
         savefig: bool = True,
         snippet_up_to: int | None = None,
+        log_scale: bool = False,
     ):
         """
         Visualises the adjacency matrix with a colorbar.
@@ -1226,9 +1228,12 @@ class CMatrix:
         """
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=params.FIGSIZE)
-        mat = self.get_matrix()
+        mat = copy.deepcopy(self.get_matrix())
         if snippet_up_to is not None:
             mat = mat[:snippet_up_to, :][:, :snippet_up_to]
+        if log_scale:
+            # modify mat.data by applying sign(dat) * log (abs(data))
+            mat.data = np.sign(mat.data) * np.log10(np.abs(mat.data))
         ax = matrix_design.imshow(
             mat,
             title=title,
