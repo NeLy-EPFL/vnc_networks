@@ -108,7 +108,7 @@ def get_syn_info(df,name : str):
 
 def get_weight_info(df,name : str):
     ds = df.loc[df['source_name'] == name]
-    return ds["eff_weight"].mean(), ds["eff_weight"].std()
+    return ds["eff_weight"].mean()
 
 def get_nb_neurons_target(df,source_name : str, target_class : str):
     ds = df.loc[(df['source_name'] == source_name) & (df['target_class'] == target_class)]
@@ -118,6 +118,74 @@ def get_nb_syn_target(df,source_name : str, target_class : str):
     ds = df.loc[(df['source_name'] == source_name) & (df['target_class'] == target_class)]
     s = ds["syn_count"].sum()
     return s
+
+def plot_source_syn_mean_or_std(df,type : str = 'mean', sort_type : str = 'none'):
+    l = list_name
+    data_list = []
+    for name in l:
+        mean, std = get_syn_info(df, name)
+        if(type == 'mean'):
+            entry = {"Name": name, "syn_mean": mean}
+            color = 'blue'
+            label = "syn_mean"
+        else :
+            entry = {"Name": name, "syn_std": mean}
+            color = 'orange'
+            label = 'syn_std'
+        data_list.append(entry)
+
+    def sort_by_mean(e):
+        return e["syn_mean"]
+    def sort_by_std(e):
+        return e["syn_std"]
+    if(sort_type == 'mean'):
+        data_list.sort(key=sort_by_mean)
+    elif (sort_type == 'std'):
+        data_list.sort(key = sort_by_std)
+
+    data = pandas.DataFrame.from_dict(data_list).set_index('Name')
+    p = data.plot(
+        kind='bar',
+        ylabel=label,
+        xlabel='Name',
+        figsize=(70, 70),
+        color=color
+    )
+    return p
+
+
+def plot_weight_distribution(df, sort_type : str = 'none'):
+    l = list_name
+    data_list = []
+    for name in l:
+        mean = get_weight_info(df, name)
+        entry = {"Name": name, "weight_mean": mean}
+        data_list.append(entry)
+    def sort_by_mean(e):
+        return e["weight_mean"]
+
+    if(sort_type == 'mean'):
+        data_list.sort(key=sort_by_mean)
+    data = pandas.DataFrame.from_dict(data_list).set_index('Name')
+    p = data.plot(
+        kind='bar',
+        ylabel='weight_mean',
+        xlabel='Name',
+        figsize=(70, 70),
+        color='purple'
+    )
+    return p
+
+def plot_ratio_syn_per_class(df,name : str):
+    target_list = target_class_list
+    list_disparity = []
+    for target_class in target_list:
+        if get_nb_neurons_target(df,name,target_class)==0:
+            list_disparity.append(None)
+        else:
+            list_disparity.append((get_nb_syn_target(df,name,target_class)/get_nb_neurons_target(df,name,target_class)))
+    data = pandas.DataFrame({"Ratio synapses per neurons" : list_disparity}, index = target_list)
+    data.plot.bar()
 
 def plot_repartition(df,name : str):
     target_list = target_class_list
@@ -129,44 +197,55 @@ def plot_repartition(df,name : str):
     data = pandas.DataFrame({"Number of neurons" : nb_list, "Number of synapses" : nb_syn_list}, index = target_list)
     data.plot.pie(subplots = True,legend = False,autopct='%1.1f%%',figsize =(15,20))
 
-def plot_target_count(df, min_nb : int = 10):
-    def color_plot(df):
+def plot_target_count(df, upper_bound : int = -1, lower_bound : int = -1, show_name : bool = False):
+    data = df["target_name"].value_counts()
+    def color_plot(df,data):
         data_color = []
-        for name in df["target_class"]:
-            if name == 'motor':
+        for name in data:
+            index = np.where(df["target_name"] == name)[0][0]
+            target_class = df["target_class"][index]
+            if target_class == 'motor':
                 data_color.append('red')
-            elif name == 'ascending':
-                data_color.append('orange')
-            elif name == 'intrinsic':
+            elif target_class == 'ascending':
+                data_color.append('darkorange')
+            elif target_class == 'intrinsic':
                 data_color.append('cyan')
-            elif name == 'descending':
+            elif target_class == 'descending':
                 data_color.append('blue')
-            elif name == 'efferent_ascending':
-                data_color.append('darkred')
-            elif name == 'sensory':
+            elif target_class == 'efferent_ascending':
+                data_color.append('khaki')
+            elif target_class == 'sensory':
                 data_color.append('lime')
-            elif name == 'sensory_ascending':
+            elif target_class == 'sensory_ascending':
                 data_color.append('springgreen')
-            elif name == 'efferent':
+            elif target_class == 'efferent':
                 data_color.append('yellow')
-            elif (name == 'interneuron_unknown' or name == 'unknown'):
+            elif (target_class == 'interneuron_unknown' or target_class == 'unknown'):
                 data_color.append('dimgray')
-            elif name == 'glia':
+            elif target_class == 'glia':
                 data_color.append('purple')
             else:
                 data_color.append('black')
         return data_color
 
-    data = df["target_name"].value_counts()
-    index = np.where(data < min_nb)
-    data = data[:index[0][0]]
-    color = color_plot(df)
+    if (upper_bound != -1) and (lower_bound != -1):
+        index = np.where((data <= upper_bound) & (data > lower_bound))[0]
+        data = data[index[0]: index[-1]]
+    elif (upper_bound != -1) and (lower_bound == -1):
+        index = np.where((data <= upper_bound))[0]
+        data = data[index[0]:]
+    elif (upper_bound == -1) and (lower_bound != -1):
+        index = np.where((data > lower_bound))[0]
+        data = data[:index[-1]]
+
+
+    color = color_plot(df,data.index)
 
     p_m = patche.Patch(color='red', label='Motor')
-    p_a = patche.Patch(color='orange', label='Ascending')
+    p_a = patche.Patch(color='darkorange', label='Ascending')
     p_i = patche.Patch(color='cyan', label='intrinsic')
     p_d = patche.Patch(color='blue', label='descending')
-    p_ef = patche.Patch(color='darkred', label='efferent_ascending')
+    p_ef = patche.Patch(color='khaki', label='efferent_ascending')
     p_s = patche.Patch(color='lime', label='sensory_ascending')
     p_e = patche.Patch(color='yellow', label='efferent')
     p_u = patche.Patch(color='dimgray', label='unknown')
@@ -176,29 +255,11 @@ def plot_target_count(df, min_nb : int = 10):
         figsize=(70, 70),
         color=color
     )
-    plt.xticks([])
-    p.legend(handles=[p_m, p_a, p_e, p_i, p_d, p_ef, p_s, p_u, p_g])
+    if (not show_name) :
+        plt.xticks([])
+    p.legend(handles=[p_m, p_a, p_e, p_s, p_i, p_d, p_ef, p_u, p_g])
     return p
 
-def plot_source_class_info(df, syn: bool = True):
-    l = list_name
-    info_list = []
-    for name in l:
-        if (syn):
-            mean, std = get_syn_info(df, name)
-        else:
-            mean, std = get_weight_info(df, name)
-
-        entry = {"Name": name, "Weight_mean": mean}
-        info_list.append(entry)
-    data = pandas.DataFrame.from_dict(dic).set_index('Name')
-    return data.plot(
-        kind='bar',
-        ylabel="Mean",
-        xlabel='Name',
-        figsize=(70, 70),
-        color='purple'
-    )
 list_name =['DNxn128', 'DNxn089', 'DNut054', 'DNht001', 'DNxn175', 'DNxn160', 'DNut032',
  'DNxl085', 'DNxn017', 'DNxl057', 'DNut045', 'DNxn187', 'DNfl003', 'DNfl028',
  'DNnt007', 'DNxl059', 'DNut007', 'DNlt008', 'DNxl046', 'DNxn104', 'DNxl003',
