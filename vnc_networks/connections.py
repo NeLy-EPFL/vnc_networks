@@ -531,6 +531,7 @@ class Connections:
                 Unknown output type {output_type}"
             )
         to_return = self.uid.loc[self.uid["uid"].isin(uids)]
+        to_return.sort_values("uid", inplace=True)
         if output_type == "tuple":
             return list(to_return["neuron_ids"].values)
         elif output_type == "table":
