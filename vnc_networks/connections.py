@@ -1521,6 +1521,7 @@ class Connections:
         source: UID | int | list[UID] | list[int],
         target: UID | int | list[UID] | list[int],
         syn_threshold: Optional[int] = None,
+        ignore_zero_weight_synapses: bool = True,
     ):
         """
         Get the graph with all the paths of length n between two sets of nodes.
@@ -1533,8 +1534,13 @@ class Connections:
             List of source nodes.
         target: list[int]
             List of target nodes.
-        syn_threshold: int
-            Threshold for the synapse count.
+        syn_threshold: int, optional
+            Threshold for the synapse count. Paths with fewer than this many synapses
+            will be ignored. If not provided, don't filter paths by synapse count.
+        ignore_zero_weight_synapses: bool, optional
+            Whether to ignore synapses with a weight of zero in the paths.
+            These are typically neuromodulatory synapses.
+
 
         Returns
         -------
@@ -1562,7 +1568,9 @@ class Connections:
                 if self.graph[edge[0]][edge[1]]["syn_count"] >= syn_threshold
             ]
         # Create the subgraph
-        return nx_utils.get_subgraph_from_edges(self.graph, edges_)
+        return nx_utils.get_subgraph_from_edges(
+            self.graph, edges_, ignore_zero_weight_synapses
+        )
 
     def cluster_hierarchical(
         self, reference: typing.Literal["norm", "unnorm", "syn_count"] = "syn_count"

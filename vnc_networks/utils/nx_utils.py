@@ -44,18 +44,37 @@ def get_subgraph(graph: nx.DiGraph, nodes: list) -> nx.DiGraph:
     return graph_.subgraph(nodes)
 
 
-def get_subgraph_from_edges(graph: nx.DiGraph, edges: list) -> nx.DiGraph:
+def get_subgraph_from_edges(
+    graph: nx.DiGraph, edges: list, remove_zero_weight_synapses: bool = True
+) -> nx.DiGraph:
     """
-    Get the subgraph of the graph containing only the nodes in the list.
+
+    Get the subgraph of the graph containing only the edges in the list.
+
+    Parameters
+    ----------
+    graph: nx.DiGraph
+        The graph from which to make the subgraph
+    edges: list
+        The list of edges in the graph to be kept
+    remove_zero_weight_synapses: bool, optional
+        Whether to remove neuromodulatory synapses from the graph. The have a weight of 0,
+        because it's unknown whether they're excitatory of inhibitory. Defaults to True.
+
+    Returns
+    -------
+    nx.DiGraph
+        A subgraph of the original graph, returned as a copy.
     """
     graph_ = graph.edge_subgraph(edges).copy()
     assert isinstance(graph_, nx.DiGraph)  # needed for type hinting
-    # remove edges that have a weight of 0
-    edges_to_remove = []
-    for edge in graph_.edges():
-        if abs(graph_.edges[edge]["weight"]) < 1:
-            edges_to_remove.append(edge)
-    graph_.remove_edges_from(edges_to_remove)
+    if remove_zero_weight_synapses:
+        # remove edges that have a weight of 0
+        edges_to_remove = []
+        for edge in graph_.edges():
+            if abs(graph_.edges[edge]["weight"]) < 1:
+                edges_to_remove.append(edge)
+        graph_.remove_edges_from(edges_to_remove)
     # nodes that are not connected to any other node are removed
     nodes_to_remove = []
     for node in graph_.nodes():
