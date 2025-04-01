@@ -406,7 +406,7 @@ class CMatrix:
             else:
                 rows = self.get_row_indices()
         else:
-            rows = self.get_row_indices(usb_uid=row_ids, input_type=input_type)
+            rows = self.get_row_indices(sub_uid=row_ids, input_type=input_type)
 
         # Indicies to keep for columns
         if input_type == "index":
@@ -489,6 +489,7 @@ class CMatrix:
             # sort self.lookup by 'row_index' and return the 'row_index' column
             self.lookup.sort_values(by="row_index", inplace=True)
             return self.lookup["row_index"].tolist()
+
         if input_type == "body_id":
             sub_uid = self.__get_uids_from_bodyids(sub_uid)
         rows, _ = self.__convert_uid_to_index(  # already filters out the NaN values
@@ -982,11 +983,11 @@ class CMatrix:
         method: typing.Literal[
             "hierarchical", "markov", "hierarchical_linkage", "DBSCAN"
         ] = "markov",
-        cutoff: float = 0.5,
         cluster_size_cutoff: int = 2,
         show_plot: bool = False,
         cluster_data_type: typing.Literal["uid", "index", "body_id"] = "uid",
         cluster_on_subset: list[int] | None = None,
+        **kwargs,
     ):
         """
         Detects the clusters in the adjacency matrix.
@@ -998,9 +999,6 @@ class CMatrix:
             The default is the bilateral 'cosine'.
         method : str
             The method used to detect the clusters. The default is 'hierarchical'.
-        cutoff : float
-            The cutoff value used to define the clusters. The default is 0.5.
-            Actual meaning depends on the method used.
         cluster_size_cutoff : int
             The minimum number of nodes in a cluster. The default is 2.
         show_plot : bool
@@ -1014,6 +1012,13 @@ class CMatrix:
             the list. Typical use case: the similarity matrix is computed on the
             set of motor and premotor neurons, but the clustering is performed
             on motor neurons only.
+        **kwargs: parameters for specific clustering methods. Can include (not exhaustive):
+            - cutoff : float, for method=hierarchical
+            The cutoff value used to define the clusters. The default is 0.5.
+            Actual meaning depends on the method used.
+            - inflation : float, for method=markov
+            Inflation parameter that effectively results in different cluster sizes.
+
 
         Returns
         -------
@@ -1036,15 +1041,21 @@ class CMatrix:
                 dense_ = 1 - dense_
                 new_cmatrix.matrix = sc.sparse.csr_matrix(dense_)
                 # hierarchical clustering, returns the tree level clusters
+                cutoff = kwargs.get("cutoff", 0.5)  # Default value if not provided
                 clusters = new_cmatrix.hierarchical_clustering(cutoff=cutoff)
             case "markov":
                 # convert distance to similarity
                 dense_ = new_cmatrix.matrix.todense()
                 dense_ = 1 - dense_
                 new_cmatrix.matrix = sc.sparse.csr_matrix(dense_)
-                all_clusters = new_cmatrix.markov_clustering()
+                inflation = kwargs.get("inflation", 3.0)
+                iterations = kwargs.get("iterations", 100)
+                all_clusters = new_cmatrix.markov_clustering(
+                    inflation=inflation, iterations=iterations
+                )
                 clusters = [c for c in all_clusters if len(c) >= cluster_size_cutoff]
             case "hierarchical":
+                cutoff = kwargs.get("cutoff", 0.5)  # Default value if not provided
                 # convert distance to similarity
                 dense_ = new_cmatrix.matrix.todense()
                 dense_ = 1 - dense_
@@ -1083,7 +1094,10 @@ class CMatrix:
                 # works on the distance matrix, not similarity
                 # density-based clustering
                 # Apply DBSCAN clustering
-                db = DBSCAN(metric="precomputed", eps=cutoff, min_samples=2)
+                metric = kwargs.get("metric", "precomputed")
+                eps = kwargs.get("eps", 0.5)
+                min_samples = kwargs.get("min_samples", 2)
+                db = DBSCAN(metric=metric, eps=eps, min_samples=min_samples)
                 distance_matrix = np.array(new_cmatrix.get_matrix().todense())
                 labels = db.fit_predict(distance_matrix)
 
@@ -1190,6 +1204,7 @@ class CMatrix:
         ax: matplotlib.axes.Axes | None = None,
         savefig: bool = True,
         snippet_up_to: int | None = None,
+        log_scale: bool = False,
     ):
         """
         Visualises the adjacency matrix with a colorbar.
@@ -1213,9 +1228,12 @@ class CMatrix:
         """
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=params.FIGSIZE)
-        mat = self.get_matrix()
+        mat = copy.deepcopy(self.get_matrix())
         if snippet_up_to is not None:
             mat = mat[:snippet_up_to, :][:, :snippet_up_to]
+        if log_scale:
+            # modify mat.data by applying sign(dat) * log (abs(data))
+            mat.data = np.sign(mat.data) * np.log10(np.abs(mat.data))
         ax = matrix_design.imshow(
             mat,
             title=title,

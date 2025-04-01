@@ -531,6 +531,8 @@ class Connections:
                 Unknown output type {output_type}"
             )
         to_return = self.uid.loc[self.uid["uid"].isin(uids)]
+        # sort the table by the order of the input list
+        to_return = to_return.set_index("uid").loc[uids].reset_index()
         if output_type == "tuple":
             return list(to_return["neuron_ids"].values)
         elif output_type == "table":
@@ -1390,8 +1392,14 @@ class Connections:
         """
         return self.graph.out_degree(uid)
 
+    def get_in_degree(self, uid: UID | int):
+        """
+        Get the in degree of a node.
+        """
+        return self.graph.in_degree(uid)
+
     # --- setters
-    def merge_nodes(self, nodes: list[UID] | list[int]):
+    def merge_nodes(self, nodes: list[UID] | list[int], combination_logic: str = "sum"):
         """
         Merge a list of nodes into a single node.
         The first node in the list is kept as reference.
@@ -1414,16 +1422,32 @@ class Connections:
         self.connections = (
             self.connections.groupby(["start_uid", "end_uid", "nt_type"])
             .agg(
-                syn_count=("syn_count", "sum"),
-                eff_weight=("eff_weight", "sum"),
-                syn_count_norm=("syn_count_norm", "sum"),
-                eff_weight_norm=("eff_weight_norm", "sum"),
+                syn_count=("syn_count", combination_logic),
+                eff_weight=("eff_weight", combination_logic),
+                syn_count_norm=("syn_count_norm", combination_logic),
+                eff_weight_norm=("eff_weight_norm", combination_logic),
+                subdivision_start=("subdivision_start", "first"),
+                subdivision_end=("subdivision_end", "first"),
+                start_bid=("start_bid", "first"),
+                end_bid=("end_bid", "first"),
             )
             .reset_index()
         )
 
         # update the adjacency matrices
         self.adjacency = self.__build_adjacency_matrices()
+
+        # update the neurons list
+        self.neurons_pre_ = self.connections["start_bid"].to_list()
+        self.neurons_post_ = self.connections["end_bid"].to_list()
+
+        # Update the uid table
+        defined_uids = (
+            self.connections["start_uid"].to_list()
+            + self.connections["end_uid"].to_list()
+        )
+        defined_uids = list(set(defined_uids))
+        self.uid = self.uid[self.uid["uid"].isin(defined_uids)]
 
         return
 

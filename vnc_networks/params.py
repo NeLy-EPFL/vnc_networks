@@ -186,6 +186,7 @@ NT_TYPES = {
     "OCT": {"color": LIGHTGREY, "linestyle": "-"},
     "SER": {"color": LIGHTGREY, "linestyle": "-"},
     "unknown": {"color": LIGHTGREY, "linestyle": "-"},
+    "unclear": {"color": LIGHTGREY, "linestyle": "-"},
     None: {"color": LIGHTGREY, "linestyle": "-"},
     np.nan: {"color": LIGHTGREY, "linestyle": "-"},
 }
@@ -214,6 +215,7 @@ NEURON_CLASSES: dict[NeuronClass, dict[typing.Literal["color"], str]] = {
     "other": {"color": LIGHTGREY},
     "glia": {"color": LIGHTGREY},
 }
+
 
 @dataclass
 class ConnectomePreprocessingOptions:

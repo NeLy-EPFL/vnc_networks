@@ -2,6 +2,8 @@ data
 data_dump
 plots
 preprocessing
+figures
+data_processed
 
 .vscode
 
