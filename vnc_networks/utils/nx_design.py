@@ -6,6 +6,7 @@ Helper functions for making networkx graphs look nice and standardized.
 # needed so we can use Connections as a type (when Connections imports this file)
 from __future__ import annotations
 
+import copy
 import typing
 from collections import Counter
 from collections.abc import Mapping
@@ -170,8 +171,25 @@ def display_interactive_graph(
     window_height : int, optional
         How high the interactive window should be, by default 1000 px
     """
+    # first check if any of the nodes in the graph have been merged
+    # if so we need to rebuild the graph so the nodes are properly merged for visualisation
+    if any(
+        [
+            "contraction" in connections.graph.nodes[node]
+            for node in connections.graph.nodes
+        ]
+    ):
+        connections_new = copy.deepcopy(connections)
+        connections_new._Connections__build_graph()  # for some reason this method changes name
+        g = connections_new.graph
+    else:
+        # copy the graph because we're going to add a bunch of attributes to it
+        # so they appear in the interactive visualisation
+        g = connections.graph.copy()
+    assert isinstance(g, nx.DiGraph)  # needed for type hinting
+
     # parameters to display
-    attributes_displayed = [
+    attributes_displayed: list[NeuronAttribute] = [
         "body_id",
         "class_1",
         "class_2",
@@ -187,11 +205,6 @@ def display_interactive_graph(
     all_nodes = connections.get_nodes(type="uid")
     for attribute in attributes_displayed:
         _ = connections.get_node_attribute(all_nodes, attribute)
-
-    # copy the graph because we're going to add a bunch of attributes to it
-    # so they appear in the interactive visualisation
-    g = connections.graph.copy()
-    assert isinstance(g, nx.DiGraph)  # needed for type hinting
 
     def node_data_to_string(graph, node):
         data_dict = graph.nodes[node]
