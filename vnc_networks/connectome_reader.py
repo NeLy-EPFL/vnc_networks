@@ -10,7 +10,8 @@ data types to the specific ones of the connectome.
 import os
 import typing
 from abc import ABC, abstractmethod
-from typing import Optional
+from collections.abc import Mapping
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -53,6 +54,9 @@ class ConnectomeReader(ABC):
     _motor = "motor"
     _ascending = "ascending"
     _descending = "descending"
+
+    # connectomes need to implement weight assignment for their neurotransmitters
+    nt_weights: Mapping[Any, int]
 
     def __init__(
         self,
