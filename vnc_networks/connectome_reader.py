@@ -367,7 +367,7 @@ class ConnectomeReader(ABC):
         """
         # verify if the class is indeed a neuron class for this dataset
         specific_class = self.specific_neuron_class(class_)
-        return self.get_neuron_bodyids({self.class_1: specific_class})
+        return self.get_neuron_bodyids({"class_1": specific_class})
 
     def specific_selection_dict(self, selection_dict: SelectionDict):
         """
