@@ -977,8 +977,9 @@ class Connections:
         Get the neuron IDs from the nodes dataframe as loaded in the initial
         dataset, based on a selection dictionary.
         """
-        nodes = self.get_nodes(type="body_id")
-        body_ids = self.CR.get_neuron_bodyids(selection_dict, nodes)
+        body_ids = self.get_nodes(type="body_id")
+        if selection_dict is not None:
+            body_ids = self.CR.get_neuron_bodyids(selection_dict, body_ids)
         return self.__get_uids_from_bodyids(body_ids)
 
     def get_neurons_pre(self):
