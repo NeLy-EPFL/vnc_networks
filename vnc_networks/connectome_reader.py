@@ -652,7 +652,7 @@ class MANCReader(ConnectomeReader):
                 if converted_type is None:
                     raise KeyError
             except KeyError:
-                raise ValueError(
+                raise KeyError(
                     f"ConnectomeReader::specific_neuron_class().\
                     The class {generic_n_c} is not defined in {self.connectome_name}."
                 )
