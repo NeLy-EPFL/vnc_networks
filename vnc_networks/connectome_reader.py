@@ -507,7 +507,7 @@ class MANCReader(ConnectomeReader):
         Needs to gather the columns ['start_bid', 'end_bid', 'syn_count', 'nt_type'].
         """
         # Loading data in the connections file
-        columns = ["start_bid", "end_bid", "syn_count"]
+        columns: list[NeuronAttribute] = ["start_bid", "end_bid", "syn_count"]
         columns_to_read = [self.sna(a) for a in columns]
         connections = pd.read_feather(self._connections_file, columns=columns_to_read)
         read_columns = (
@@ -726,7 +726,7 @@ class MANCReader(ConnectomeReader):
                         key
                     ]  # can be 'sensory' or 'sensory neuron'
                     try:  # will work if a generic NeuronClass is given
-                        specific_value = self.specific_neuron_class(requested_value)
+                        specific_value = self.specific_neuron_class(requested_value)  # type: ignore requested_value might be a generic NeuronClass, or if not a specific class already
                     except KeyError:  # will work if a specific NeuronClass is given
                         specific_value = requested_value
                     neurons = neurons[neurons[self._class_1] == specific_value]
