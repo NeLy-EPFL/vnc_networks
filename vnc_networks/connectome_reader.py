@@ -10,7 +10,8 @@ data types to the specific ones of the connectome.
 import os
 import typing
 from abc import ABC, abstractmethod
-from typing import Optional
+from collections.abc import Mapping
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -53,6 +54,9 @@ class ConnectomeReader(ABC):
     _motor = "motor"
     _ascending = "ascending"
     _descending = "descending"
+
+    # connectomes need to implement weight assignment for their neurotransmitters
+    nt_weights: Mapping[Any, int]
 
     def __init__(
         self,
@@ -168,12 +172,16 @@ class ConnectomeReader(ABC):
         nodes: Optional[list[BodyId] | list[int]] = None,
     ) -> list[BodyId]:
         """
-        Get the Ids of the neurons in the dataset.
-        Select (keep) according to the selection_dict.
-        Different criteria are treated as 'and' conditions.
+        Get the BodyIds of the neurons in the dataset that fulfil the conditions in the selection_dict.
 
-        For the specific case of "class_1" that refers to the NeuronClass,
-        we need to verify both the generic and the specific names.
+        For the specific case of "class_1" that refers to the NeuronClass, we need to verify both the generic and the specific names.
+
+        Args:
+            selection_dict (SelectionDict, optional): Criteria that the returned neurons need to fulfil. Different criteria are treated as 'and' conditions. Defaults to {}.
+            nodes (Optional[list[BodyId]  |  list[int]], optional): If not None, only return BodyIds which are contained in this list. Defaults to None.
+
+        Returns:
+            list[BodyId]: list of the BodyIds of neurons that fulfilled all supplied conditions.
         """
         ...
 
@@ -367,7 +375,7 @@ class ConnectomeReader(ABC):
         """
         # verify if the class is indeed a neuron class for this dataset
         specific_class = self.specific_neuron_class(class_)
-        return self.get_neuron_bodyids({self.class_1: specific_class})
+        return self.get_neuron_bodyids({"class_1": specific_class})
 
     def specific_selection_dict(self, selection_dict: SelectionDict):
         """
@@ -503,7 +511,7 @@ class MANCReader(ConnectomeReader):
         Needs to gather the columns ['start_bid', 'end_bid', 'syn_count', 'nt_type'].
         """
         # Loading data in the connections file
-        columns = ["start_bid", "end_bid", "syn_count"]
+        columns: list[NeuronAttribute] = ["start_bid", "end_bid", "syn_count"]
         columns_to_read = [self.sna(a) for a in columns]
         connections = pd.read_feather(self._connections_file, columns=columns_to_read)
         read_columns = (
@@ -644,7 +652,7 @@ class MANCReader(ConnectomeReader):
                 if converted_type is None:
                     raise KeyError
             except KeyError:
-                raise ValueError(
+                raise KeyError(
                     f"ConnectomeReader::specific_neuron_class().\
                     The class {generic_n_c} is not defined in {self.connectome_name}."
                 )
@@ -693,12 +701,16 @@ class MANCReader(ConnectomeReader):
         nodes: Optional[list[BodyId] | list[int]] = None,
     ) -> list[BodyId]:
         """
-        Get the Ids of the neurons in the dataset.
-        Select (keep) according to the selection_dict.
-        Different criteria are treated as 'and' conditions.
+        Get the BodyIds of the neurons in the dataset that fulfil the conditions in the selection_dict.
 
-        For the specific case of "class_1" that refers to the NeuronClass,
-        we need to verify both the generic and the specific names.
+        For the specific case of "class_1" that refers to the NeuronClass, we need to verify both the generic and the specific names.
+
+        Args:
+            selection_dict (SelectionDict, optional): Criteria that the returned neurons need to fulfil. Different criteria are treated as 'and' conditions. Defaults to {}.
+            nodes (Optional[list[BodyId]  |  list[int]], optional): If not None, only return BodyIds which are contained in this list. Defaults to None.
+
+        Returns:
+            list[BodyId]: list of the BodyIds of neurons that fulfilled all supplied conditions.
         """
         s_dict = self.specific_selection_dict(selection_dict)
 
@@ -718,7 +730,7 @@ class MANCReader(ConnectomeReader):
                         key
                     ]  # can be 'sensory' or 'sensory neuron'
                     try:  # will work if a generic NeuronClass is given
-                        specific_value = self.specific_neuron_class(requested_value)
+                        specific_value = self.specific_neuron_class(requested_value)  # type: ignore requested_value might be a generic NeuronClass, or if not a specific class already
                     except KeyError:  # will work if a specific NeuronClass is given
                         specific_value = requested_value
                     neurons = neurons[neurons[self._class_1] == specific_value]
@@ -1683,20 +1695,24 @@ class FAFBReader(ConnectomeReader):
         nodes: Optional[list[BodyId] | list[int]] = None,
     ) -> list[BodyId]:
         """
-        Get the Ids of the neurons in the dataset.
-        Select (keep) according to the selection_dict.
-        Different criteria are treated as 'and' conditions.
+        Get the BodyIds of the neurons in the dataset that fulfil the conditions in the selection_dict.
 
-        For the specific case of "class_1" that refers to the NeuronClass,
-        we need to verify both the generic and the specific names.
+        For the specific case of "class_1" that refers to the NeuronClass, we need to verify both the generic and the specific names.
+
+        Args:
+            selection_dict (SelectionDict, optional): Criteria that the returned neurons need to fulfil. Different criteria are treated as 'and' conditions. Defaults to {}.
+            nodes (Optional[list[BodyId]  |  list[int]], optional): If not None, only return BodyIds which are contained in this list. Defaults to None.
+
+        Returns:
+            list[BodyId]: list of the BodyIds of neurons that fulfilled all supplied conditions.
         """
+        # get all neurons in the dataset that are also in the nodes list
+        valid_nodes = set(self.list_all_nodes())
+        if nodes is not None:
+            valid_nodes = valid_nodes.intersection(nodes)
 
         # Treat each attribute in the selection dict independently:
         # get the nodes that satisfy each condition, and return the intersection of all
-        if nodes is not None:
-            valid_nodes = set(nodes)
-        else:
-            valid_nodes = set(self.list_all_nodes())
         for key, value in selection_dict.items():
             specific_valid_nodes = self._filter_neurons(
                 attribute=key,

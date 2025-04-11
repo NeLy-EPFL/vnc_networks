@@ -3,6 +3,9 @@ Can only run when the data is available. Not run in the CI.
 """
 
 
+from vnc_networks.params import SelectionDict
+
+
 class TestDataLoading:
     """
     Test the data loading functions.
@@ -58,3 +61,30 @@ class TestDataLoading:
 
         df_2 = df[(df["start_bid"] == 10725) & (df["end_bid"] == 10439)]
         assert df_2["eff_weight"].values[0] == -1080, "Incorrect nt_type handling"
+
+    def test_connections_getting_neuron_ids_MANCv1_2(self):
+        """
+        Test that we get the same results if we get uids or bodyids and convert between the two.
+        """
+        import vnc_networks
+        from vnc_networks.connections import Connections
+
+        # Instantiate a Connections object
+        connections = Connections(vnc_networks.connectome_reader.MANC("v1.2"))
+
+        # test a few different selection_dicts
+        selection_dicts: list[SelectionDict | None] = [
+            None,
+            {},
+            {"class_1": "descending"},
+            {"class_1": "ascending", "nt_type": "GABA"},
+        ]
+        for selection_dict in selection_dicts:
+            body_ids = connections.get_neuron_bodyids(selection_dict)
+            uids = connections.get_neuron_ids(selection_dict)
+            assert (
+                set(connections.get_uids_from_bodyids(body_ids)) == set(uids)
+            ), f"Getting bodyids and converting to uids doesn't match with selection_dict {selection_dict}."
+            assert (
+                set(connections.get_bodyids_from_uids(uids)) == set(body_ids)
+            ), f"Getting uids and converting to bodyids doesn't match with selection_dict {selection_dict}."
