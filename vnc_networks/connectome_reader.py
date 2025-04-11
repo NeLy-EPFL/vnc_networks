@@ -168,12 +168,16 @@ class ConnectomeReader(ABC):
         nodes: Optional[list[BodyId] | list[int]] = None,
     ) -> list[BodyId]:
         """
-        Get the Ids of the neurons in the dataset.
-        Select (keep) according to the selection_dict.
-        Different criteria are treated as 'and' conditions.
+        Get the BodyIds of the neurons in the dataset that fulfil the conditions in the selection_dict.
 
-        For the specific case of "class_1" that refers to the NeuronClass,
-        we need to verify both the generic and the specific names.
+        For the specific case of "class_1" that refers to the NeuronClass, we need to verify both the generic and the specific names.
+
+        Args:
+            selection_dict (SelectionDict, optional): Criteria that the returned neurons need to fulfil. Different criteria are treated as 'and' conditions. Defaults to {}.
+            nodes (Optional[list[BodyId]  |  list[int]], optional): If not None, only return BodyIds which are contained in this list. Defaults to None.
+
+        Returns:
+            list[BodyId]: list of the BodyIds of neurons that fulfilled all supplied conditions.
         """
         ...
 
@@ -693,12 +697,16 @@ class MANCReader(ConnectomeReader):
         nodes: Optional[list[BodyId] | list[int]] = None,
     ) -> list[BodyId]:
         """
-        Get the Ids of the neurons in the dataset.
-        Select (keep) according to the selection_dict.
-        Different criteria are treated as 'and' conditions.
+        Get the BodyIds of the neurons in the dataset that fulfil the conditions in the selection_dict.
 
-        For the specific case of "class_1" that refers to the NeuronClass,
-        we need to verify both the generic and the specific names.
+        For the specific case of "class_1" that refers to the NeuronClass, we need to verify both the generic and the specific names.
+
+        Args:
+            selection_dict (SelectionDict, optional): Criteria that the returned neurons need to fulfil. Different criteria are treated as 'and' conditions. Defaults to {}.
+            nodes (Optional[list[BodyId]  |  list[int]], optional): If not None, only return BodyIds which are contained in this list. Defaults to None.
+
+        Returns:
+            list[BodyId]: list of the BodyIds of neurons that fulfilled all supplied conditions.
         """
         s_dict = self.specific_selection_dict(selection_dict)
 
@@ -1683,20 +1691,24 @@ class FAFBReader(ConnectomeReader):
         nodes: Optional[list[BodyId] | list[int]] = None,
     ) -> list[BodyId]:
         """
-        Get the Ids of the neurons in the dataset.
-        Select (keep) according to the selection_dict.
-        Different criteria are treated as 'and' conditions.
+        Get the BodyIds of the neurons in the dataset that fulfil the conditions in the selection_dict.
 
-        For the specific case of "class_1" that refers to the NeuronClass,
-        we need to verify both the generic and the specific names.
+        For the specific case of "class_1" that refers to the NeuronClass, we need to verify both the generic and the specific names.
+
+        Args:
+            selection_dict (SelectionDict, optional): Criteria that the returned neurons need to fulfil. Different criteria are treated as 'and' conditions. Defaults to {}.
+            nodes (Optional[list[BodyId]  |  list[int]], optional): If not None, only return BodyIds which are contained in this list. Defaults to None.
+
+        Returns:
+            list[BodyId]: list of the BodyIds of neurons that fulfilled all supplied conditions.
         """
+        # get all neurons in the dataset that are also in the nodes list
+        valid_nodes = set(self.list_all_nodes())
+        if nodes is not None:
+            valid_nodes = valid_nodes.intersection(nodes)
 
         # Treat each attribute in the selection dict independently:
         # get the nodes that satisfy each condition, and return the intersection of all
-        if nodes is not None:
-            valid_nodes = set(nodes)
-        else:
-            valid_nodes = set(self.list_all_nodes())
         for key, value in selection_dict.items():
             specific_valid_nodes = self._filter_neurons(
                 attribute=key,
