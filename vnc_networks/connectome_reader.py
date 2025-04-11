@@ -455,6 +455,7 @@ class MANCReader(ConnectomeReader):
     _nb_post_synapses: str
     _nb_pre_neurons: str
     _nb_post_neurons: str
+    _root_side: str
 
     def __init__(
         self,
@@ -548,6 +549,7 @@ class MANCReader(ConnectomeReader):
             "name",
             "type",
             "side",
+            "root_side",
             "neuropil",
             "hemilineage",
             "size",
@@ -584,6 +586,7 @@ class MANCReader(ConnectomeReader):
                 "nb_pre_neurons": self._nb_pre_neurons,
                 "nb_post_neurons": self._nb_post_neurons,
                 "location": self._location,  # synapse position
+                "root_side": self._root_side,
             }
             try:
                 converted_type = mapping.get(generic_n_a)
@@ -617,6 +620,7 @@ class MANCReader(ConnectomeReader):
                 self._nb_pre_neurons: "nb_pre_neurons",
                 self._nb_post_neurons: "nb_post_neurons",
                 self._location: "location",  # synapse position
+                self._root_side: "root_side",
             }
             try:
                 converted_attr = mapping.get(specific_attribute)
@@ -854,6 +858,7 @@ class MANC_v_1_0(MANCReader):
         self._nb_post_synapses = "post:int"
         self._nb_pre_neurons = "upstream:int"
         self._nb_post_neurons = "downstream:int"
+        self._root_side = "rootSide:string"
         # Synapse specific
         self._start_synset_id = ":START_ID(SynSet-ID)"
         self._end_synset_id = ":END_ID(SynSet-ID)"
@@ -1182,6 +1187,7 @@ class MANC_v_1_2(MANCReader):
         self._nb_post_synapses = "post"
         self._nb_pre_neurons = "upstream"
         self._nb_post_neurons = "downstream"
+        self._root_side = "rootSide"
 
         # Synapse specific
         self._syn_id = "synapse_id"
