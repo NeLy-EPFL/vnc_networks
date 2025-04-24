@@ -7,6 +7,7 @@ Each instance also redefines the generic NeuronAttribute and NeuronClass
 data types to the specific ones of the connectome.
 """
 
+import ast
 import os
 import typing
 from abc import ABC, abstractmethod
@@ -148,6 +149,35 @@ class ConnectomeReader(ABC):
     ) -> pd.DataFrame:
         """
         Get the neuropil of the synapses.
+        """
+        ...
+
+    @abstractmethod
+    def get_synapse_counts_by_neuropil(
+        self,
+        synapse_count_type: typing.Literal[
+            "downstream", "upstream", "pre", "post", "total_synapses"
+        ],
+        body_id_subset: list[BodyId] | list[int] | None = None,
+    ) -> pd.DataFrame:
+        """
+        Get neuron or synapse counts for each neuron in each neuropil
+
+        Args:
+            synapse_count_type (typing.Literal[ "downstream", "upstream", "pre", "post", "total_synapses"]): which count to get
+                * `"downstream"` number of downstream neurons
+                * `"upstream"` number of upstream neurons
+                * `"pre"` number of presynaptic synapses (ie. synapses to upstream neurons)
+                * `"post"` number of postsynaptic synapses (ie. synapses to downstream neurons)
+                * `"total_synapses"` total number of synapses, sum of pre and post
+
+            body_id_subset (list[BodyId] | list[int] | None, optional): Only return counts for a certain set of neurons.
+                If None, return counts for all. Defaults to None.
+
+        Returns:
+            pd.DataFrame: a table [body_id, rois...] with the counts for each neuropil for each body_id.
+                **Note:** ROI columns won't be returned if no neurons have a count in that column (ie. if specifying
+                a small number of neurons for `body_id_subset`).
         """
         ...
 
@@ -1152,6 +1182,34 @@ class MANC_v_1_0(MANCReader):
             data.loc[data["synapse_id"].isin(synapses_in_roi), "neuropil"] = roi
         return data
 
+    def get_synapse_counts_by_neuropil(
+        self,
+        synapse_count_type: typing.Literal[
+            "downstream", "upstream", "pre", "post", "total_synapses"
+        ],
+        body_id_subset: list[BodyId] | list[int] | None = None,
+    ) -> pd.DataFrame:
+        """
+        Get neuron or synapse counts for each neuron in each neuropil
+
+        Args:
+            synapse_count_type (typing.Literal[ "downstream", "upstream", "pre", "post", "total_synapses"]): which count to get
+                * `"downstream"` number of downstream neurons
+                * `"upstream"` number of upstream neurons
+                * `"pre"` number of presynaptic synapses (ie. synapses to upstream neurons)
+                * `"post"` number of postsynaptic synapses (ie. synapses to downstream neurons)
+                * `"total_synapses"` total number of synapses, sum of pre and post
+
+            body_id_subset (list[BodyId] | list[int] | None, optional): Only return counts for a certain set of neurons.
+                If None, return counts for all. Defaults to None.
+
+        Returns:
+            pd.DataFrame: a table [body_id, rois...] with the counts for each neuropil for each body_id.
+                **Note:** ROI columns won't be returned if no neurons have a count in that column (ie. if specifying
+                a small number of neurons for `body_id_subset`).
+        """
+        raise NotImplementedError("Not sure how to get this for MANCv1.0 yet...")
+
 
 class MANC_v_1_2(MANCReader):
     def __init__(
@@ -1188,6 +1246,7 @@ class MANC_v_1_2(MANCReader):
         self._nb_pre_neurons = "upstream"
         self._nb_post_neurons = "downstream"
         self._root_side = "rootSide"
+        self._roi_info = "roiInfo"
 
         # Synapse specific
         self._syn_id = "synapse_id"
@@ -1310,6 +1369,69 @@ class MANC_v_1_2(MANCReader):
         ]
         synapses.columns = ["synapse_id", "neuropil"]
         return synapses
+
+    def get_synapse_counts_by_neuropil(
+        self,
+        synapse_count_type: typing.Literal[
+            "downstream", "upstream", "pre", "post", "total_synapses"
+        ],
+        body_id_subset: list[BodyId] | list[int] | None = None,
+    ) -> pd.DataFrame:
+        """
+        Get neuron or synapse counts for each neuron in each neuropil
+
+        Args:
+            synapse_count_type (typing.Literal[ "downstream", "upstream", "pre", "post", "total_synapses"]): which count to get
+                * `"downstream"` number of downstream neurons
+                * `"upstream"` number of upstream neurons
+                * `"pre"` number of presynaptic synapses (ie. synapses to upstream neurons)
+                * `"post"` number of postsynaptic synapses (ie. synapses to downstream neurons)
+                * `"total_synapses"` total number of synapses, sum of pre and post
+
+            body_id_subset (list[BodyId] | list[int] | None, optional): Only return counts for a certain set of neurons.
+                If None, return counts for all. Defaults to None.
+
+        Returns:
+            pd.DataFrame: a table [body_id, rois...] with the counts for each neuropil for each body_id.
+                **Note:** ROI columns won't be returned if no neurons have a count in that column (ie. if specifying
+                a small number of neurons for `body_id_subset`).
+        """
+        # the total synapses count is called "synweight" in MANC. Renamed it in the arguments so it's more intuitive
+        synapse_count_type_name = (
+            "synweight"
+            if synapse_count_type == "total_synapses"
+            else synapse_count_type
+        )
+
+        roi_info_table = pd.read_feather(
+            self._nodes_file, [self._body_id, self._roi_info]
+        )
+        if body_id_subset is not None:
+            # Note: this removes some ROIs from the columns...
+            roi_info_table = roi_info_table[
+                roi_info_table[self._body_id].isin(body_id_subset)
+            ]
+        return (
+            pd.DataFrame(
+                {
+                    body_id: {
+                        roi: (
+                            roi_connections[synapse_count_type_name]
+                            if synapse_count_type_name in roi_connections
+                            else 0
+                        )
+                        for roi, roi_connections in connections.items()
+                    }
+                    for body_id, connections in zip(
+                        roi_info_table[self._body_id],
+                        roi_info_table[self._roi_info].apply(ast.literal_eval).values,
+                    )
+                }
+            )
+            .T.reset_index(names="body_id")
+            .fillna(0)
+            .astype(int)
+        )
 
 
 @typing.overload
@@ -1555,6 +1677,111 @@ class FAFBReader(ConnectomeReader):
             'No trivial match in FAFB between coordinates and neuropil...\
             You can try to circumvent with the number of synapses in a neuropil for a given neuron.\
             For that, load "neuropil_synapse_table.csv"'
+        )
+
+    def get_synapse_counts_by_neuropil(
+        self,
+        synapse_count_type: typing.Literal[
+            "downstream", "upstream", "pre", "post", "total_synapses"
+        ],
+        body_id_subset: list[BodyId] | list[int] | None = None,
+    ):
+        """
+        Get neuron or synapse counts for each neuron in each neuropil
+
+        Args:
+            synapse_count_type (typing.Literal[ "downstream", "upstream", "pre", "post", "total_synapses"]): which count to get
+                * `"downstream"` number of downstream neurons
+                * `"upstream"` number of upstream neurons
+                * `"pre"` number of presynaptic synapses (ie. synapses to upstream neurons)
+                * `"post"` number of postsynaptic synapses (ie. synapses to downstream neurons)
+                * `"total_synapses"` total number of synapses, sum of pre and post
+
+            body_id_subset (list[BodyId] | list[int] | None, optional): Only return counts for a certain set of neurons.
+                If None, return counts for all. Defaults to None.
+
+        Returns:
+            pd.DataFrame: a table [body_id, rois...] with the counts for each neuropil for each body_id.
+                **Note:** ROI columns won't be returned if no neurons have a count in that column (ie. if specifying
+                a small number of neurons for `body_id_subset`).
+        """
+        connections_table = pd.read_csv(
+            self._connections_file,
+        )
+
+        if synapse_count_type == "total_synapses":
+            if body_id_subset is not None:
+                # Note: this removes some ROIs from the columns...
+                connections_table = connections_table[
+                    connections_table[self._start_bid].isin(body_id_subset)
+                    | connections_table[self._end_bid].isin(body_id_subset)
+                ]
+            # separately get the pre and post synapse counts then sum them
+            synapse_counts = (
+                pd.concat(
+                    [
+                        connections_table[
+                            [neuron_body_id_we_care_about, "neuropil", "syn_count"]
+                        ]
+                        .groupby([neuron_body_id_we_care_about, "neuropil"])
+                        .sum()
+                        .reset_index()
+                        .pivot(
+                            index=neuron_body_id_we_care_about,
+                            columns="neuropil",
+                            values="syn_count",
+                        )
+                        .reset_index(names="body_id")
+                        .fillna(0)
+                        .astype(int)
+                        for neuron_body_id_we_care_about in [
+                            self._start_bid,
+                            self._end_bid,
+                        ]
+                    ]
+                )
+                .groupby("body_id")
+                .sum()
+                .reset_index()
+                .rename_axis(None, axis=1)  # otherwise the index has a name
+            )
+            if body_id_subset is not None:
+                synapse_counts = synapse_counts[
+                    synapse_counts["body_id"].isin(body_id_subset)
+                ].reset_index(drop=True)
+            return synapse_counts
+        elif synapse_count_type in ["downstream", "post"]:
+            neuron_body_id_we_care_about = self._start_bid
+        else:
+            neuron_body_id_we_care_about = self._end_bid
+
+        if body_id_subset is not None:
+            # Note: this removes some ROIs from the columns...
+            connections_table = connections_table[
+                connections_table[neuron_body_id_we_care_about].isin(body_id_subset)
+            ]
+
+        if synapse_count_type in ["downstream", "upstream"]:
+            aggregate_group_function = lambda group: group.count()
+        else:
+            aggregate_group_function = lambda group: group.sum()
+
+        return (
+            aggregate_group_function(
+                connections_table[
+                    [neuron_body_id_we_care_about, "neuropil", "syn_count"]
+                ].groupby([neuron_body_id_we_care_about, "neuropil"])
+            )
+            .reset_index()
+            .pivot(
+                index=neuron_body_id_we_care_about,
+                columns="neuropil",
+                values="syn_count",
+            )
+            .reset_index(names="body_id")
+            .rename_axis(None, axis=1)  # otherwise the index has a name
+            .fillna(0)
+            .astype(int)
         )
 
     def sna(self, generic_n_a: NeuronAttribute) -> str:
