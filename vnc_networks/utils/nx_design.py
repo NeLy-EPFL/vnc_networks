@@ -158,6 +158,7 @@ def display_interactive_graph(
     output_file: str = "visualisation.html",
     window_height: int = 1000,
     additional_attributes: Optional[list[NeuronAttribute]] = None,
+    show_labels: bool = True,
 ):
     """
     Display the graph in interactive browser window using pyvis. This saves an HTML file and opens it in the browser.
@@ -203,25 +204,49 @@ def display_interactive_graph(
         attributes_displayed += additional_attributes
     # Ensure all the attributes are defined in the connections object
     all_nodes = connections.get_nodes(type="uid")
-    for attribute in attributes_displayed:
-        _ = connections.get_node_attribute(all_nodes, attribute)
 
-    def node_data_to_string(graph, node):
-        data_dict = graph.nodes[node]
-        return f'body_id: {data_dict["body_id"]}\n' + "\n".join(
+    def node_data_to_string(node_data):
+        return "\n".join(
             [
-                f"{k}: {v}"
-                for k, v in data_dict.items()
+                f"{attribute_name}: {attribute_value}"
+                for attribute_name, attribute_value in node_data.items()
             ]
         )
-        
-    # This is the text that is shown when hovering over a node (more detailed)
-    node_data = {
-        node: node_data_to_string(g,node)
-        for node in g.nodes
+
+    node_attributes_lists = [
+        connections.get_node_attribute(all_nodes, attribute)
+        for attribute in attributes_displayed
+    ]
+    # {node: {attribute: value}}
+    node_attributes = {
+        node_and_attributes[0]: dict(zip(attributes_displayed, node_and_attributes[1:]))
+        for node_and_attributes in zip(g.nodes, *node_attributes_lists)
     }
-    
-    nx.set_node_attributes(g, node_data, "title")
+
+    nx.set_node_attributes(g, node_attributes)
+    # This is the text that is shown when hovering over a node (more detailed)
+    nx.set_node_attributes(
+        g,
+        {
+            node: node_data_to_string(node_data)
+            for node, node_data in node_attributes.items()
+        },
+        "title",
+    )
+    if show_labels:
+        nx.set_node_attributes(
+            g,
+            {
+                node: str(node_data["name"])
+                + (
+                    f' [{node_data["side"][0].upper()}]'
+                    if isinstance(node_data["side"], str) and len(node_data["side"]) > 0
+                    else ""
+                )
+                for node, node_data in node_attributes.items()
+            },
+            "label",
+        )
 
     # set node colour based on neuron class
     nx.set_node_attributes(
