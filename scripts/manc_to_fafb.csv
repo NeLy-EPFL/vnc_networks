@@ -1,0 +1,600 @@
+MANC DN name,FAFB DN name,source
+DNad001,oviDN,Stuerner et al.
+DNad002,DNg66,Stuerner et al.
+DNad003,DNp58,Stuerner et al.
+DNad004,DNge005,BANC v514
+DNad005,DNge151,BANC v514
+DNad006,DNge172,BANC v514
+DNfl001,DNg12,Stuerner et al.
+DNfl002,DNg12,Stuerner et al.
+DNfl003,DNg12,Stuerner et al.
+DNfl004,DNg47,Stuerner et al.
+DNfl005,DNg48,Stuerner et al.
+DNfl006,DNg52,Stuerner et al.
+DNfl007,DNg61,Stuerner et al.
+DNfl008,DNg62,Stuerner et al.
+DNfl009,DNg83,Stuerner et al.
+DNfl010,DNg85,Stuerner et al.
+DNfl011,DNp56,Stuerner et al.
+DNfl012,DNge123,BANC v514
+DNfl013,,
+DNfl014,DNge009,BANC v514
+DNfl014,DNge024,BANC v514
+DNfl015,DNge039,BANC v514
+DNfl016,,
+DNfl017,DNg61,BANC v514
+DNfl018,,
+DNfl019,DNge025,BANC v514
+DNfl020,DNge057,BANC v514
+DNfl021,DNde003,BANC v514
+DNfl021,DNde004,BANC v514
+DNfl021,DNge173,BANC v514
+DNfl021,DNge174,BANC v514
+DNfl021,DNxl067,BANC v514
+DNfl022,DNge027,BANC v514
+DNfl023,,
+DNfl024,DNge001,BANC v514
+DNfl024,DNge025,BANC v514
+DNfl025,DNge077,BANC v514
+DNfl026,DNge147,BANC v514
+DNfl026,DNge081,BANC v514
+DNfl027,DNge096,BANC v514
+DNfl028,DNg12_e,BANC v514
+DNfl028,DNge019,BANC v514
+DNfl029,,
+DNfl030,DNg12_e,BANC v514
+DNfl030,DNge012,BANC v514
+DNfl031,DNge024,BANC v514
+DNfl032,DNge146,BANC v514
+DNfl033,DNge056,BANC v514
+DNfl034,,
+DNfl035,DNge105,BANC v514
+DNfl036,DNge011,BANC v514
+DNfl036,DNge012,BANC v514
+DNfl037,synapseless descending,BANC v514
+DNfl037,XD,BANC v514
+DNfl037,DNge061,BANC v514
+DNfl038,DNge065,BANC v514
+DNfl039,DNge076,BANC v514
+DNfl040,DNge022,BANC v514
+DNfl041,DNge068,BANC v514
+DNfl042,DNge036,BANC v514
+DNfl043,,
+DNfl044,DNg12_a,BANC v514
+DNfl045,,
+DNhl001,DNg14,Stuerner et al.
+DNht001,PS225?,BANC v514
+DNht001,DNge109,BANC v514
+DNht001,DNpe008,BANC v514
+DNht001,DNpe054,BANC v514
+DNht001,DNp17,BANC v514
+DNit001,DNa03,Stuerner et al.
+DNit002,DNg77,Stuerner et al.
+DNit003,DNg08_b,BANC v514
+DNit003,DNg08_a,BANC v514
+DNit003,DNge094,BANC v514
+DNit003,DNge089,BANC v514
+DNit004,DNpe035,BANC v514
+DNit005,DNg18_a,BANC v514
+DNit005,DNge111,BANC v514
+DNit006,,
+DNit007,DNg08_a,BANC v514
+DNit008,DNge096,BANC v514
+DNit009,,
+DNit010,,
+DNit011,,
+DNit012,DNpe033,BANC v514
+DNit013,DNpe023,BANC v514
+DNlt001,DNg40,Stuerner et al.
+DNlt002,DNp01,Stuerner et al.
+DNlt003,DNp02,Stuerner et al.
+DNlt004,DNp04,Stuerner et al.
+DNlt005,DNp06,Stuerner et al.
+DNlt006,DNg106,Stuerner et al.
+DNlt007,DNp103,Stuerner et al.
+DNlt008,DNp59,Stuerner et al.
+DNlt009,,
+DNlt010,DNg01,BANC v514
+DNlt011,DNpe042,BANC v514
+DNml001,DNge010,BANC v514
+DNnt001,DNg09,Stuerner et al.
+DNnt002,DNg10,Stuerner et al.
+DNnt003,DNg49,Stuerner et al.
+DNnt004,DNg53,Stuerner et al.
+DNnt005,DNg73,Stuerner et al.
+DNnt006,DNg89,Stuerner et al.
+DNnt007,DNg12_d,BANC v514
+DNnt007,DNge020,BANC v514
+DNnt007,DNnt008,BANC v514
+DNnt008,DNg12_b,BANC v514
+DNnt008,DNg12_d,BANC v514
+DNnt008,DNg12_a,BANC v514
+DNnt008,DNg12_c,BANC v514
+DNnt008,DNg12_e,BANC v514
+DNnt008,DNge019,BANC v514
+DNnt008,DNge020,BANC v514
+DNnt008,DNnt007,BANC v514
+DNnt009,DNg12_b,BANC v514
+DNnt010,DNg10,BANC v514
+DNnt010,DNge087,BANC v514
+DNnt010,DNpe009,BANC v514
+DNnt011,DNge116,BANC v514
+DNnt011,DNge085,BANC v514
+DNnt011,DNge071,BANC v514
+DNnt011,DNge113,BANC v514
+DNnt011,DNpe008,BANC v514
+DNnt011,DNge145,BANC v514
+DNnt011,DNpe054,BANC v514
+DNnt012,DNpe012,BANC v514
+DNnt012,DNpe009,BANC v514
+DNnt012,DNpe011,BANC v514
+DNnt013,DNg12_a,BANC v514
+DNnt013,DNg12_e,BANC v514
+DNnt013,DNge020,BANC v514
+DNnt014,,
+DNnt015,DNge070,BANC v514
+DNnt016,DNge143,BANC v514
+DNnt017,DNge086,BANC v514
+DNnt017,DNge072,BANC v514
+DNnt018,DNge033,BANC v514
+DNnt019,DNge002,BANC v514
+DNnt020,DNge125,BANC v514
+DNnt021,DNp16,BANC v514
+DNnt022,,
+DNut001,DNa04,Stuerner et al.
+DNut002,DNa05,Stuerner et al.
+DNut003,DNa07,Stuerner et al.
+DNut004,DNb02,Stuerner et al.
+DNut005,DNb03,Stuerner et al.
+DNut006,DNg01,Stuerner et al.
+DNut007,DNg02,Stuerner et al.
+DNut008,DNg02,Stuerner et al.
+DNut009,DNg02,Stuerner et al.
+DNut010,DNg02,Stuerner et al.
+DNut011,DNg03,Stuerner et al.
+DNut012,DNg04,Stuerner et al.
+DNut013,DNg05,Stuerner et al.
+DNut014,DNg06,Stuerner et al.
+DNut015,DNg08,Stuerner et al.
+DNut016,DNg18,Stuerner et al.
+DNut017,DNg27,Stuerner et al.
+DNut018,DNg32,Stuerner et al.
+DNut019,DNg36,Stuerner et al.
+DNut020,DNg41,Stuerner et al.
+DNut021,DNp03,Stuerner et al.
+DNut022,DNp15,Stuerner et al.
+DNut023,DNp16,Stuerner et al.
+DNut024,DNp16,Stuerner et al.
+DNut025,DNp17,Stuerner et al.
+DNut026,DNp17,Stuerner et al.
+DNut027,DNp22,Stuerner et al.
+DNut028,DNp31,Stuerner et al.
+DNut029,DNp33,Stuerner et al.
+DNut030,DNg82,Stuerner et al.
+DNut031,DNg91,Stuerner et al.
+DNut032,DNg92,Stuerner et al.
+DNut033,DNg110,Stuerner et al.
+DNut034,DNg07,BANC v514
+DNut034,DNge116,BANC v514
+DNut035,DNx02,Stuerner et al.
+DNut036,DNg07,BANC v514
+DNut037,DNae004,BANC v514
+DNut037,DNa05,BANC v514
+DNut038,DNa15,Stuerner et al.
+DNut039,,
+DNut040,DNbe001,BANC v514
+DNut041,,
+DNut042,DNpe054,BANC v514
+DNut042,DNg51,BANC v514
+DNut042,DNg36_b,BANC v514
+DNut042,DNge109,BANC v514
+DNut042,DNge114,BANC v514
+DNut042,DNpe004,BANC v514
+DNut042,DNp16,BANC v514
+DNut042,DNpe018,BANC v514
+DNut042,DNpe012,BANC v514
+DNut043,DNg05_b,BANC v514
+DNut044,,
+DNut045,DNp16,BANC v514
+DNut046,PS225,BANC v514
+DNut046,DNpe054,BANC v514
+DNut046,DNpe018,BANC v514
+DNut047,DNge017,BANC v514
+DNut047,DNg05_b,BANC v514
+DNut048,DNge091,BANC v514
+DNut049,,
+DNut050,DNge175,BANC v514
+DNut050,DNg05_b,BANC v514
+DNut051,DNge030,BANC v514
+DNut052,,
+DNut053,DNg05_b,BANC v514
+DNut053,DNg05_a,BANC v514
+DNut054,DNge095,BANC v514
+DNut054,DNge091,BANC v514
+DNut054,DNge110,BANC v514
+DNut054,DNge118,BANC v514
+DNut055,DNa16,Stuerner et al.
+DNut056,DNp72,Stuerner et al.
+DNut057,,
+DNut058,DNge016,BANC v514
+DNut058,DNge175,BANC v514
+DNut058,DNg06,BANC v514
+DNut059,,
+DNut060,DNae002,BANC v514
+DNut061,,
+DNut062,DNge045,BANC v514
+DNut062,DNg32,BANC v514
+DNwt001,DNa08,Stuerner et al.
+DNxl001,DNa01,Stuerner et al.
+DNxl002,DNa02,Stuerner et al.
+DNxl003,DNb06,Stuerner et al.
+DNxl004,DNd02,Stuerner et al.
+DNxl005,DNg13,Stuerner et al.
+DNxl006,DNg16,Stuerner et al.
+DNxl007,DNg19,Stuerner et al.
+DNxl008,DNg21,Stuerner et al.
+DNxl009,DNg31,Stuerner et al.
+DNxl010,DNg34,Stuerner et al.
+DNxl011,DNg35,Stuerner et al.
+DNxl012,DNg37,Stuerner et al.
+DNxl013,DNg38,Stuerner et al.
+DNxl014,DNge037,BANC v514
+DNxl015,DNa11,Stuerner et al.
+DNxl016,DNg39,Stuerner et al.
+DNxl017,DNp09,Stuerner et al.
+DNxl018,DNp10,Stuerner et al.
+DNxl019,DNp32,Stuerner et al.
+DNxl020,DNp34,Stuerner et al.
+DNxl021,DNge124,BANC v514
+DNxl022,DNae001,BANC v514
+DNxl023,DNa13,Stuerner et al.
+DNxl024,DNa13,Stuerner et al.
+DNxl025,DNa14,Stuerner et al.
+DNxl026,DNd05,Stuerner et al.
+DNxl027,DNb08,Stuerner et al.
+DNxl028,DNg43,Stuerner et al.
+DNxl029,DNg44,Stuerner et al.
+DNxl030,DNg45,Stuerner et al.
+DNxl031,DNg52,Stuerner et al.
+DNxl032,DNg54,Stuerner et al.
+DNxl033,DNg63,Stuerner et al.
+DNxl034,DNg64,Stuerner et al.
+DNxl035,DNg65,Stuerner et al.
+DNxl036,DNg67,Stuerner et al.
+DNxl037,DNg69,Stuerner et al.
+DNxl038,DNg70,Stuerner et al.
+DNxl039,DNg72,Stuerner et al.
+DNxl040,DNg74,Stuerner et al.
+DNxl041,DNg74,Stuerner et al.
+DNxl042,DNg75,Stuerner et al.
+DNxl043,DNg87,Stuerner et al.
+DNxl044,DNg88,Stuerner et al.
+DNxl045,DNg90,Stuerner et al.
+DNxl046,DNg93,Stuerner et al.
+DNxl047,DNg107,Stuerner et al.
+DNxl048,DNg108,Stuerner et al.
+DNxl049,DNge073,BANC v514
+DNxl049,DNge050,BANC v514
+DNxl050,DNp39,Stuerner et al.
+DNxl051,DNp43,Stuerner et al.
+DNxl052,DNp67,Stuerner et al.
+DNxl053,,
+DNxl054,DNg97,Stuerner et al.
+DNxl055,DNg105,Stuerner et al.
+DNxl056,DNae008,BANC v514
+DNxl056,DNae010,BANC v514
+DNxl057,DNg109,Stuerner et al.
+DNxl058,DNg100,Stuerner et al.
+DNxl059,DNg95,Stuerner et al.
+DNxl060,DNg103,Stuerner et al.
+DNxl061,DNd04,Stuerner et al.
+DNxl062,DNp71,Stuerner et al.
+DNxl063,DNpe029,BANC v514
+DNxl064,DNg96,Stuerner et al.
+DNxl065,,
+DNxl066,DNpe029,BANC v514
+DNxl067,DNg64,BANC v514
+DNxl067,DNde004,BANC v514
+DNxl067,DNfl021,BANC v514
+DNxl067,DNde003,BANC v514
+DNxl068,DNge082,BANC v514
+DNxl069,DNg72,Stuerner et al.
+DNxl070,DNge052,BANC v514
+DNxl071,LN-DN2,BANC v514
+DNxl072,DNge034,BANC v514
+DNxl073,DNge042,BANC v514
+DNxl074,,
+DNxl075,DNpe003,BANC v514
+DNxl076,DNpe052,BANC v514
+DNxl077,,
+DNxl078,DNge080,BANC v514
+DNxl079,DNge062,BANC v514
+DNxl080,DNge079,BANC v514
+DNxl081,DNge144,BANC v514
+DNxl082,DNbe007,BANC v514
+DNxl083,DNpe007,BANC v514
+DNxl084,DNge120,BANC v514
+DNxl085,,
+DNxl086,DNge055,BANC v514
+DNxl087,DNge081,BANC v514
+DNxl088,DNpe049,BANC v514
+DNxl088,DNpe030,BANC v514
+DNxl090,,
+DNxl091,DNg107,BANC v514
+DNxl091,DNge058,BANC v514
+DNxl092,DNae005,BANC v514
+DNxl093,DNge0128,BANC v514
+DNxl093,DNge128,BANC v514
+DNxl094,DNde007,BANC v514
+DNxl095,DNbe003,BANC v514
+DNxl095,DNg19,BANC v514
+DNxl096,DNde001,BANC v514
+DNxl097,DNge106,BANC v514
+DNxl097,DNg96,BANC v514
+DNxl098,DNde005,BANC v514
+DNxl098,VES028,BANC v514
+DNxl099,DNge038,BANC v514
+DNxl100,DNge064,BANC v514
+DNxl101,DNg104,BANC v514
+DNxl101,DNge075,BANC v514
+DNxl102,DNpe006,BANC v514
+DNxl103,DNg101,BANC v514
+DNxl104,DNge067,BANC v514
+DNxl105,DNpe022,BANC v514
+DNxl106,DNbe002,BANC v514
+DNxl107,DNge060,BANC v514
+DNxl108,DNge032,BANC v514
+DNxl109,DNge003,BANC v514
+DNxl110,DNge074,BANC v514
+DNxl111,DNge040,BANC v514
+DNxl112,DNge083,BANC v514
+DNxl113,DNpe002,BANC v514
+DNxl113,DNge041,BANC v514
+DNxl114,synapseless descending,BANC v514
+DNxl114,DNge153,BANC v514
+DNxl114,XD,BANC v514
+DNxl115,DNge131,BANC v514
+DNxl116,DNge055,BANC v514
+DNxl117,DNbe007,BANC v514
+DNxl117,DNde002,BANC v514
+DNxl118,DNge153,BANC v514
+DNxl119,DNge048,BANC v514
+DNxl120,DNge129,BANC v514
+DNxl121,DNpe025,BANC v514
+DNxl122,,
+DNxl123,DNge103,BANC v514
+DNxl124,DNge023,BANC v514
+DNxl125,DNge121,BANC v514
+DNxl126,,
+DNxl127,DNge063,BANC v514
+DNxl128,,
+DNxl129,DNge073,BANC v514
+DNxl130,DNge049,BANC v514
+DNxl131,DNge054,BANC v514
+DNxl132,DNge104,BANC v514
+DNxl133,,
+DNxl134,DNge035,BANC v514
+DNxl135,,
+DNxn001,DNa06,Stuerner et al.
+DNxn002,DNa09,Stuerner et al.
+DNxn003,DNa10,Stuerner et al.
+DNxn004,aSP22,Stuerner et al.
+DNxn005,DNb01,Stuerner et al.
+DNxn006,DNxn009,Stuerner et al.
+DNxn006,DNb07,BANC v514
+DNxn006,DNbe005,BANC v514
+DNxn007,DNxn010,Stuerner et al.
+DNxn007,DNbe005,BANC v514
+DNxn008,DNb09,Stuerner et al.
+DNxn009,DNb05,Stuerner et al.
+DNxn010,DNc01,Stuerner et al.
+DNxn011,DNc02,Stuerner et al.
+DNxn012,DNd03,Stuerner et al.
+DNxn013,DNg07,Stuerner et al.
+DNxn014,DNg11,Stuerner et al.
+DNxn015,DNg15,Stuerner et al.
+DNxn016,DNg17,Stuerner et al.
+DNxn017,DNg20,Stuerner et al.
+DNxn018,DNg23,Stuerner et al.
+DNxn019,DNg24,Stuerner et al.
+DNxn020,DNg26,Stuerner et al.
+DNxn021,DNg26,Stuerner et al.
+DNxn022,DNg29,Stuerner et al.
+DNxn023,DNg30,Stuerner et al.
+DNxn024,DNg22,Stuerner et al.
+DNxn025,DNg33,Stuerner et al.
+DNxn026,DNp05,Stuerner et al.
+DNxn027,DNp07,Stuerner et al.
+DNxn028,DNp08,Stuerner et al.
+DNxn029,DNp11,Stuerner et al.
+DNxn030,DNp12,Stuerner et al.
+DNxn031,DNp13,Stuerner et al.
+DNxn032,DNp14,Stuerner et al.
+DNxn033,DNp18,Stuerner et al.
+DNxn034,DNp19,Stuerner et al.
+DNxn035,DNp20,Stuerner et al.
+DNxn036,DNp21,Stuerner et al.
+DNxn037,DNp23,Stuerner et al.
+DNxn038,DNp24,Stuerner et al.
+DNxn039,DNp25,Stuerner et al.
+DNxn040,DNp26,Stuerner et al.
+DNxn041,DNp27,Stuerner et al.
+DNxn042,DNp28,Stuerner et al.
+DNxn043,DNp29,Stuerner et al.
+DNxn044,DNp30,Stuerner et al.
+DNxn045,DNp35,Stuerner et al.
+DNxn046,pMP2,Stuerner et al.
+DNxn047,pIP9,Stuerner et al.
+DNxn048,pIP10,Stuerner et al.
+DNxn049,MDN,Stuerner et al.
+DNxn050,MDN,Stuerner et al.
+DNxn051,DNx01,Stuerner et al.
+DNxn052,DNg42,Stuerner et al.
+DNxn053,DNg46,Stuerner et al.
+DNxn054,DNg50,Stuerner et al.
+DNxn055,DNg51,Stuerner et al.
+DNxn056,DNg55,Stuerner et al.
+DNxn057,DNg56,Stuerner et al.
+DNxn058,DNg57,Stuerner et al.
+DNxn059,DNg59,Stuerner et al.
+DNxn060,DNg60,Stuerner et al.
+DNxn061,DNg68,Stuerner et al.
+DNxn062,DNg71,Stuerner et al.
+DNxn063,DNg76,Stuerner et al.
+DNxn064,DNg78,Stuerner et al.
+DNxn065,DNg79,Stuerner et al.
+DNxn066,DNg80,Stuerner et al.
+DNxn067,DNg81,Stuerner et al.
+DNxn068,DNg84,Stuerner et al.
+DNxn069,DNg94,Stuerner et al.
+DNxn070,DNg111,Stuerner et al.
+DNxn071,DNge013,BANC v514
+DNxn072,DNg104,Stuerner et al.
+DNxn073,DNge134,BANC v514
+DNxn074,DNp38,Stuerner et al.
+DNxn075,DNp41,Stuerner et al.
+DNxn076,DNp42,Stuerner et al.
+DNxn077,DNp44,Stuerner et al.
+DNxn078,DNp45,Stuerner et al.
+DNxn079,DNp46,Stuerner et al.
+DNxn080,DNp47,Stuerner et al.
+DNxn081,DNp48,Stuerner et al.
+DNxn082,DNp49,Stuerner et al.
+DNxn083,DNp51,Stuerner et al.
+DNxn084,DNp53,Stuerner et al.
+DNxn085,DNp54,Stuerner et al.
+DNxn086,DNp55,Stuerner et al.
+DNxn087,DNp57,Stuerner et al.
+DNxn088,DNp60,Stuerner et al.
+DNxn089,DNp62,Stuerner et al.
+DNxn090,DNp63,Stuerner et al.
+DNxn091,DNp64,Stuerner et al.
+DNxn092,DNp65,Stuerner et al.
+DNxn093,DNp68,Stuerner et al.
+DNxn094,DNp69,Stuerner et al.
+DNxn095,DNb07,Stuerner et al.
+DNxn096,DNg98,Stuerner et al.
+DNxn097,DNg99,Stuerner et al.
+DNxn098,DNp70,Stuerner et al.
+DNxn099,DNp73,Stuerner et al.
+DNxn100,DNg06,BANC v514
+DNxn101,DNpe005,BANC v514
+DNxn102,DNpe055,BANC v514
+DNxn103,DNge150,BANC v514
+DNxn104,DNpe011,BANC v514
+DNxn104,DNpe012,BANC v514
+DNxn105,DNge094,BANC v514
+DNxn106,DNg18_b,BANC v514
+DNxn107,DNge094,BANC v514
+DNxn108,DNg12_e,BANC v514
+DNxn109,DNg36_a,BANC v514
+DNxn109,DNge092,BANC v514
+DNxn109,DNge085,BANC v514
+DNxn109,DNge091,BANC v514
+DNxn109,DNge115,BANC v514
+DNxn109,DNge116,BANC v514
+DNxn109,DNge111,BANC v514
+DNxn109,DNge145,BANC v514
+DNxn109,DNg18,BANC v514
+DNxn110,DNg08_b,BANC v514
+DNxn111,DNg08_a,BANC v514
+DNxn112,DNpe011,BANC v514
+DNxn113,DNpe037,BANC v514
+DNxn114,DNg08_a,BANC v514
+DNxn114,DNg08_b,BANC v514
+DNxn114,DNge091,BANC v514
+DNxn115,DNg09,BANC v514
+DNxn115,DNge094,BANC v514
+DNxn115,DNge145,BANC v514
+DNxn116,DNge145,BANC v514
+DNxn117,DNge091,BANC v514
+DNxn118,DNae006,BANC v514
+DNxn119,DNpe014,BANC v514
+DNxn120,DNb04,Stuerner et al.
+DNxn121,DNge084,BANC v514
+DNxn122,DNae010,BANC v514
+DNxn123,DNae003,BANC v514
+DNxn124,DNae009,BANC v514
+DNxn125,DNge107,BANC v514
+DNxn126,DNge137,BANC v514
+DNxn127,DNge133,BANC v514
+DNxn128,DNpe008,BANC v514
+DNxn128,DNpe018,BANC v514
+DNxn129,DNge130,BANC v514
+DNxn130,DNpe040,BANC v514
+DNxn131,DNpe039,BANC v514
+DNxn132,DNpe037,BANC v514
+DNxn133,DNp101,BANC v514
+DNxn134,DNp104,BANC v514
+DNxn135,DNpe001,BANC v514
+DNxn136,DNpe019,BANC v514
+DNxn137,DNp101,BANC v514
+DNxn138,,
+DNxn139,DNg12_c,BANC v514
+DNxn139,DNg12_e,BANC v514
+DNxn139,DNge029,BANC v514
+DNxn140,DNpe036,BANC v514
+DNxn141,,
+DNxn142,DNpe017,BANC v514
+DNxn143,DNae007,BANC v514
+DNxn143,DNge127,BANC v514
+DNxn144,DNge094,BANC v514
+DNxn144,DNge091,BANC v514
+DNxn144,DNge111,BANC v514
+DNxn144,DNge145,BANC v514
+DNxn145,DNg58,BANC v514
+DNxn146,DNge033,BANC v514
+DNxn146,DNg89,BANC v514
+DNxn146,DNpe013,BANC v514
+DNxn147,DNge148,BANC v514
+DNxn148,DNpe013,BANC v514
+DNxn148,DNge012,BANC v514
+DNxn148,DNge026,BANC v514
+DNxn149,,
+DNxn150,DNge006,BANC v514
+DNxn151,DNge132,BANC v514
+DNxn152,DNge141,BANC v514
+DNxn153,DNpe024,BANC v514
+DNxn154,DNge099,BANC v514
+DNxn155,DNpe026,BANC v514
+DNxn156,,
+DNxn157,DNge119,BANC v514
+DNxn158,,
+DNxn159,DNpe043,BANC v514
+DNxn160,DNp66,BANC v514
+DNxn160,AVLP499,BANC v514
+DNxn161,DNpe045,BANC v514
+DNxn162,DNge047,BANC v514
+DNxn163,DNpe021,BANC v514
+DNxn164,DNge053,BANC v514
+DNxn165,DNge102,BANC v514
+DNxn166,,
+DNxn167,DNpe027,BANC v514
+DNxn167,PS166,BANC v514
+DNxn168,DNpe056,BANC v514
+DNxn169,,
+DNxn170,DNge060,BANC v514
+DNxn171,DNpe028,BANC v514
+DNxn172,DNge135,BANC v514
+DNxn173,DNbe006,BANC v514
+DNxn174,DNpe016,BANC v514
+DNxn174,PS211,BANC v514
+DNxn175,DNpe032,BANC v514
+DNxn176,DNp102,BANC v514
+DNxn177,DNpe053,BANC v514
+DNxn178,DNpe030,BANC v514
+DNxn179,DNge136,BANC v514
+DNxn180,DNg70,BANC v514
+DNxn181,DNg102,BANC v514
+DNxn182,,
+DNxn183,DNpe050,BANC v514
+DNxn184,DNde006,BANC v514
+DNxn185,DNge140,BANC v514
+DNxn186,,
+DNxn187,DNpe031,BANC v514
+DNxn188,,
+DNxn189,DNpe052,BANC v514
+DNxn190,,
+DNxn191,,
+DNxn192,,
+DNxn193,,
