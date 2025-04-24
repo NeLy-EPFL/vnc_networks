@@ -129,6 +129,7 @@ NeuronAttribute = typing.Literal[
     "type",
     # morphology
     "side",  # common to all
+    "root_side",  # only MANC
     "neuropil",  # common to all
     "size",  # common to all
     "area",
