@@ -175,13 +175,13 @@ class Connections:
             connection_dict = pickle.load(file)
         for key, value in connection_dict.items():
             if key == "connectome_name":
-                assert value == self.CR.connectome_name, (
-                    "file created with another connectome!"
-                )
+                assert (
+                    value == self.CR.connectome_name
+                ), "file created with another connectome!"
             if key == "connectome_version":
-                assert value == self.CR.connectome_version, (
-                    "file created with another connectome version!"
-                )
+                assert (
+                    value == self.CR.connectome_version
+                ), "file created with another connectome version!"
             setattr(self, key, value)
 
     def __get_connections(self):
@@ -1041,9 +1041,9 @@ class Connections:
         hops: int = 1,
         intermediates: bool = True,
     ):
-        assert self.adjacency is not None, (
-            "Error: adjacency matrix is None - probably wasn't initialised"
-        )
+        assert (
+            self.adjacency is not None
+        ), "Error: adjacency matrix is None - probably wasn't initialised"
         match type_:
             case "norm":
                 mat_ = self.adjacency["mat_norm"]
@@ -1073,9 +1073,9 @@ class Connections:
         )
 
     def get_lookup(self):
-        assert self.adjacency is not None, (
-            "Error: adjacency matrix is None - probably wasn't initialised"
-        )
+        assert (
+            self.adjacency is not None
+        ), "Error: adjacency matrix is None - probably wasn't initialised"
         return self.adjacency["lookup"]
 
     def get_nx_graph(
@@ -1388,7 +1388,7 @@ class Connections:
     def get_downstream_neuron_counts_by_neuropil(self, body_id: BodyId | int):
         """
         Get how many downstream neurons this neuron has in each neuropil.
-        
+
         Returns a pandas dataframe where the columns (apart from `body_id`) are the neuropils.
         """
         return self.CR.get_synapse_counts_by_neuropil("downstream", [body_id])
@@ -1408,7 +1408,7 @@ class Connections:
         Returns a pandas dataframe where the columns (apart from `body_id`) are the neuropils.
         """
         return self.CR.get_synapse_counts_by_neuropil("post", [body_id])
-    
+
     def get_upstream_synapse_counts_by_neuropil(self, body_id: BodyId | int):
         """
         Get how many upstream synapses this neuron has in each neuropil.
@@ -1496,9 +1496,9 @@ class Connections:
                 if order_type == "uid":
                     order_ = order
                 elif order_type == "index":
-                    assert self.adjacency is not None, (
-                        "Error: adjacency matrix is None - probably wasn't initialised"
-                    )
+                    assert (
+                        self.adjacency is not None
+                    ), "Error: adjacency matrix is None - probably wasn't initialised"
                     order_ = self.adjacency["lookup"].loc[order, "uid"].to_list()
                 else:
                     raise ValueError(
@@ -1539,9 +1539,9 @@ class Connections:
         """
         # TODO: edit such that it creates a new Connections object instead
         # compute the n-hop adjacency matrix
-        assert self.adjacency is not None, (
-            "Error: adjacency matrix is None - probably wasn't initialised"
-        )
+        assert (
+            self.adjacency is not None
+        ), "Error: adjacency matrix is None - probably wasn't initialised"
         self.adjacency[f"mat_norm_{n}_hops"] = matrix_utils.connections_up_to_n_hops(
             self.adjacency["mat_norm"], n
         )

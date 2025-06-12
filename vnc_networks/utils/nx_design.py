@@ -310,7 +310,7 @@ def display_interactive_graph(
     net.show_buttons()
     net.toggle_drag_nodes(True)
     net.from_nx(g)  # Create directly from nx graph
-    #net.show(output_file)
+    # net.show(output_file)
     net.write_html(output_file)
 
 
@@ -384,9 +384,7 @@ def define_edge_colors(graph: nx.DiGraph):
             edge_colors.append(e_[2]["edge_color"])
         else:
             if "nt_type" in e_[2].keys():
-                edge_colors.append(
-                    params.NT_TYPES[e_[2]["nt_type"]]["color"]
-                )
+                edge_colors.append(params.NT_TYPES[e_[2]["nt_type"]]["color"])
             else:
                 if "weight" not in e_[2].keys():
                     edge_colors.append(params.LIGHTGREY)
