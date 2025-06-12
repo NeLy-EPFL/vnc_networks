@@ -27,6 +27,7 @@ connections = Connections(
 """
 
 import copy
+import itertools
 import os
 import pickle
 import typing
@@ -93,7 +94,6 @@ class Connections:
         not_connected: Optional[list[BodyId] | list[int]] = None,
         keep_only_traced_neurons: bool = True,
     ): ...
-
     def __init__(
         self,
         CR: ConnectomeReader = MANC("v1.2"),
@@ -411,18 +411,18 @@ class Connections:
         Map the tuples (bodyId, subdivision) to a unique identifier (uid) number that will
         be used to reference the newly defined neurons, e.g. as graph node ids.
         """
+        # faster to take set of combined lists than to take union of sets
         unique_objects = list(
             set(
-                zip(
-                    self.connections["start_bid"],
-                    self.connections["subdivision_start"],
-                )
-            ).union(
-                set(
+                itertools.chain(
+                    zip(
+                        self.connections["start_bid"],
+                        self.connections["subdivision_start"],
+                    ),
                     zip(
                         self.connections["end_bid"],
                         self.connections["subdivision_end"],
-                    )
+                    ),
                 )
             )
         )
@@ -436,48 +436,34 @@ class Connections:
                 "subdivision": [x[1] for x in unique_objects],
             }
         )
-        # add uids to the connections table
-        self.connections["start_uid"] = self.__convert_neuron_ids_to_uid(
-            self.connections[["start_bid", "subdivision_start"]].values,
-            input_type="table",
+
+        # add uids to the connections table using pandas join
+        # take UID for start_bid and subdivision_start -> rename to start_uid
+        self.connections = self.connections.join(
+            self.uid[["body_id", "subdivision", "uid"]].set_index(
+                ["body_id", "subdivision"]
+            ),
+            on=["start_bid", "subdivision_start"],
+            how="left",
         )
-        self.connections["end_uid"] = self.__convert_neuron_ids_to_uid(
-            self.connections[["end_bid", "subdivision_end"]].values,
-            input_type="table",
+        # renaming the columns in place is much faster
+        # otherwise it creates a copy of the dataframe
+        self.connections.columns = self.connections.columns.to_series().replace(
+            {"uid": "start_uid"}
         )
+        # take UID for end_bid and subdivision_end -> rename to end_bid
+        self.connections = self.connections.join(
+            self.uid[["body_id", "subdivision", "uid"]].set_index(
+                ["body_id", "subdivision"]
+            ),
+            on=["end_bid", "subdivision_end"],
+            how="left",
+        )
+        self.connections.columns = self.connections.columns.to_series().replace(
+            {"uid": "end_uid"}
+        )
+
         return
-
-    def __convert_neuron_ids_to_uid(
-        self,
-        neuron_ids,
-        input_type: str = "tuple",
-    ):
-        """
-        Convert a list of neuron ids to a list of unique identifiers.
-
-        Parameters
-        ----------
-        neuron_ids: list[tuple[int]] or dataframe['id','subdivision']
-            List of neuron ids to convert.
-        input_type: str
-            Type of the input list.
-            Can be 'tuple', 'table'
-        """
-        if input_type == "tuple":
-            tuple_of_ids = neuron_ids
-        elif input_type == "table":
-            tuple_of_ids = [tuple(row) for row in neuron_ids]
-        else:
-            raise ValueError(
-                f"Class Connections \
-                ::: > convert_neuron_ids_to_uid(): Unknown input type {input_type}"
-            )
-        uid_table = self.uid.copy()
-        uid_table = uid_table[uid_table["neuron_ids"].isin(tuple_of_ids)]
-        # sort the table by the order of the input list
-        uid_table = uid_table.set_index("neuron_ids").loc[tuple_of_ids].reset_index()
-        uids = uid_table["uid"].to_list()
-        return uids
 
     @typing.overload
     def __convert_uid_to_neuron_ids(
@@ -977,8 +963,9 @@ class Connections:
         Get the neuron IDs from the nodes dataframe as loaded in the initial
         dataset, based on a selection dictionary.
         """
-        nodes = self.get_nodes(type="body_id")
-        body_ids = self.CR.get_neuron_bodyids(selection_dict, nodes)
+        body_ids = self.get_nodes(type="body_id")
+        if selection_dict is not None:
+            body_ids = self.CR.get_neuron_bodyids(selection_dict, body_ids)
         return self.__get_uids_from_bodyids(body_ids)
 
     def get_neurons_pre(self):
@@ -1397,6 +1384,38 @@ class Connections:
         Get the in degree of a node.
         """
         return self.graph.in_degree(uid)
+
+    def get_downstream_neuron_counts_by_neuropil(self, body_id: BodyId | int):
+        """
+        Get how many downstream neurons this neuron has in each neuropil.
+        
+        Returns a pandas dataframe where the columns (apart from `body_id`) are the neuropils.
+        """
+        return self.CR.get_synapse_counts_by_neuropil("downstream", [body_id])
+
+    def get_upstream_neuron_counts_by_neuropil(self, body_id: BodyId | int):
+        """
+        Get how many upstream neurons this neuron has in each neuropil.
+
+        Returns a pandas dataframe where the columns (apart from `body_id`) are the neuropils.
+        """
+        return self.CR.get_synapse_counts_by_neuropil("upstream", [body_id])
+
+    def get_downstream_synapse_counts_by_neuropil(self, body_id: BodyId | int):
+        """
+        Get how many downstream synapses this neuron has in each neuropil.
+
+        Returns a pandas dataframe where the columns (apart from `body_id`) are the neuropils.
+        """
+        return self.CR.get_synapse_counts_by_neuropil("post", [body_id])
+    
+    def get_upstream_synapse_counts_by_neuropil(self, body_id: BodyId | int):
+        """
+        Get how many upstream synapses this neuron has in each neuropil.
+
+        Returns a pandas dataframe where the columns (apart from `body_id`) are the neuropils.
+        """
+        return self.CR.get_synapse_counts_by_neuropil("pre", [body_id])
 
     # --- setters
     def merge_nodes(self, nodes: list[UID] | list[int], combination_logic: str = "sum"):
