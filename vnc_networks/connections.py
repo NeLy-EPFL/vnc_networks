@@ -94,7 +94,6 @@ class Connections:
         not_connected: Optional[list[BodyId] | list[int]] = None,
         keep_only_traced_neurons: bool = True,
     ): ...
-
     def __init__(
         self,
         CR: ConnectomeReader = MANC("v1.2"),
@@ -1385,6 +1384,38 @@ class Connections:
         Get the in degree of a node.
         """
         return self.graph.in_degree(uid)
+
+    def get_downstream_neuron_counts_by_neuropil(self, body_id: BodyId | int):
+        """
+        Get how many downstream neurons this neuron has in each neuropil.
+        
+        Returns a pandas dataframe where the columns (apart from `body_id`) are the neuropils.
+        """
+        return self.CR.get_synapse_counts_by_neuropil("downstream", [body_id])
+
+    def get_upstream_neuron_counts_by_neuropil(self, body_id: BodyId | int):
+        """
+        Get how many upstream neurons this neuron has in each neuropil.
+
+        Returns a pandas dataframe where the columns (apart from `body_id`) are the neuropils.
+        """
+        return self.CR.get_synapse_counts_by_neuropil("upstream", [body_id])
+
+    def get_downstream_synapse_counts_by_neuropil(self, body_id: BodyId | int):
+        """
+        Get how many downstream synapses this neuron has in each neuropil.
+
+        Returns a pandas dataframe where the columns (apart from `body_id`) are the neuropils.
+        """
+        return self.CR.get_synapse_counts_by_neuropil("post", [body_id])
+    
+    def get_upstream_synapse_counts_by_neuropil(self, body_id: BodyId | int):
+        """
+        Get how many upstream synapses this neuron has in each neuropil.
+
+        Returns a pandas dataframe where the columns (apart from `body_id`) are the neuropils.
+        """
+        return self.CR.get_synapse_counts_by_neuropil("pre", [body_id])
 
     # --- setters
     def merge_nodes(self, nodes: list[UID] | list[int], combination_logic: str = "sum"):
