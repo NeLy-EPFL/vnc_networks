@@ -27,6 +27,7 @@ connections = Connections(
 """
 
 import copy
+import itertools
 import os
 import pickle
 import typing
@@ -411,18 +412,18 @@ class Connections:
         Map the tuples (bodyId, subdivision) to a unique identifier (uid) number that will
         be used to reference the newly defined neurons, e.g. as graph node ids.
         """
+        # faster to take set of combined lists than to take union of sets
         unique_objects = list(
             set(
-                zip(
-                    self.connections["start_bid"],
-                    self.connections["subdivision_start"],
-                )
-            ).union(
-                set(
+                itertools.chain(
+                    zip(
+                        self.connections["start_bid"],
+                        self.connections["subdivision_start"],
+                    ),
                     zip(
                         self.connections["end_bid"],
                         self.connections["subdivision_end"],
-                    )
+                    ),
                 )
             )
         )
@@ -436,48 +437,34 @@ class Connections:
                 "subdivision": [x[1] for x in unique_objects],
             }
         )
-        # add uids to the connections table
-        self.connections["start_uid"] = self.__convert_neuron_ids_to_uid(
-            self.connections[["start_bid", "subdivision_start"]].values,
-            input_type="table",
+
+        # add uids to the connections table using pandas join
+        # take UID for start_bid and subdivision_start -> rename to start_uid
+        self.connections = self.connections.join(
+            self.uid[["body_id", "subdivision", "uid"]].set_index(
+                ["body_id", "subdivision"]
+            ),
+            on=["start_bid", "subdivision_start"],
+            how="left",
         )
-        self.connections["end_uid"] = self.__convert_neuron_ids_to_uid(
-            self.connections[["end_bid", "subdivision_end"]].values,
-            input_type="table",
+        # renaming the columns in place is much faster
+        # otherwise it creates a copy of the dataframe
+        self.connections.columns = self.connections.columns.to_series().replace(
+            {"uid": "start_uid"}
         )
+        # take UID for end_bid and subdivision_end -> rename to end_bid
+        self.connections = self.connections.join(
+            self.uid[["body_id", "subdivision", "uid"]].set_index(
+                ["body_id", "subdivision"]
+            ),
+            on=["end_bid", "subdivision_end"],
+            how="left",
+        )
+        self.connections.columns = self.connections.columns.to_series().replace(
+            {"uid": "end_uid"}
+        )
+
         return
-
-    def __convert_neuron_ids_to_uid(
-        self,
-        neuron_ids,
-        input_type: str = "tuple",
-    ):
-        """
-        Convert a list of neuron ids to a list of unique identifiers.
-
-        Parameters
-        ----------
-        neuron_ids: list[tuple[int]] or dataframe['id','subdivision']
-            List of neuron ids to convert.
-        input_type: str
-            Type of the input list.
-            Can be 'tuple', 'table'
-        """
-        if input_type == "tuple":
-            tuple_of_ids = neuron_ids
-        elif input_type == "table":
-            tuple_of_ids = [tuple(row) for row in neuron_ids]
-        else:
-            raise ValueError(
-                f"Class Connections \
-                ::: > convert_neuron_ids_to_uid(): Unknown input type {input_type}"
-            )
-        uid_table = self.uid.copy()
-        uid_table = uid_table[uid_table["neuron_ids"].isin(tuple_of_ids)]
-        # sort the table by the order of the input list
-        uid_table = uid_table.set_index("neuron_ids").loc[tuple_of_ids].reset_index()
-        uids = uid_table["uid"].to_list()
-        return uids
 
     @typing.overload
     def __convert_uid_to_neuron_ids(
