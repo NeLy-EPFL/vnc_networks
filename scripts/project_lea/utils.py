@@ -4,8 +4,9 @@ from vnc_networks.vnc_networks import params
 from vnc_networks.vnc_networks.connections import Connections
 import pandas
 import matplotlib.patches as patche
-
-
+import math
+import scipy as sc
+import copy
 
 def plot_cluster_similarity_matrix(vnc : Connections,subset : list[params.UID] = None , clustering_method : str = 'markov'
                                    ,distance_metric : str = 'cosine_in'
@@ -97,6 +98,42 @@ def show_data_connections2(network : Connections, neurons_list : list[params.Bod
             eff_weight = (data.loc[(data['start_bid'] == source_bid) & (data['end_bid'] == target_bid)]).iloc[0]["eff_weight"]
             add_new_row(data_frame,source,source_bid,source_name,source_class,target,target_bid
                         ,target_name,target_class,syn_count,eff_weight)
+    return data_frame
+
+
+def show_data_connections_intrinsic_to_motor(network : Connections, neurons_list : list[params.BodyId]) :
+    data = network.get_dataframe()
+
+    def get_attributes (uid : int) :
+        name = network.get_node_attribute(uid,"name")
+        class_1 = network.get_node_attribute(uid,"class_1")
+        type = network.get_node_attribute(uid,"nt_type")
+        target = network.get_node_attribute(uid,"target")
+        return name,class_1,type,target
+
+    def add_new_row(data_frame: pandas.DataFrame, source: str,
+                    source_bid : str ,source_name : str, source_class : str, source_type : str,
+                    target: str, target_bid : str,target_name : str, target_class : str, target_type : str,target_muscle : str, syn_count: int, eff_weight: int):
+
+        new_row = {'source_uid': source, 'source_bid' : source_bid, 'source_name' : source_name, 'source_class' : source_class, 'source_type' : source_type
+            , 'target_uid': target,'target_bid' : target_bid, 'target_name' : target_name, 'target_class' : target_class, 'target_type' : target_type,
+                   'target_muscle' : target_muscle,'syn_count': syn_count,"eff_weight" : eff_weight}
+        data_frame.loc[len(data_frame)] = new_row
+
+    data_frame = pandas.DataFrame(columns=["source_uid",'source_bid',"source_name", "source_class","source_type", "target_uid",'target_bid',
+                                           "target_name", "target_class","target_type","target_muscle", "syn_count","eff_weight"])
+    for source in neurons_list :
+        downstream_neurons = network.get_neurons_downstream_of(source)
+        source_name, source_class, source_type, _ = get_attributes(source)
+        source_bid = network.get_bodyids_from_uids(source)[0]
+        for target in downstream_neurons :
+            target_name, target_class, target_type, target_muscle = get_attributes(target)
+            if target_class == 'motor':
+                target_bid = network.get_bodyids_from_uids(target)[0]
+                syn_count = network.get_nb_synapses(source,target)
+                eff_weight = (data.loc[(data['start_bid'] == source_bid) & (data['end_bid'] == target_bid)]).iloc[0]["eff_weight"]
+                add_new_row(data_frame,source,source_bid,source_name,source_class,source_type,target,target_bid
+                            ,target_name,target_class,target_type,target_muscle,syn_count,eff_weight)
     return data_frame
 
 def get_dataset_first_connections():
@@ -199,7 +236,8 @@ def plot_repartition(df,name : str):
 
 def plot_target_count(df, upper_bound : int = -1, lower_bound : int = -1, show_name : bool = False):
     data = df["target_name"].value_counts()
-    def color_plot(df,data):
+
+    def color_plot(df, data):
         data_color = []
         for name in data:
             index = np.where(df["target_name"] == name)[0][0]
@@ -209,7 +247,7 @@ def plot_target_count(df, upper_bound : int = -1, lower_bound : int = -1, show_n
             elif target_class == 'ascending':
                 data_color.append('darkorange')
             elif target_class == 'intrinsic':
-                data_color.append('cyan')
+                data_color.append('green')
             elif target_class == 'descending':
                 data_color.append('blue')
             elif target_class == 'efferent_ascending':
@@ -238,12 +276,11 @@ def plot_target_count(df, upper_bound : int = -1, lower_bound : int = -1, show_n
         index = np.where((data > lower_bound))[0]
         data = data[:index[-1]]
 
-
-    color = color_plot(df,data.index)
+    color = color_plot(df, data.index)
 
     p_m = patche.Patch(color='red', label='Motor')
     p_a = patche.Patch(color='darkorange', label='Ascending')
-    p_i = patche.Patch(color='cyan', label='intrinsic')
+    p_i = patche.Patch(color='green', label='intrinsic')
     p_d = patche.Patch(color='blue', label='descending')
     p_ef = patche.Patch(color='khaki', label='efferent_ascending')
     p_s = patche.Patch(color='lime', label='sensory_ascending')
@@ -255,10 +292,311 @@ def plot_target_count(df, upper_bound : int = -1, lower_bound : int = -1, show_n
         figsize=(70, 70),
         color=color
     )
-    if (not show_name) :
+    if (not show_name):
         plt.xticks([])
     p.legend(handles=[p_m, p_a, p_e, p_s, p_i, p_d, p_ef, p_u, p_g])
     return p
+
+def plot_cluster_distribution(connections_dataset, cluster_dataset,brain_to_VNC_dataset,file_name : str
+                              , old_dataset : bool = True):
+    cluster_list = np.zeros(13)
+    labels = ["No cluster", "Anterior grooming", "Take-off/Landing", "Walking", "Flight", "5", "6", "7", "8", "9",
+              "Steering", "Flight", "12"]
+    if old_dataset :
+        column_name_vnc = 'VNC_type'
+        column_name_brain = 'Brain_type'
+    else :
+        column_name_vnc = 'MANC DN name'
+        column_name_brain = 'FAFB DN name'
+
+    for index, row in connections_dataset.iterrows():
+        name = row['source_name']
+        brain_name = brain_to_VNC_dataset.loc[(brain_to_VNC_dataset[column_name_vnc] == name)][column_name_brain].iloc[0]
+        info = cluster_dataset.loc[(cluster_dataset['DN name'] == brain_name)]
+        print(info)
+        cluster_list[info['Cluster number in figure']] += 1
+    mask = np.where(cluster_list > 0, True, False)
+    cluster_list_filtered = cluster_list[mask]
+    labels_filtered = np.array(labels)[mask]
+    fig, ax = plt.subplots()
+    ax.pie(cluster_list_filtered[1:], autopct='%1.1f%%', labels=labels_filtered[1:])
+    plt.title("Distribution of where the DNs comes from for T3 neuropil")
+    plt.savefig(file_name)
+
+# Plot the distribution of target neurons for every neurons in neuron_list
+
+def plot_repartition_list(df, neuron_list, path_name : str = None):
+    colors = ['tab:red', 'tab:orange', 'tab:green', 'tab:blue', 'tab:pink', 'gold', 'tab:purple', 'tab:olive',
+              'tab:gray', 'tab:gray', 'tab:gray']
+    target_list = np.array(target_class_list)
+    # Define subplot grid size
+    n = len(neuron_list)
+    cols = 3
+    rows = math.ceil(n / cols)
+
+    fig, axes = plt.subplots(rows, cols, figsize=(20, 20))
+    axes = axes.flatten()
+
+    for i,type in enumerate(neuron_list):
+        l = []
+        for target_class in target_list:
+            l.append(get_nb_neurons_target(df, type, target_class))
+        mask = np.where(np.array(l) > 2, True, False)
+        l_filtered = np.array(l)[mask]
+        target_list_filtered = target_list[mask]
+        _,_,m = axes[i].pie(l_filtered, labels=target_list_filtered, autopct='%1.1f%%',colors = np.array(colors)[mask])
+        axes[i].set_title(type)
+        axes[i].set_facecolor('white')
+        [m[j].set_color('white') for j in range(len(m))]
+
+    for j in range(i+1, len(axes)):
+        axes[j].axis('off')
+
+    plt.tight_layout()
+    if path_name is not None:
+        plt.savefig(path_name)
+    plt.show()
+
+# Show how many synapses are used to target avery class in the VNC, one plot for every neuron in the list
+def plot_ratio_syn_per_class_list(df, neuron_list, path_name : str = None):
+    target_list = target_class_list
+    dic={}
+    for type in neuron_list :
+        list_ratio = []
+        for target_class in target_list:
+            if get_nb_neurons_target(df,type,target_class)==0:
+                list_ratio.append(None)
+            else:
+                list_ratio.append((get_nb_syn_target(df,type,target_class)/get_nb_neurons_target(df,type,target_class)))
+        dic[type] = list_ratio
+    data = pandas.DataFrame(dic, index = target_list)
+    data.plot.bar(subplots = True, layout= (4,3),figsize = (10,10))
+    if path_name is not None:
+        plt.savefig(path_name)
+    plt.show()
+
+# Compare the average number of synapses and std between neurons
+def plot_avg_synapse(df, neuron_list):
+    syn_mean = []
+    syn_std = []
+    for type in neuron_list :
+        m,s = get_syn_info(df,type)
+        syn_mean.append(m)
+        syn_std.append(s)
+    data = pandas.DataFrame({"synapses mean" : syn_mean,"synapses std" : syn_std}, index = neuron_list)
+    data.plot.bar(figsize = (8,8))
+    plt.savefig("t_synapses")
+
+
+
+def plot_cluster_distribution_new(connections_dataset, cluster_dataset,brain_to_VNC_dataset,file_name : str = None
+                              ,suptitle : str = None, old_dataset : bool = True, get_distribution : bool = False):
+    cluster_list = np.zeros(15)
+    labels = ["No cluster", "Anterior grooming", "Take-off/Landing", "Walking", " 4 Flight", "5", "6", "7", "8","Steering", "10 Flight", "11", "12",'No matching to brain',"Brain name not found in cluster data"]
+    colors = ['C7','C0','C1','C2','C3','C4','C5','C6','blueviolet','C8','C9','orangered','indigo','darkgrey','lightgrey']
+    if old_dataset :
+        column_name_vnc = 'VNC_type'
+        column_name_brain = 'Brain_type'
+    else :
+        column_name_vnc = 'MANC DN name'
+        column_name_brain = 'FAFB DN name'
+
+    for index, row in connections_dataset.iterrows():
+        name = row['source_name']
+        brain_name = brain_to_VNC_dataset.loc[(brain_to_VNC_dataset[column_name_vnc] == name)][column_name_brain]
+        if not brain_name.empty :
+            not_found = True
+            for _, brain in brain_name.items():
+                if type(brain) == float: #NaN so didn't found a name
+                    cluster_list[13] +=1
+                else :
+                    info = cluster_dataset.loc[(cluster_dataset['DN name'] == brain)]
+                    if not info.empty:
+                        c_list = []
+                        for index_c, row_c in info.iterrows():
+                            cluster = row_c['Cluster number in figure']
+                            c_list.append(int(cluster))
+                            not_found = False
+                        for e in set(c_list):
+                            cluster_list[e]+=1
+                        break
+            if not_found :
+                cluster_list[14] +=1
+        else :
+            cluster_list[13] += 1
+    if get_distribution :
+        return cluster_list[1:13]
+    else :
+        mask = np.where(cluster_list > 0, True, False)
+        cluster_list_filtered = cluster_list[mask]
+        labels_filtered = np.array(labels)[mask]
+        colors_filtered = np.array(colors)[mask]
+        fig, ax = plt.subplots()
+        ax.pie(cluster_list_filtered, autopct='%1.1f%%', labels=labels_filtered,colors = colors_filtered)
+        plt.title("Distribution of where the DNs comes from")
+        if file_name is not None:
+            plt.savefig(file_name)
+
+
+def create_cluster_data(list_name,dataset_intrinsic,data_cluster,brain_to_vnc_dataset,vnc):
+    labels = ["1","2","3","4","5","6","7","8","9","10","11","12","label","max","color","nt_type",'uid']
+    df_cluster = []
+
+    for name in list_name:
+        cluster_distribution, nt_type, label, max, cluster_color, nt_color, uids = get_label_intrinsic(name,dataset_intrinsic,data_cluster,brain_to_vnc_dataset, vnc)
+        cluster_distribution = np.append(cluster_distribution,[label,max,cluster_color,nt_type,uids[0]])
+
+        data_cluster_dic=dict(zip(labels,cluster_distribution),index = [name])
+        df_cluster.append(pandas.DataFrame(data_cluster_dic))
+    df_merged = pandas.concat(df_cluster)
+    df_cluster_no_index = df_merged[
+        [
+            "1","2","3","4","5","6","7","8","9","10","11","12"
+        ]
+    ].values
+    return df_merged, df_cluster_no_index
+
+def get_label_intrinsic(name : str,dataset_brain_inter,data_cluster,brain_to_vnc_dataset,vnc):
+
+    data = dataset_brain_inter.loc[(dataset_brain_inter['target_name'] == name)]
+    if not data.empty :
+        uids = list(data["target_uid"])
+        color_scheme = ['C7','C0','C1','C2','C3','C4','C5','C6','blueviolet','C8','C9','orangered','indigo']
+        nt_type = vnc.get_node_attribute(uids[0],'nt_type')
+        cluster_distribution = plot_cluster_distribution_new(data,data_cluster,brain_to_vnc_dataset,old_dataset=False, get_distribution=True)
+        max_idx = np.argmax(cluster_distribution)
+        max = cluster_distribution[max_idx]
+        label  = max_idx + 1 if max > 0 else 0
+        match nt_type:
+                case 'gaba':
+                    nt_color = 'blue'
+                case 'glutamate':
+                    nt_color = 'violet'
+                case 'acetylcholine':
+                    nt_color = 'darkorange'
+                case _ :
+                   nt_color = 'C7'
+        cluster_color = color_scheme[label]
+        return cluster_distribution,nt_type,label,max,cluster_color,nt_color,uids
+    else:
+        return [], None, None, 0, 'C7', 'C7', [-1]
+
+
+def get_data_distribution_motor(name : str, df_inter_motor, keys : list):
+    dict_motor = dict.fromkeys(keys,0)
+    motor_data = df_inter_motor.loc[(df_inter_motor['source_name'] == name)]
+    motor_n_list = list(motor_data['target_name'])
+    for mn in motor_n_list:
+        dict_motor[mn] += 1
+    return list(dict_motor.values())
+
+def get_data_distribution_muscle(name : str, df_inter_motor, muscle_keys : list):
+    dict_muscle = dict.fromkeys(muscle_keys,0)
+    muscle_data = df_inter_motor.loc[(df_inter_motor['source_name'] == name)]
+    muscle_n_list = list(muscle_data['target_muscle'])
+    for mn in muscle_n_list:
+        if mn not in muscle_keys:
+            dict_muscle[len(muscle_keys)] += 1
+        else :
+            dict_muscle[mn] +=1
+    return list(dict_muscle.values())
+
+def create_inter_motor_data(list_name : list, df_inter_motor, dataset_brain_inter, data_cluster, brain_to_vnc, vnc, keys : list, motor : bool = True, muscle_keys=None):
+    if muscle_keys is None:
+        muscle_keys = []
+    data = []
+    for name in list_name:
+        if motor:
+            distribution = get_data_distribution_motor(name,df_inter_motor,keys)
+            labels = np.append(keys,["label","color","name","uid"])
+        else :
+            distribution = get_data_distribution_muscle_for_plot(name,df_inter_motor)
+            max_muscle = muscle_keys[np.argmax(distribution)]
+            color = muscle_to_color.get(max_muscle)
+            color = 'C7' if color is None else color
+            labels = np.append(muscle_keys,["label","color",'muscle','name','uid'])
+        _ ,_ ,label ,_ ,cluster_color ,_, uids = get_label_intrinsic(name,dataset_brain_inter,data_cluster,brain_to_vnc,vnc)
+        cluster_color = cluster_color if motor else color
+        if label != None :
+            distribution = np.append(distribution,[label, cluster_color,name,uids[0]]) if motor else np.append(distribution,[label, cluster_color,max_muscle,name,uids[0]])
+            data_dic=dict(zip(labels,distribution),index = [name])
+            data.append(pandas.DataFrame(data_dic))
+
+    data_merged = pandas.concat(data)
+    data_no_index = data_merged[keys].values if motor else data_merged[muscle_keys].values
+    return data_merged, data_no_index
+
+
+def inter_clusters_syn_count(vnc,cluster_list,cluster_size_cutoff):
+    subnetwork = vnc.subgraph_from_paths(
+        source = cluster_list,
+        target = cluster_list,
+        n_hops = 1,
+        keep_edges = 'direct',
+    )
+    vnc_matrix = subnetwork.get_cmatrix(type_='norm')
+    adjacency_mat = subnetwork.get_adjacency_matrix("norm")
+    mat = adjacency_mat + adjacency_mat.T
+    dense_ = abs(mat*4).todense()
+    dense_ = np.clip(dense_,0,1)
+    mat = sc.sparse.csr_matrix(dense_)
+    mat.setdiag(1.0)
+
+    new_matrix = copy.deepcopy(vnc_matrix)
+    new_matrix.matrix = np.abs(mat)
+    dense_ = new_matrix.matrix.todense()
+    new_matrix.matrix = sc.sparse.csr_matrix(dense_)
+    all_clusters = new_matrix.markov_clustering() #clustering
+    clusters = [c for c in all_clusters if len(c) >= cluster_size_cutoff]
+    uid_clusters = [new_matrix.get_uids(sub_indices=cluster, axis="row") for cluster in clusters]
+
+    return new_matrix,uid_clusters,clusters
+
+def plot_cluster_distribution_list_neurons(uid_list,df_intrinsic, data_cluster, brain_to_vnc_dataset_new):
+    labels = ["Anterior grooming", "Take-off/Landing", "Walking", " 4 Flight", "5", "6", "7", "8", "9",
+              "Steering", "11 Flight", "12"]
+    colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'blueviolet', 'C8', 'C9', 'orangered', 'indigo']
+    cluster_list = [0 for i in range(len(labels))]
+    fig, ax = plt.subplots()
+    for uid in uid_list:
+        data_name = df_intrinsic.loc[(df_intrinsic['target_uid'] == uid)]
+        cluster_list_2 = plot_cluster_distribution_new(data_name, data_cluster, brain_to_vnc_dataset_new, old_dataset=False,get_distribution=True)
+        cluster_list = [cluster_list[i] + cluster_list_2[i] for i in range(len(cluster_list_2))]
+        print(cluster_list_2)
+    mask = np.where(np.array(cluster_list) > 0, True, False)
+    cluster_list_filtered = np.array(cluster_list)[mask]
+    labels_filtered = np.array(labels)[mask]
+    colors_filtered = np.array(colors)[mask]
+    plt.pie(cluster_list_filtered, autopct='%1.1f%%', labels=labels_filtered, colors=colors_filtered)
+
+def get_data_distribution_muscle_for_plot(name : str, df_inter_motor):
+    muscle_keys = list(muscle_to_color.keys())
+    dict_muscle = dict.fromkeys(muscle_keys,0)
+    muscle_data = df_inter_motor.loc[(df_inter_motor['source_name'] == name)]
+    muscle_n_list = list(muscle_data['target_muscle'])
+    for mn in muscle_n_list:
+        if mn not in muscle_keys:
+            dict_muscle['Other'] += 1
+        else :
+            dict_muscle[mn] +=1
+    return list(dict_muscle.values())
+
+def plot_muscle_distribution_list_neurons(uid_list,df_intrinsic, df_inter_motor):
+    muscle_keys = df_inter_motor["target_muscle"].unique()
+    labels = list(muscle_to_color.keys())
+    colors = list(muscle_to_color.values())
+    cluster_list = [0 for i in range(len(muscle_keys))]
+    fig, ax = plt.subplots()
+    for uid in uid_list:
+        data_name = df_intrinsic.loc[(df_intrinsic['target_uid'] == uid)]['target_name'].iloc[0]
+        cluster_list_2 = get_data_distribution_muscle_for_plot(data_name, df_inter_motor)
+        cluster_list = [cluster_list[i] + cluster_list_2[i] for i in range(len(cluster_list_2))]
+    mask = np.where(np.array(cluster_list) > 0, True, False)
+    cluster_list_filtered = np.array(cluster_list)[mask]
+    labels_filtered = np.array(labels)[mask]
+    print(colors)
+    colors_filtered = np.array(colors)[mask]
+    plt.pie(cluster_list_filtered, autopct='%1.1f%%', labels=labels_filtered, colors=colors_filtered)
 
 list_name =['DNxn128', 'DNxn089', 'DNut054', 'DNht001', 'DNxn175', 'DNxn160', 'DNut032',
  'DNxl085', 'DNxn017', 'DNxl057', 'DNut045', 'DNxn187', 'DNfl003', 'DNfl028',
@@ -334,3 +672,39 @@ list_name =['DNxn128', 'DNxn089', 'DNut054', 'DNht001', 'DNxn175', 'DNxn160', 'D
 target_class_list = ['motor', 'ascending', 'intrinsic', 'descending', 'efferent_ascending',
  'sensory', 'efferent', 'sensory_ascending', 'interneuron_unknown', 'unknown',
  'glia']
+
+
+Unclear = [
+    "Tergopleural/Pleural promotor",
+    "Pleural remotor/abductor",
+    "Sternal anterior rotator",
+    "Sternal posterior rotator",
+    "Sternal adductor",
+    "Fe reductor",
+]
+Long_tendon = [
+    "ltm",
+    "ltm2-femur",
+    "ltm1-tibia",
+]
+Extensors = [
+    "Tergotr.",
+    "Sternotrochanter",
+    "Tr extensor",
+    "Ti extensor",
+    "Ta depressor",
+]
+Flexors = [
+    "Tr flexor",
+    "Acc. tr flexor",
+    "Ti flexor",
+    "Acc. ti flexor",
+    "Ta levator",
+]
+muscle_to_color = {'Tergopleural/Pleural promotor' : 'g', 'Pleural remotor/abductor' : 'forestgreen', 'Sternal anterior rotator' : 'limegreen',
+                   'Sternal posterior rotator' : 'darkgreen', 'Sternal adductor' : 'lime', 'Fe reductor' : 'seagreen',
+                   'ltm' : 'navy', 'ltm2-femur' : 'blue', 'ltm1-tibia' : 'skyblue',
+                   'Tergotr.' : 'darkred', 'Sternotrochanter' : 'red', 'Tr extensor' : 'salmon', 'Ti extensor' : 'orangered', 'Ta depressor' : 'firebrick',
+                   'Tr flexor' : 'violet', 'Acc. tr flexor' : 'purple', 'Ti flexor' : 'darkviolet', 'Acc. ti flexor' : 'magenta', 'Ta levator' : 'deeppink',
+                   'Other' : 'tab:gray'
+                   }
