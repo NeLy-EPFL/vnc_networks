@@ -81,12 +81,12 @@ class Connections:
         self,
         from_file: str,
         path: Optional[str] = None,
-        CR: ConnectomeReader = MANC("v1.2"),
+        CR: ConnectomeReader = MANC("v1.2.3"),
     ): ...
     @typing.overload
     def __init__(
         self,
-        CR: ConnectomeReader = MANC("v1.2"),
+        CR: ConnectomeReader = MANC("v1.2.3"),
         neurons_pre: Optional[list[int] | list[BodyId]] = None,
         neurons_post: Optional[list[int] | list[BodyId]] = None,
         nt_weights: Optional[Mapping[str, int]] = None,
@@ -96,7 +96,7 @@ class Connections:
     ): ...
     def __init__(
         self,
-        CR: ConnectomeReader = MANC("v1.2"),
+        CR: ConnectomeReader = MANC("v1.2.3"),
         from_file: Optional[str] = None,
         path: Optional[str] = None,
         neurons_pre: Optional[list[int] | list[BodyId]] = None,
@@ -107,7 +107,7 @@ class Connections:
         keep_only_traced_neurons: bool = True,
     ):
         """
-        By default, work with MANC v1.2 connectome.
+        By default, work with MANC v1.2.3 connectome.
         If no neurons_post are given, the class assumes the same neurons as pre-synaptic.
         If no neurons_pre are given, the class considers all connections defined in the database.
 
