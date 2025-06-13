@@ -60,14 +60,11 @@ class ConnectomeReader(ABC):
     nt_weights: Mapping[Any, int]
 
     # how to map from attributes and classes specific to each connectome to generic ones
-    generic_to_specific_attribute: dict[NeuronAttribute, str] = {}
-    """maps a generic (common) neuron attribute to one specific to each connectome"""
-    specific_to_generic_attribute: dict[str, NeuronAttribute] = {}
-    """maps a neuron attribute specific to a connectome to a generic (common) attribute"""
-    generic_to_specific_class: dict[NeuronClass, str] = {}
-    """maps a generic (common) neuron class to one specific to each connectome"""
-    specific_to_generic_class: dict[str | None, NeuronClass] = {}
-    """maps a neuron class specific to a connectome to a generic (common) class"""
+    # getters / setters are at the end of the class and let us ensure that the two dictionaries are reversed copies of each other
+    _generic_to_specific_attribute: dict[NeuronAttribute, str] = {}
+    _specific_to_generic_attribute: dict[str, NeuronAttribute] = {}
+    _generic_to_specific_class: dict[NeuronClass, str] = {}
+    _specific_to_generic_class: dict[str | None, NeuronClass] = {}
 
     def __init__(
         self,
@@ -85,12 +82,12 @@ class ConnectomeReader(ABC):
         # specific namefields
         self._load_specific_neuron_attributes()
         self._load_specific_neuron_classes()
-        self._build_attribute_mappings()
-        self._build_class_mappings()
+        self._build_attribute_mapping()
+        self._build_class_mapping()
         self._load_data_directories()
         self._create_output_directories()
 
-    def _build_attribute_mappings(self):
+    def _build_attribute_mapping(self):
         self.generic_to_specific_attribute = {
             "body_id": self._body_id,
             "start_bid": self._start_bid,
@@ -115,26 +112,13 @@ class ConnectomeReader(ABC):
             "hemilineage": self._hemilineage,
         }
 
-        # reverse the above map for going from specific to generic
-        self.specific_to_generic_attribute = {
-            specific_attribute: generic_attribute
-            for generic_attribute, specific_attribute in self.generic_to_specific_attribute.items()
-        }
-
-    def _build_class_mappings(self):
+    def _build_class_mapping(self):
         self.generic_to_specific_class = {
             "sensory": self._sensory,
             "ascending": self._ascending,
             "motor": self._motor,
             "descending": self._descending,
         }
-
-        # reverse the above map for going from specific to generic
-        self.specific_to_generic_class = {
-            specific_class: generic_class
-            for generic_class, specific_class in self.generic_to_specific_class.items()
-        }
-        self.specific_to_generic_class[None] = "unknown"
 
     def _create_output_directories(self):
         """
@@ -473,6 +457,54 @@ class ConnectomeReader(ABC):
         ]
         return list_node_attributes
 
+    # Getters / setters for attribute and class maps
+    @property
+    def generic_to_specific_attribute(self):
+        """maps a generic (common) neuron attribute to one specific to each connectome"""
+        return self._generic_to_specific_attribute
+
+    @generic_to_specific_attribute.setter
+    def generic_to_specific_attribute(self, value: dict[NeuronAttribute, str]):
+        self._generic_to_specific_attribute = value
+
+        # reverse the above map for going from specific to generic
+        self._specific_to_generic_attribute = {
+            specific_attribute: generic_attribute
+            for generic_attribute, specific_attribute in self.generic_to_specific_attribute.items()
+        }
+
+    @property
+    def specific_to_generic_attribute(self):
+        """maps a neuron attribute specific to a connectome to a generic (common) attribute.
+
+        Read only:
+        Edit the generic_to_specific_attribute mapping and this will be updated as the inverse mapping"""
+        return self._specific_to_generic_attribute
+
+    @property
+    def generic_to_specific_class(self):
+        """maps a generic (common) neuron class to one specific to each connectome"""
+        return self._generic_to_specific_class
+
+    @generic_to_specific_class.setter
+    def generic_to_specific_class(self, value: dict[NeuronClass, str]):
+        self._generic_to_specific_class = value
+
+        # reverse the above map for going from specific to generic
+        self._specific_to_generic_class = {
+            specific_class: generic_class
+            for generic_class, specific_class in self.generic_to_specific_class.items()
+        }
+        self._specific_to_generic_class[None] = "unknown"
+
+    @property
+    def specific_to_generic_class(self):
+        """maps a neuron class specific to a connectome to a generic (common) class
+
+        Read only:
+        Edit the generic_to_specific_class mapping and this will be updated as the inverse mapping"""
+        return self._specific_to_generic_class
+
 
 # --- Specific classes --- #
 
@@ -532,8 +564,8 @@ class MANCReader(ConnectomeReader):
         self._sensory_unknown = "Sensory TBD"
         self._interneuron_unknown = "Interneuron TBD"
 
-    def _build_attribute_mappings(self):
-        super()._build_attribute_mappings()
+    def _build_attribute_mapping(self):
+        super()._build_attribute_mapping()
 
         self.generic_to_specific_attribute.update(
             {
@@ -549,14 +581,9 @@ class MANCReader(ConnectomeReader):
                 "root_side": self._root_side,
             }
         )
-        # reverse the above map for going from specific to generic
-        self.specific_to_generic_attribute = {
-            specific_attribute: generic_attribute
-            for generic_attribute, specific_attribute in self.generic_to_specific_attribute.items()
-        }
 
-    def _build_class_mappings(self):
-        super()._build_class_mappings()
+    def _build_class_mapping(self):
+        super()._build_class_mapping()
 
         self.generic_to_specific_class.update(
             {
@@ -570,13 +597,6 @@ class MANCReader(ConnectomeReader):
                 "interneuron_unknown": self._interneuron_unknown,
             }
         )
-
-        # reverse the above map for going from specific to generic
-        self.specific_to_generic_class = {
-            specific_class: generic_class
-            for generic_class, specific_class in self.generic_to_specific_class.items()
-        }
-        self.specific_to_generic_class[None] = "unknown"
 
     def _get_traced_bids(self) -> list[BodyId]:
         """
@@ -1356,8 +1376,8 @@ class MANC_v_1_2_3(MANC_v_1_2):
         # MANC 1.2.3 is the same as MANC 1.2 except sensory descending was added
         self._sensory_descending = "sensory descending"
 
-    def _build_class_mappings(self):
-        super()._build_class_mappings()
+    def _build_class_mapping(self):
+        super()._build_class_mapping()
 
         # MANC 1.2.3 is the same as MANC 1.2 except sensory descending was added
         self.generic_to_specific_class.update(
@@ -1365,13 +1385,6 @@ class MANC_v_1_2_3(MANC_v_1_2):
                 "sensory_descending": self._sensory_descending,
             }
         )
-
-        # reverse the above map for going from specific to generic
-        self.specific_to_generic_class = {
-            specific_class: generic_class
-            for generic_class, specific_class in self.generic_to_specific_class.items()
-        }
-        self.specific_to_generic_class[None] = "unknown"
 
 
 @typing.overload
@@ -1496,8 +1509,8 @@ class FAFBReader(ConnectomeReader):
         self._visual_projection = "visual_projection"
         self._other = "other"
 
-    def _build_attribute_mappings(self):
-        super()._build_attribute_mappings()
+    def _build_attribute_mapping(self):
+        super()._build_attribute_mapping()
 
         self.generic_to_specific_attribute.update(
             {
@@ -1507,14 +1520,9 @@ class FAFBReader(ConnectomeReader):
                 "flow": self._flow,
             }
         )
-        # reverse the above map for going from specific to generic
-        self.specific_to_generic_attribute = {
-            specific_attribute: generic_attribute
-            for generic_attribute, specific_attribute in self.generic_to_specific_attribute.items()
-        }
 
-    def _build_class_mappings(self):
-        super()._build_class_mappings()
+    def _build_class_mapping(self):
+        super()._build_class_mapping()
 
         self.generic_to_specific_class.update(
             {
@@ -1526,13 +1534,6 @@ class FAFBReader(ConnectomeReader):
                 "other": self._other,
             }
         )
-
-        # reverse the above map for going from specific to generic
-        self.specific_to_generic_class = {
-            specific_class: generic_class
-            for generic_class, specific_class in self.generic_to_specific_class.items()
-        }
-        self.specific_to_generic_class[None] = "unknown"
 
     def _load_data_directories(self):
         """
