@@ -59,6 +59,16 @@ class ConnectomeReader(ABC):
     # connectomes need to implement weight assignment for their neurotransmitters
     nt_weights: Mapping[Any, int]
 
+    # how to map from attributes and classes specific to each connectome to generic ones
+    generic_to_specific_attribute: dict[NeuronAttribute, str] = {}
+    """maps a generic (common) neuron attribute to one specific to each connectome"""
+    specific_to_generic_attribute: dict[str, NeuronAttribute] = {}
+    """maps a neuron attribute specific to a connectome to a generic (common) attribute"""
+    generic_to_specific_class: dict[NeuronClass, str] = {}
+    """maps a generic (common) neuron class to one specific to each connectome"""
+    specific_to_generic_class: dict[str | None, NeuronClass] = {}
+    """maps a neuron class specific to a connectome to a generic (common) class"""
+
     def __init__(
         self,
         connectome_name: str,
@@ -73,10 +83,58 @@ class ConnectomeReader(ABC):
         self.connectome_preprocessing = connectome_preprocessing
 
         # specific namefields
-        self._load_specific_namefields()
+        self._load_specific_neuron_attributes()
         self._load_specific_neuron_classes()
+        self._build_attribute_mappings()
+        self._build_class_mappings()
         self._load_data_directories()
         self._create_output_directories()
+
+    def _build_attribute_mappings(self):
+        self.generic_to_specific_attribute = {
+            "body_id": self._body_id,
+            "start_bid": self._start_bid,
+            "end_bid": self._end_bid,
+            "syn_count": self._syn_count,
+            "synapse_id": self._syn_id,
+            # connectivity
+            # function
+            "nt_type": self._nt_type,
+            "nt_proba": self._nt_proba,
+            # classification
+            "class_1": self._class_1,
+            "class_2": self._class_2,
+            "name": self._name,
+            "target": self._target,
+            # morphology
+            "side": self._side,
+            "neuropil": self._neuropil,
+            "size": self._size,
+            "position": self._position,
+            # genetics
+            "hemilineage": self._hemilineage,
+        }
+
+        # reverse the above map for going from specific to generic
+        self.specific_to_generic_attribute = {
+            specific_attribute: generic_attribute
+            for generic_attribute, specific_attribute in self.generic_to_specific_attribute.items()
+        }
+
+    def _build_class_mappings(self):
+        self.generic_to_specific_class = {
+            "sensory": self._sensory,
+            "ascending": self._ascending,
+            "motor": self._motor,
+            "descending": self._descending,
+        }
+
+        # reverse the above map for going from specific to generic
+        self.specific_to_generic_class = {
+            specific_class: generic_class
+            for generic_class, specific_class in self.generic_to_specific_class.items()
+        }
+        self.specific_to_generic_class[None] = "unknown"
 
     def _create_output_directories(self):
         """
@@ -111,7 +169,7 @@ class ConnectomeReader(ABC):
 
     # ----- virtual private methods -----
     @abstractmethod
-    def _load_specific_namefields(self): ...
+    def _load_specific_neuron_attributes(self): ...
 
     @abstractmethod
     def _load_specific_neuron_classes(self): ...
@@ -178,13 +236,6 @@ class ConnectomeReader(ABC):
             pd.DataFrame: a table [body_id, rois...] with the counts for each neuropil for each body_id.
                 **Note:** ROI columns won't be returned if no neurons have a count in that column (ie. if specifying
                 a small number of neurons for `body_id_subset`).
-        """
-        ...
-
-    @abstractmethod
-    def list_possible_attributes(self) -> list[str]:
-        """
-        List the possible attributes for a neuron.
         """
         ...
 
@@ -261,109 +312,59 @@ class ConnectomeReader(ABC):
         """
         ...
 
-    # --- partially reused methods
-    def sna(self, generic_n_a: NeuronAttribute) -> str:
+    # --- common methods
+    def sna(self, generic_attribute: NeuronAttribute) -> str:
         """
         Returns the specific Neuron Attribute defined for the connectome.
         Example: the generic 'class_1' input will return 'class:string' for MANC
         and 'super_class' for FAFB.
-        The mapped attributes are the ones common to all connectomes.
-        Specific mappings can be added through overloaded methods.
+
+        Extra attributes can be added by child classes modifying the mapping.
         """
-        mapping = {
-            "body_id": self._body_id,
-            "start_bid": self._start_bid,
-            "end_bid": self._end_bid,
-            "syn_count": self._syn_count,
-            "synapse_id": self._syn_id,
-            # connectivity
-            # function
-            "nt_type": self._nt_type,
-            "nt_proba": self._nt_proba,
-            # classification
-            "class_1": self._class_1,
-            "class_2": self._class_2,
-            "name": self._name,
-            "target": self._target,
-            # morphology
-            "side": self._side,
-            "neuropil": self._neuropil,
-            "size": self._size,
-            "position": self._position,
-            # genetics
-            "hemilineage": self._hemilineage,
-        }
-        equivalent_name = mapping.get(generic_n_a)
-        if equivalent_name is None:
-            raise KeyError
-        return equivalent_name
+        try:
+            return self.generic_to_specific_attribute[generic_attribute]
+        except KeyError:
+            raise ValueError(
+                f"ConnectomeReader::sna().\
+                The attribute {generic_attribute} is not defined in {self.connectome_name}."
+            )
 
     def decode_neuron_attribute(self, specific_attribute: str) -> NeuronAttribute:
         """
         Decode the specific attribute to the generic one.
         """
-        mapping: dict[str, NeuronAttribute] = {
-            self._body_id: "body_id",
-            self._start_bid: "start_bid",
-            self._end_bid: "end_bid",
-            self._syn_count: "syn_count",
-            self._syn_id: "synapse_id",
-            # connectivity
-            # function
-            self._nt_type: "nt_type",
-            self._nt_proba: "nt_proba",
-            # classification
-            self._class_1: "class_1",
-            self._class_2: "class_2",
-            self._name: "name",
-            self._target: "target",
-            # morphology
-            self._side: "side",
-            self._neuropil: "neuropil",
-            self._size: "size",
-            self._position: "position",
-            # genetics
-            self._hemilineage: "hemilineage",
-        }
-        equivalent_name = mapping.get(specific_attribute)
-        if equivalent_name is None:
-            raise KeyError
-        return equivalent_name
+        try:
+            return self.specific_to_generic_attribute[specific_attribute]
+        except KeyError:
+            raise ValueError(
+                f"ConnectomeReader::decode_neuron_attribute().\
+                The attribute {specific_attribute} is not defined in {self.connectome_name}."
+            )
 
-    def specific_neuron_class(self, generic_n_c: NeuronClass):
+    def specific_neuron_class(self, generic_class: NeuronClass):
         """
         Returns the specific Neuron Class defined for the connectome.
-        This method only defines the mapping for the common classes. Specific
-        classes can be added through overloaded methods.
         """
-        mapping = {
-            "sensory": self._sensory,
-            "ascending": self._ascending,
-            "motor": self._motor,
-            "descending": self._descending,
-        }
-        equivalent_name = mapping.get(generic_n_c)
-        if equivalent_name is None:
-            raise KeyError  # this will be caught and handled by child instances
-        return equivalent_name
+        try:
+            return self.generic_to_specific_class[generic_class]
+        except KeyError:
+            raise ValueError(
+                f"ConnectomeReader::specific_neuron_class().\
+                The attribute {generic_class} is not defined in {self.connectome_name}."
+            )
 
     def decode_neuron_class(self, specific_class: str | None) -> NeuronClass:
         """
         Decode the specific class to the generic one.
         """
-        mapping: dict[str | None, NeuronClass] = {
-            self._sensory: "sensory",
-            self._motor: "motor",
-            self._ascending: "ascending",
-            self._descending: "descending",
-            None: "unknown",
-        }
-        equivalent_name = mapping.get(specific_class)
-        if equivalent_name is None:
-            raise KeyError
-        return equivalent_name
+        try:
+            return self.specific_to_generic_class[specific_class]
+        except KeyError:
+            raise ValueError(
+                f"ConnectomeReader::decode_neuron_class().\
+                The attribute {specific_class} is not defined in {self.connectome_name}."
+            )
 
-    # --- common methods
     def get_connections(
         self,
         keep_only_traced_neurons: bool = False,
@@ -440,6 +441,12 @@ class ConnectomeReader(ABC):
         """
         return self._plot_save_dir
 
+    def list_possible_attributes(self) -> list[str]:
+        """
+        List the possible attributes for a neuron.
+        """
+        return list(self.generic_to_specific_attribute.values())
+
     @staticmethod
     def node_base_attributes() -> list[NeuronAttribute]:
         """
@@ -508,7 +515,7 @@ class MANCReader(ConnectomeReader):
     # ----- overwritten methods -----
     def _load_specific_neuron_classes(self):
         """
-        Name the neuron classes.
+        Name the neuron attributes and classes.
         """
         # common types
         self._sensory = "sensory neuron"
@@ -524,6 +531,52 @@ class MANCReader(ConnectomeReader):
         self._unknown = "TBD"
         self._sensory_unknown = "Sensory TBD"
         self._interneuron_unknown = "Interneuron TBD"
+
+    def _build_attribute_mappings(self):
+        super()._build_attribute_mappings()
+
+        self.generic_to_specific_attribute.update(
+            {
+                "type": self._type,
+                "tracing_status": self._tracing_status,
+                "entry_nerve": self._entry_nerve,
+                "exit_nerve": self._exit_nerve,
+                "nb_pre_synapses": self._nb_pre_synapses,
+                "nb_post_synapses": self._nb_post_synapses,
+                "nb_pre_neurons": self._nb_pre_neurons,
+                "nb_post_neurons": self._nb_post_neurons,
+                "location": self._location,  # synapse position
+                "root_side": self._root_side,
+            }
+        )
+        # reverse the above map for going from specific to generic
+        self.specific_to_generic_attribute = {
+            specific_attribute: generic_attribute
+            for generic_attribute, specific_attribute in self.generic_to_specific_attribute.items()
+        }
+
+    def _build_class_mappings(self):
+        super()._build_class_mappings()
+
+        self.generic_to_specific_class.update(
+            {
+                "intrinsic": self._intrinsic,
+                "glia": self._glia,
+                "sensory_ascending": self._sensory_ascending,
+                "efferent": self._efferent,
+                "efferent_ascending": self._efferent_ascending,
+                "unknown": self._unknown,
+                "sensory_unknown": self._sensory_unknown,
+                "interneuron_unknown": self._interneuron_unknown,
+            }
+        )
+
+        # reverse the above map for going from specific to generic
+        self.specific_to_generic_class = {
+            specific_class: generic_class
+            for generic_class, specific_class in self.generic_to_specific_class.items()
+        }
+        self.specific_to_generic_class[None] = "unknown"
 
     def _get_traced_bids(self) -> list[BodyId]:
         """
@@ -567,161 +620,6 @@ class MANCReader(ConnectomeReader):
         return connections
 
     # public methods
-    def list_possible_attributes(self) -> list[str]:
-        """
-        List the possible attributes for a neuron.
-        """
-        all_attr = [
-            "nt_type",
-            "nt_proba",
-            "class_1",
-            "class_2",
-            "name",
-            "type",
-            "side",
-            "root_side",
-            "neuropil",
-            "hemilineage",
-            "size",
-            "tracing_status",
-            "entry_nerve",
-            "exit_nerve",
-            "position",
-            "nb_pre_synapses",
-            "nb_post_synapses",
-            "nb_pre_neurons",
-            "nb_post_neurons",
-        ]
-        return all_attr
-
-    def sna(  # specific_neuron_attribute, abbreviated due to frequent use
-        self, generic_n_a: NeuronAttribute
-    ) -> str:
-        """
-        Converts the generic Neuron Attribute to the specific one.
-        It first tries to map the attribute defined for all connectomes. If it
-        fails, it looks for specific attributes only defined in this connectome.
-        """
-        try:
-            converted_type = super().sna(generic_n_a)
-        except KeyError:
-            # look for specific attributes only defined in this connectome
-            mapping = {
-                "type": self._type,
-                "tracing_status": self._tracing_status,
-                "entry_nerve": self._entry_nerve,
-                "exit_nerve": self._exit_nerve,
-                "nb_pre_synapses": self._nb_pre_synapses,
-                "nb_post_synapses": self._nb_post_synapses,
-                "nb_pre_neurons": self._nb_pre_neurons,
-                "nb_post_neurons": self._nb_post_neurons,
-                "location": self._location,  # synapse position
-                "root_side": self._root_side,
-            }
-            try:
-                converted_type = mapping.get(generic_n_a)
-                if converted_type is None:
-                    raise KeyError
-                # if the converted type is a tuple, get the first element
-                if isinstance(converted_type, tuple):
-                    converted_type = converted_type[0]
-            except KeyError:
-                raise ValueError(
-                    f"ConnectomeReader::sna().\
-                    The attribute {generic_n_a} is not defined in {self.connectome_name}."
-                )
-        return converted_type
-
-    def decode_neuron_attribute(self, specific_attribute: str) -> NeuronAttribute:
-        """
-        Decode the specific attribute to the generic one.
-        """
-        try:
-            converted_attr = super().decode_neuron_attribute(specific_attribute)
-        except KeyError:
-            # look for specific attributes only defined in this connectome
-            mapping: dict[str, NeuronAttribute] = {
-                self._type: "type",
-                self._tracing_status: "tracing_status",
-                self._entry_nerve: "entry_nerve",
-                self._exit_nerve: "exit_nerve",
-                self._nb_pre_synapses: "nb_pre_synapses",
-                self._nb_post_synapses: "nb_post_synapses",
-                self._nb_pre_neurons: "nb_pre_neurons",
-                self._nb_post_neurons: "nb_post_neurons",
-                self._location: "location",  # synapse position
-                self._root_side: "root_side",
-            }
-            try:
-                converted_attr = mapping.get(specific_attribute)
-                if converted_attr is None:
-                    raise KeyError
-            except KeyError:
-                raise ValueError(
-                    f"ConnectomeReader::decode_neuron_attribute().\
-                    The attribute {specific_attribute} is not defined in {self.connectome_name}."
-                )
-        return converted_attr
-
-    def specific_neuron_class(self, generic_n_c: NeuronClass):
-        """
-        Converts the generic Neuron Class to the specific one.
-        """
-        try:
-            converted_type = super().specific_neuron_class(generic_n_c)
-        except KeyError:
-            # look for specific classes only defined in this connectome
-            mapping = {
-                "intrinsic": self._intrinsic,
-                "glia": self._glia,
-                "sensory_ascending": self._sensory_ascending,
-                "efferent": self._efferent,
-                "efferent_ascending": self._efferent_ascending,
-                "unknown": self._unknown,
-                "sensory_unknown": self._sensory_unknown,
-                "interneuron_unknown": self._interneuron_unknown,
-            }
-            try:
-                converted_type = mapping.get(generic_n_c)
-                if converted_type is None:
-                    raise KeyError
-            except KeyError:
-                raise KeyError(
-                    f"ConnectomeReader::specific_neuron_class().\
-                    The class {generic_n_c} is not defined in {self.connectome_name}."
-                )
-        return converted_type
-
-    def decode_neuron_class(self, specific_class: str | None) -> NeuronClass:
-        """
-        Decode the specific class to the generic one.
-        """
-        try:
-            converted_class = super().decode_neuron_class(specific_class)
-        except KeyError:
-            # look for specific classes only defined in this connectome
-            mapping: dict[str | None, NeuronClass] = {
-                self._intrinsic: "intrinsic",
-                self._glia: "glia",
-                self._sensory_ascending: "sensory_ascending",
-                self._efferent: "efferent",
-                self._efferent_ascending: "efferent_ascending",
-                self._unknown: "unknown",
-                self._sensory_unknown: "sensory_unknown",
-                self._interneuron_unknown: "interneuron_unknown",
-                None: "unknown",
-            }
-            try:
-                converted_class = mapping.get(specific_class)
-                if converted_class is None:
-                    raise KeyError
-            except KeyError:
-                raise ValueError(
-                    f"ConnectomeReader::decode_neuron_class().\
-                    The class {specific_class} is not defined in {self.connectome_name}."
-                )
-        return converted_class
-
     def list_all_nodes(self) -> list[BodyId]:
         """
         List all the neurons existing in the connectome.
@@ -858,11 +756,11 @@ class MANC_v_1_0(MANCReader):
         super().__init__("v1.0", connectome_preprocessing)
 
     # ----- overwritten methods -----
-    def _load_specific_namefields(self):
+    def _load_specific_neuron_attributes(self):
         """
         Need to define the attribute naming conventions.
         """
-        # common to all
+        # rename common attributes
         self._body_id = ":ID(Body-ID)"
         self._start_bid = ":START_ID(Body-ID)"
         self._end_bid = ":END_ID(Body-ID)"
@@ -879,7 +777,7 @@ class MANC_v_1_0(MANCReader):
         self._position = "position:point{srid:9157}"  # for neurons
         self._location = "location:point{srid:9157}"  # for synapses
         self._target = "target:string"
-        # specific to MANC -> need to add to ::sna()
+        # attributes specific to MANC
         self._type = "type:string"
         self._tracing_status = "status:string"
         self._entry_nerve = "entryNerve:string"
@@ -1213,12 +1111,15 @@ class MANC_v_1_0(MANCReader):
 
 class MANC_v_1_2(MANCReader):
     def __init__(
-        self, connectome_preprocessing: ConnectomePreprocessingOptions | None = None
+        self,
+        connectome_version: typing.Literal["v1.2.1", "v1.2.3"],
+        connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
     ):
-        super().__init__("v1.2", connectome_preprocessing)
+        super().__init__(connectome_version, connectome_preprocessing)
 
     # ----- overwritten methods -----
-    def _load_specific_namefields(self):
+    def _load_specific_neuron_attributes(self):
+        # rename common attributes
         self._body_id = "bodyId"
         self._start_bid = "bodyId_pre"
         self._end_bid = "bodyId_post"
@@ -1236,7 +1137,7 @@ class MANC_v_1_2(MANCReader):
         # self._location = "location:point{srid:9157}"  # for synapses
         self._target = "target"
 
-        # specific to MANC -> need to add to ::sna()
+        # attributes specific to MANC
         self._type = "type"
         self._tracing_status = "status"
         self._entry_nerve = "entryNerve"
@@ -1434,6 +1335,45 @@ class MANC_v_1_2(MANCReader):
         )
 
 
+class MANC_v_1_2_1(MANC_v_1_2):
+    def __init__(
+        self, connectome_preprocessing: ConnectomePreprocessingOptions | None = None
+    ):
+        super().__init__("v1.2.1", connectome_preprocessing)
+
+
+class MANC_v_1_2_3(MANC_v_1_2):
+    def __init__(
+        self, connectome_preprocessing: ConnectomePreprocessingOptions | None = None
+    ):
+        super().__init__("v1.2.3", connectome_preprocessing)
+
+    def _load_specific_neuron_classes(self):
+        """
+        Name the neuron classes.
+        """
+        MANC_v_1_2._load_specific_neuron_classes(self)
+        # MANC 1.2.3 is the same as MANC 1.2 except sensory descending was added
+        self._sensory_descending = "sensory descending"
+
+    def _build_class_mappings(self):
+        super()._build_class_mappings()
+
+        # MANC 1.2.3 is the same as MANC 1.2 except sensory descending was added
+        self.generic_to_specific_class.update(
+            {
+                "sensory_descending": self._sensory_descending,
+            }
+        )
+
+        # reverse the above map for going from specific to generic
+        self.specific_to_generic_class = {
+            specific_class: generic_class
+            for generic_class, specific_class in self.generic_to_specific_class.items()
+        }
+        self.specific_to_generic_class[None] = "unknown"
+
+
 @typing.overload
 def MANC(
     version: typing.Literal["v1.0"],
@@ -1445,31 +1385,47 @@ def MANC(
 def MANC(
     version: typing.Literal["v1.2"],
     connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
-) -> MANC_v_1_2: ...
+) -> MANC_v_1_2_1: ...
+
+
+@typing.overload
+def MANC(
+    version: typing.Literal["v1.2.1"],
+    connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
+) -> MANC_v_1_2_1: ...
+
+
+@typing.overload
+def MANC(
+    version: typing.Literal["v1.2.3"],
+    connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
+) -> MANC_v_1_2_3: ...
 
 
 def MANC(
-    version: typing.Literal["v1.0", "v1.2"],
+    version: typing.Literal["v1.0", "v1.2", "v1.2.1", "v1.2.3"],
     connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
 ) -> MANCReader:
     """Get a connectome reader for one of the versions of the Male Adult Neuronal Connectome (MANC).
 
     Args:
-        version (typing.Literal["v1.0", "v1.2"]): The two valid versions of MANC
+        version (typing.Literal["v1.0", "v1.2", "v1.2.1", "v1.2.3"]): The valid versions of MANC (1.2 is an alias for 1.2.1)
 
     Raises:
         ValueError: If an incorrect connectome version is provided
 
     Returns:
-        MANCReader: Either MANC_v_1_0 or MANC_v_1_2
+        MANCReader: Either MANC_v_1_0, MANC_v_1_2_1, or MANC_v_1_2_3
     """
     match version:
         case "v1.0":
             return MANC_v_1_0(connectome_preprocessing)
-        case "v1.2":
-            return MANC_v_1_2(connectome_preprocessing)
+        case "v1.2" | "v1.2.1":
+            return MANC_v_1_2_1(connectome_preprocessing)
+        case "v1.2.3":
+            return MANC_v_1_2_3(connectome_preprocessing)
     raise ValueError(
-        f"Version {version} is not a supported version for the MANC connectome. Supported versions are v1.0 and v1.2"
+        f"Version {version} is not a supported version for the MANC connectome. Supported versions are v1.0, v1.2, v1.2.1, and v1.2.3"
     )
 
 
@@ -1494,13 +1450,13 @@ class FAFBReader(ConnectomeReader):
         }
 
     # ----- overwritten methods -----
-    def _load_specific_namefields(self):
+    def _load_specific_neuron_attributes(self):
         """
         Need to define the fields that are common to all connectomes.
         BodyId, start_bid, end_bid, syn_count, nt_type, class_1, class_2, neuron_attributes
         """
 
-        # common to all
+        # rename common attributes
         self._body_id = "root_id"
         self._syn_id = "synapse_id"
         self._start_bid = "pre_root_id"
@@ -1517,7 +1473,7 @@ class FAFBReader(ConnectomeReader):
         self._size = "size_nm"
         self._position = "position"
         self._target = "sub_class"
-        # specific to FAFB -> need to add to ::sna()
+        # attributes specific to FAFB
         self._nerve = "nerve"
         self._area = "area_nm"
         self._length = "length_nm"
@@ -1539,6 +1495,44 @@ class FAFBReader(ConnectomeReader):
         self._visual_centrifugal = "visual_centrifugal"
         self._visual_projection = "visual_projection"
         self._other = "other"
+
+    def _build_attribute_mappings(self):
+        super()._build_attribute_mappings()
+
+        self.generic_to_specific_attribute.update(
+            {
+                "nerve": self._nerve,
+                "area": self._area,
+                "length": self._length,
+                "flow": self._flow,
+            }
+        )
+        # reverse the above map for going from specific to generic
+        self.specific_to_generic_attribute = {
+            specific_attribute: generic_attribute
+            for generic_attribute, specific_attribute in self.generic_to_specific_attribute.items()
+        }
+
+    def _build_class_mappings(self):
+        super()._build_class_mappings()
+
+        self.generic_to_specific_class.update(
+            {
+                "central": self._central,
+                "endocrine": self._endocrine,
+                "optic": self._optic,
+                "visual_centrifugal": self._visual_centrifugal,
+                "visual_projection": self._visual_projection,
+                "other": self._other,
+            }
+        )
+
+        # reverse the above map for going from specific to generic
+        self.specific_to_generic_class = {
+            specific_class: generic_class
+            for generic_class, specific_class in self.generic_to_specific_class.items()
+        }
+        self.specific_to_generic_class[None] = "unknown"
 
     def _load_data_directories(self):
         """
@@ -1783,133 +1777,6 @@ class FAFBReader(ConnectomeReader):
             .fillna(0)
             .astype(int)
         )
-
-    def sna(self, generic_n_a: NeuronAttribute) -> str:
-        """
-        Converts the generic Neuron Attribute to the specific one.
-        It first tries to map the attribute defined for all connectomes. If it
-        fails, it looks for specific attributes only defined in this connectome.
-        """
-        try:
-            converted_type = super().sna(generic_n_a)
-        except KeyError:
-            # look for specific attributes only defined in this connectome
-            mapping = {
-                "nerve": self._nerve,
-                "area": self._area,
-                "length": self._length,
-                "flow": self._flow,
-            }
-            try:
-                converted_type = mapping.get(generic_n_a)
-                if converted_type is None:
-                    raise KeyError
-            except KeyError:
-                raise ValueError(
-                    f"ConnectomeReader::sna().\
-                    The attribute {generic_n_a} is not defined in {self.connectome_name}."
-                )
-        return converted_type
-
-    def decode_neuron_attribute(self, specific_attribute: str) -> NeuronAttribute:
-        """
-        Decode the specific attribute to the generic one.
-        """
-        try:
-            converted_attr = super().decode_neuron_attribute(specific_attribute)
-        except KeyError:
-            # look for specific attributes only defined in this connectome
-            mapping: dict[str, NeuronAttribute] = {
-                self._nerve: "nerve",
-                self._area: "area",
-                self._length: "length",
-                self._flow: "flow",
-            }
-            try:
-                converted_attr = mapping.get(specific_attribute)
-                if converted_attr is None:
-                    raise KeyError
-            except KeyError:
-                raise ValueError(
-                    f"ConnectomeReader::decode_neuron_attribute().\
-                    The attribute {specific_attribute} is not defined in {self.connectome_name}."
-                )
-        return converted_attr
-
-    def specific_neuron_class(self, generic_n_c: NeuronClass):
-        """
-        Converts the generic Neuron Class to the specific one.
-        """
-        try:
-            converted_type = super().specific_neuron_class(generic_n_c)
-        except KeyError:
-            # look for specific classes only defined in this connectome
-            mapping = {
-                "central": self._central,
-                "endocrine": self._endocrine,
-                "optic": self._optic,
-                "visual_centrifugal": self._visual_centrifugal,
-                "visual_projection": self._visual_projection,
-                "other": self._other,
-            }
-            try:
-                converted_type = mapping.get(generic_n_c)
-                if converted_type is None:
-                    raise KeyError
-            except KeyError:
-                raise ValueError(
-                    f"ConnectomeReader::specific_neuron_class().\
-                    The class {generic_n_c} is not defined in {self.connectome_name}."
-                )
-        return converted_type
-
-    def decode_neuron_class(self, specific_class: str | None) -> NeuronClass:
-        """
-        Decode the specific class to the generic one.
-        """
-        try:
-            converted_class = super().decode_neuron_class(specific_class)
-        except KeyError:
-            # look for specific classes only defined in this connectome
-            mapping: dict[str | None, NeuronClass] = {
-                self._central: "central",
-                self._endocrine: "endocrine",
-                self._optic: "optic",
-                self._visual_centrifugal: "visual_centrifugal",
-                self._visual_projection: "visual_projection",
-                self._other: "other",
-                None: "unknown",
-            }
-            try:
-                converted_class = mapping.get(specific_class)
-                if converted_class is None:
-                    raise KeyError
-            except KeyError:
-                raise ValueError(
-                    f"ConnectomeReader::decode_neuron_class().\
-                    The class {specific_class} is not defined in {self.connectome_name}."
-                )
-        return converted_class
-
-    def list_possible_attributes(self):
-        """
-        List the possible attributes of the dataset.
-        """
-        all_attr = [
-            "nt_type",
-            "nt_proba",
-            "class_1",
-            "class_2",
-            "side",
-            "neuropil",
-            "hemilineage",
-            "size",
-            "nerve",
-            "area",
-            "length",
-            "flow",
-        ]
-        return all_attr
 
     def list_all_nodes(self) -> list[BodyId]:
         """

@@ -163,6 +163,7 @@ NeuronClass = typing.Literal[
     "intrinsic",
     "glia",
     "sensory_ascending",
+    "sensory_descending",
     "efferent",
     "efferent_ascending",
     "unknown",
