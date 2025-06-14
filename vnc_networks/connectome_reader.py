@@ -18,6 +18,7 @@ from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
+from bidict import bidict
 
 from . import params
 from .params import (
@@ -66,11 +67,13 @@ class ConnectomeReader(ABC):
     nt_weights: Mapping[Any, int]
 
     # how to map from attributes and classes specific to each connectome to generic ones
-    # getters / setters are at the end of the class and let us ensure that the two dictionaries are reversed copies of each other
-    _generic_to_specific_attribute: dict[NeuronAttribute, str] = {}
-    _specific_to_generic_attribute: dict[str, NeuronAttribute] = {}
-    _generic_to_specific_class: dict[NeuronClass, str] = {}
-    _specific_to_generic_class: dict[str | None, NeuronClass] = {}
+    # bidict lets us go from generic->specific as well as specific->generic (using .inverse property)
+    generic_to_specific_attribute: bidict[NeuronAttribute, str]
+    """Maps between a generic (common) neuron attribute and a neuron attribute specific to a particular connectome"""
+    generic_to_specific_class: bidict[NeuronClass, str]
+    """Maps between a generic (common) neuron class and a neuron class specific to a particular connectome"""
+
+    att_map: bidict[NeuronAttribute, str]
 
     # common properties to all connectomes
     _connectome_dir: str
@@ -103,37 +106,41 @@ class ConnectomeReader(ABC):
         self._create_output_directories()
 
     def _build_attribute_mapping(self):
-        self.generic_to_specific_attribute = {
-            "body_id": self._body_id,
-            "start_bid": self._start_bid,
-            "end_bid": self._end_bid,
-            "syn_count": self._syn_count,
-            "synapse_id": self._syn_id,
-            # connectivity
-            # function
-            "nt_type": self._nt_type,
-            "nt_proba": self._nt_proba,
-            # classification
-            "class_1": self._class_1,
-            "class_2": self._class_2,
-            "name": self._name,
-            "target": self._target,
-            # morphology
-            "side": self._side,
-            "neuropil": self._neuropil,
-            "size": self._size,
-            "position": self._position,
-            # genetics
-            "hemilineage": self._hemilineage,
-        }
+        self.generic_to_specific_attribute = bidict(
+            {
+                "body_id": self._body_id,
+                "start_bid": self._start_bid,
+                "end_bid": self._end_bid,
+                "syn_count": self._syn_count,
+                "synapse_id": self._syn_id,
+                # connectivity
+                # function
+                "nt_type": self._nt_type,
+                "nt_proba": self._nt_proba,
+                # classification
+                "class_1": self._class_1,
+                "class_2": self._class_2,
+                "name": self._name,
+                "target": self._target,
+                # morphology
+                "side": self._side,
+                "neuropil": self._neuropil,
+                "size": self._size,
+                "position": self._position,
+                # genetics
+                "hemilineage": self._hemilineage,
+            }
+        )
 
     def _build_class_mapping(self):
-        self.generic_to_specific_class = {
-            "sensory": self._sensory,
-            "ascending": self._ascending,
-            "motor": self._motor,
-            "descending": self._descending,
-        }
+        self.generic_to_specific_class = bidict(
+            {
+                "sensory": self._sensory,
+                "ascending": self._ascending,
+                "motor": self._motor,
+                "descending": self._descending,
+            }
+        )
 
     def _create_output_directories(self):
         """
@@ -333,7 +340,7 @@ class ConnectomeReader(ABC):
         Decode the specific attribute to the generic one.
         """
         try:
-            return self.specific_to_generic_attribute[specific_attribute]
+            return self.generic_to_specific_attribute.inverse[specific_attribute]
         except KeyError:
             raise ValueError(
                 f"ConnectomeReader::decode_neuron_attribute().\
@@ -355,9 +362,12 @@ class ConnectomeReader(ABC):
     def decode_neuron_class(self, specific_class: str | None) -> NeuronClass:
         """
         Decode the specific class to the generic one.
+        If the specific class is None, it will be mapped to "unknown"
         """
+        if specific_class is None:
+            return "unknown"
         try:
-            return self.specific_to_generic_class[specific_class]
+            return self.generic_to_specific_class.inverse[specific_class]
         except KeyError:
             raise ValueError(
                 f"ConnectomeReader::decode_neuron_class().\
@@ -472,54 +482,6 @@ class ConnectomeReader(ABC):
         ]
         return list_node_attributes
 
-    # Getters / setters for attribute and class maps
-    @property
-    def generic_to_specific_attribute(self):
-        """maps a generic (common) neuron attribute to one specific to each connectome"""
-        return self._generic_to_specific_attribute
-
-    @generic_to_specific_attribute.setter
-    def generic_to_specific_attribute(self, value: dict[NeuronAttribute, str]):
-        self._generic_to_specific_attribute = value
-
-        # reverse the above map for going from specific to generic
-        self._specific_to_generic_attribute = {
-            specific_attribute: generic_attribute
-            for generic_attribute, specific_attribute in self.generic_to_specific_attribute.items()
-        }
-
-    @property
-    def specific_to_generic_attribute(self):
-        """maps a neuron attribute specific to a connectome to a generic (common) attribute.
-
-        Read only:
-        Edit the generic_to_specific_attribute mapping and this will be updated as the inverse mapping"""
-        return self._specific_to_generic_attribute
-
-    @property
-    def generic_to_specific_class(self):
-        """maps a generic (common) neuron class to one specific to each connectome"""
-        return self._generic_to_specific_class
-
-    @generic_to_specific_class.setter
-    def generic_to_specific_class(self, value: dict[NeuronClass, str]):
-        self._generic_to_specific_class = value
-
-        # reverse the above map for going from specific to generic
-        self._specific_to_generic_class = {
-            specific_class: generic_class
-            for generic_class, specific_class in self.generic_to_specific_class.items()
-        }
-        self._specific_to_generic_class[None] = "unknown"
-
-    @property
-    def specific_to_generic_class(self):
-        """maps a neuron class specific to a connectome to a generic (common) class
-
-        Read only:
-        Edit the generic_to_specific_class mapping and this will be updated as the inverse mapping"""
-        return self._specific_to_generic_class
-
 
 # --- Specific classes --- #
 
@@ -581,33 +543,37 @@ class MANCReader(ConnectomeReader):
 
     def _build_attribute_mapping(self):
         super()._build_attribute_mapping()
-
-        self.generic_to_specific_attribute |= {
-            "type": self._type,
-            "tracing_status": self._tracing_status,
-            "entry_nerve": self._entry_nerve,
-            "exit_nerve": self._exit_nerve,
-            "nb_pre_synapses": self._nb_pre_synapses,
-            "nb_post_synapses": self._nb_post_synapses,
-            "nb_pre_neurons": self._nb_pre_neurons,
-            "nb_post_neurons": self._nb_post_neurons,
-            "location": self._location,  # synapse position
-            "root_side": self._root_side,
-        }
+        print(self.generic_to_specific_attribute)
+        self.generic_to_specific_attribute.update(
+            {
+                "type": self._type,
+                "tracing_status": self._tracing_status,
+                "entry_nerve": self._entry_nerve,
+                "exit_nerve": self._exit_nerve,
+                "nb_pre_synapses": self._nb_pre_synapses,
+                "nb_post_synapses": self._nb_post_synapses,
+                "nb_pre_neurons": self._nb_pre_neurons,
+                "nb_post_neurons": self._nb_post_neurons,
+                "location": self._location,  # synapse position
+                "root_side": self._root_side,
+            }
+        )
 
     def _build_class_mapping(self):
         super()._build_class_mapping()
 
-        self.generic_to_specific_class |= {
-            "intrinsic": self._intrinsic,
-            "glia": self._glia,
-            "sensory_ascending": self._sensory_ascending,
-            "efferent": self._efferent,
-            "efferent_ascending": self._efferent_ascending,
-            "unknown": self._unknown,
-            "sensory_unknown": self._sensory_unknown,
-            "interneuron_unknown": self._interneuron_unknown,
-        }
+        self.generic_to_specific_class.update(
+            {
+                "intrinsic": self._intrinsic,
+                "glia": self._glia,
+                "sensory_ascending": self._sensory_ascending,
+                "efferent": self._efferent,
+                "efferent_ascending": self._efferent_ascending,
+                "unknown": self._unknown,
+                "sensory_unknown": self._sensory_unknown,
+                "interneuron_unknown": self._interneuron_unknown,
+            }
+        )
 
     def _get_traced_bids(self) -> list[BodyId]:
         """
@@ -1414,9 +1380,11 @@ class MANC_v_1_2_3(MANC_v_1_2):
         super()._build_class_mapping()
 
         # MANC 1.2.3 is the same as MANC 1.2 except sensory descending was added
-        self.generic_to_specific_class |= {
-            "sensory_descending": self._sensory_descending,
-        }
+        self.generic_to_specific_class.update(
+            {
+                "sensory_descending": self._sensory_descending,
+            }
+        )
 
 
 @typing.overload
@@ -1544,24 +1512,28 @@ class FAFBReader(ConnectomeReader):
     def _build_attribute_mapping(self):
         super()._build_attribute_mapping()
 
-        self.generic_to_specific_attribute |= {
-            "nerve": self._nerve,
-            "area": self._area,
-            "length": self._length,
-            "flow": self._flow,
-        }
+        self.generic_to_specific_attribute.update(
+            {
+                "nerve": self._nerve,
+                "area": self._area,
+                "length": self._length,
+                "flow": self._flow,
+            }
+        )
 
     def _build_class_mapping(self):
         super()._build_class_mapping()
 
-        self.generic_to_specific_class |= {
-            "central": self._central,
-            "endocrine": self._endocrine,
-            "optic": self._optic,
-            "visual_centrifugal": self._visual_centrifugal,
-            "visual_projection": self._visual_projection,
-            "other": self._other,
-        }
+        self.generic_to_specific_class.update(
+            {
+                "central": self._central,
+                "endocrine": self._endocrine,
+                "optic": self._optic,
+                "visual_centrifugal": self._visual_centrifugal,
+                "visual_projection": self._visual_projection,
+                "other": self._other,
+            }
+        )
 
     def _load_data_directories(self):
         """
