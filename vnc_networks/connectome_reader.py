@@ -7,6 +7,8 @@ Each instance also redefines the generic NeuronAttribute and NeuronClass
 data types to the specific ones of the connectome.
 """
 
+from __future__ import annotations
+
 import ast
 import os
 import typing
@@ -25,6 +27,10 @@ from .params import (
     NeuronClass,
     SelectionDict,
 )
+
+
+def default_connectome_reader() -> ConnectomeReader:
+    return MANC("v1.2.3")
 
 
 # --- Parent class, abstract --- #

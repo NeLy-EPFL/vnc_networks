@@ -23,7 +23,7 @@ import pandas as pd
 from sklearn.cluster import KMeans
 
 from . import params
-from .connectome_reader import MANC, ConnectomeReader
+from .connectome_reader import ConnectomeReader, default_connectome_reader
 from .params import BodyId, NeuronAttribute
 from .utils import plots_design
 
@@ -49,19 +49,19 @@ class Neuron:
     def __init__(
         self,
         from_file: str,
-        CR: ConnectomeReader = MANC("v1.2"),
+        CR: ConnectomeReader | None = None,
     ): ...
     @typing.overload
     def __init__(
         self,
         body_id: BodyId | int,
-        CR: ConnectomeReader = MANC("v1.2"),
+        CR: ConnectomeReader | None = None,
     ): ...
 
     def __init__(
         self,
         body_id: Optional[BodyId | int] = None,
-        CR: ConnectomeReader = MANC("v1.2"),
+        CR: ConnectomeReader | None = None,
         from_file: Optional[str] = None,
     ):
         """
@@ -75,7 +75,6 @@ class Neuron:
         ----------
         CR : ConnectomeReader, optional
             The connectome reader to use.
-            The default is MANC('v1.0').
         bodyId : int, optional
             The body id of the neuron.
             The default is None.
@@ -83,7 +82,7 @@ class Neuron:
             The name of the file to load the neuron from.
             The default is None.
         """
-        self.CR = CR  # will not be saved to file
+        self.CR = CR or default_connectome_reader()  # will not be saved to file
         self.connectome_name = CR.connectome_name
         self.connectome_version = CR.connectome_version
 
@@ -478,14 +477,14 @@ class Neuron:
 @typing.overload
 def split_neuron_by_neuropil(
     neuron_id,
-    CR: ConnectomeReader = MANC("v1.2"),
+    CR: ConnectomeReader | None = None,
     save: bool = True,
     return_type: typing.Literal["Neuron", "name"] = "Neuron",
 ) -> Neuron: ...
 @typing.overload
 def split_neuron_by_neuropil(
     neuron_id,
-    CR: ConnectomeReader = MANC("v1.2"),
+    CR: ConnectomeReader | None = None,
     save: bool = True,
     return_type: typing.Literal["Neuron", "name"] = "name",
 ) -> str: ...
@@ -493,7 +492,7 @@ def split_neuron_by_neuropil(
 
 def split_neuron_by_neuropil(
     neuron_id,
-    CR: ConnectomeReader = MANC("v1.2"),
+    CR: ConnectomeReader | None = None,
     save: bool = True,
     return_type: typing.Literal["Neuron", "name"] = "name",
 ):
