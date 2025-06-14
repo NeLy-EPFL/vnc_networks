@@ -16,7 +16,6 @@ class TestDataLoading:
         By default it should use the MANC v1.2.3 connectome
         """
         from vnc_networks.connections import Connections
-        from vnc_networks.connectome_reader import MANC
 
         # Instantiate a Connections object
         valid_connections = Connections()
@@ -27,7 +26,6 @@ class TestDataLoading:
         cr_version = valid_connections.CR.connectome_version
         assert cr_version == "v1.2.3", "Incorrect connectome version"
 
-    '''
     def test_connections_instantiation_MANCv1_0(self):
         """
         Test the instantiation of the Connections class.
@@ -53,7 +51,6 @@ class TestDataLoading:
 
         df_2 = df[(df["start_bid"] == 10001) & (df["end_bid"] == 29119)]
         assert df_2["eff_weight"].values[0] == -5, "Incorrect nt_type handling"
-    '''
 
     def test_connectome_reader_version_mapping_MANCv1_2(self):
         from vnc_networks.connectome_reader import MANC
