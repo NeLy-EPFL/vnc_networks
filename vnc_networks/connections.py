@@ -114,7 +114,7 @@ class Connections:
         """
         self.CR = CR or default_connectome_reader()
         if nt_weights is None:  # possible to overwrite the default values
-            self.nt_weights = CR.nt_weights
+            self.nt_weights = self.CR.nt_weights
         else:
             self.nt_weights = nt_weights
         # load data
