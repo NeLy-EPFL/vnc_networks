@@ -29,7 +29,7 @@ from .params import (
 
 # --- Parent class, abstract --- #
 class ConnectomeReader(ABC):
-    # Names of common properties
+    # Names of common neuron attributes
     # these get overwritten by custom connectomes which use different names
     _body_id = "body_id"
     _syn_id = "syn_id"
@@ -49,7 +49,7 @@ class ConnectomeReader(ABC):
     _location = "location"
     _target = "target"
 
-    # Names of neuron types
+    # Names of common neuron classes
     # these get overwritten by custom connectomes which use different names
     _sensory = "sensory"
     _motor = "motor"
@@ -66,6 +66,9 @@ class ConnectomeReader(ABC):
     _generic_to_specific_class: dict[NeuronClass, str] = {}
     _specific_to_generic_class: dict[str | None, NeuronClass] = {}
 
+    # common properties to all connectomes
+    _connectome_dir: str
+
     def __init__(
         self,
         connectome_name: str,
@@ -79,12 +82,18 @@ class ConnectomeReader(ABC):
             connectome_preprocessing = ConnectomePreprocessingOptions()
         self.connectome_preprocessing = connectome_preprocessing
 
+        # fail early if the connectome data folder doesn't exist
+        self._load_data_directories()
+        if not os.path.exists(self._connectome_dir):
+            raise FileNotFoundError(
+                f"Could't find {self.connectome_name.upper()} {self.connectome_version} data in {self._connectome_dir}."
+            )
+
         # specific namefields
         self._load_specific_neuron_attributes()
         self._load_specific_neuron_classes()
         self._build_attribute_mapping()
         self._build_class_mapping()
-        self._load_data_directories()
         self._create_output_directories()
 
     def _build_attribute_mapping(self):
@@ -1360,6 +1369,29 @@ class MANC_v_1_2_1(MANC_v_1_2):
         self, connectome_preprocessing: ConnectomePreprocessingOptions | None = None
     ):
         super().__init__("v1.2.1", connectome_preprocessing)
+
+    def _load_data_directories(self):
+        """
+        Need to define the directories that are common to all connectomes.
+        """
+        # have a fallback if the files are still stored in the v1.2 folder instead of v1.2.1
+        super()._load_data_directories()
+        if not os.path.exists(self._connectome_dir):
+            original_connectome_dir = self._connectome_dir
+            self._connectome_dir = os.path.join(
+                params.RAW_DATA_DIR,
+                self.connectome_name,
+                "v1.2",
+            )
+            # but throw an explicit error here showing that we tried both
+            if not os.path.exists(self._connectome_dir):
+                raise FileNotFoundError(
+                    f"Could't find {self.connectome_name.upper()} {self.connectome_version} files in {original_connectome_dir} or in fallback location {self._connectome_dir}"
+                )
+
+        self._nodes_file = os.path.join(self._connectome_dir, "neurons.ftr")
+        self._synapses_file = os.path.join(self._connectome_dir, "synapses.ftr")
+        self._connections_file = os.path.join(self._connectome_dir, "connections.ftr")
 
 
 class MANC_v_1_2_3(MANC_v_1_2):
