@@ -83,8 +83,8 @@ class Neuron:
             The default is None.
         """
         self.CR = CR or default_connectome_reader()  # will not be saved to file
-        self.connectome_name = CR.connectome_name
-        self.connectome_version = CR.connectome_version
+        self.connectome_name = self.CR.connectome_name
+        self.connectome_version = self.CR.connectome_version
 
         if from_file is not None:
             self.__load(from_file)
@@ -93,7 +93,9 @@ class Neuron:
                 body_id is not None
             ), "To initialise a `Neuron`, you must provide either a `body_id` or `from_file`, but both were None."
             self.body_id = body_id
-            self.data = CR.load_data_neuron(body_id, CR.node_base_attributes())
+            self.data = self.CR.load_data_neuron(
+                body_id, self.CR.node_base_attributes()
+            )
             self.__initialise_base_attributes()
 
         # verify that the neuron has the required information (up to date)
@@ -395,9 +397,8 @@ class Neuron:
 
         if on_attribute is not None:  # set the cluster to -1 for the synapses not kept
             self.synapse_df.loc[
-                ~self.synapse_df.index.isin(kept_indices), "KMeans_cluster"
+                ~self.synapse_df.index.isin(kept_indices), "KMeans_cluster"  # type: ignore we know kept_indices is bound because on_attribute is not None
             ] = -1
-        return
 
     # --- visualisation
     def plot_synapse_distribution(
@@ -479,14 +480,14 @@ def split_neuron_by_neuropil(
     neuron_id,
     CR: ConnectomeReader | None = None,
     save: bool = True,
-    return_type: typing.Literal["Neuron", "name"] = "Neuron",
+    return_type: typing.Literal["Neuron"] = "Neuron",
 ) -> Neuron: ...
 @typing.overload
 def split_neuron_by_neuropil(
     neuron_id,
     CR: ConnectomeReader | None = None,
     save: bool = True,
-    return_type: typing.Literal["Neuron", "name"] = "name",
+    return_type: typing.Literal["name"] = "name",
 ) -> str: ...
 
 
