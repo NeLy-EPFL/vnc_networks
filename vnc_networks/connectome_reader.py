@@ -19,6 +19,7 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 from bidict import bidict
+from pandas._typing import DtypeArg
 
 from . import params
 from .params import (
@@ -1642,7 +1643,7 @@ class FAFBReader(ConnectomeReader):
         should define the columns
         ['synapse_id','start_bid','end_bid', 'X', 'Y', 'Z']
         """
-        type_dict = {  # the rootids are so long that they are corrupted upon reading
+        type_dict: DtypeArg = {  # the rootids are so long that they are corrupted upon reading
             # need to first read them as a string before converting to int
             "pre_root_id": str,
             "post_root_id": str,
@@ -1650,7 +1651,10 @@ class FAFBReader(ConnectomeReader):
             "y": int,
             "z": int,
         }
-        all_synapses = pd.read_csv(self._synapses_file, dtype=type_dict)
+        all_synapses = pd.read_csv(
+            self._synapses_file,
+            dtype=type_dict,
+        )
         all_synapses.columns = ["start_bid", "end_bid", "X", "Y", "Z"]  # file order
         all_synapses.ffill(inplace=True)  # fill the NaNs with the previous value
         all_synapses["synapse_id"] = (
