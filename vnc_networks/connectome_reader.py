@@ -53,7 +53,6 @@ class ConnectomeReader(ABC):
     _hemilineage = "hemilineage"
     _size = "size"
     _position = "position"
-    _location = "location"
     _target = "target"
 
     # Names of common neuron classes
@@ -543,7 +542,6 @@ class MANCReader(ConnectomeReader):
 
     def _build_attribute_mapping(self):
         super()._build_attribute_mapping()
-        print(self.generic_to_specific_attribute)
         self.generic_to_specific_attribute.update(
             {
                 "type": self._type,
@@ -554,7 +552,6 @@ class MANCReader(ConnectomeReader):
                 "nb_post_synapses": self._nb_post_synapses,
                 "nb_pre_neurons": self._nb_pre_neurons,
                 "nb_post_neurons": self._nb_post_neurons,
-                "location": self._location,  # synapse position
                 "root_side": self._root_side,
             }
         )
@@ -772,7 +769,6 @@ class MANC_v_1_0(MANCReader):
         self._hemilineage = "hemilineage:string"
         self._size = "size:long"
         self._position = "position:point{srid:9157}"  # for neurons
-        self._location = "location:point{srid:9157}"  # for synapses
         self._target = "target:string"
         # attributes specific to MANC
         self._type = "type:string"
@@ -940,15 +936,16 @@ class MANC_v_1_0(MANCReader):
     def _load_synapse_locations(self, synapse_ids: list[int]) -> pd.DataFrame:
         """
         Get the locations of the synapses.
+
+        Returns a dataframe with columns: synapse_id, X, Y, Z
         """
         data = pd.read_feather(
             self._synapse_file, columns=[self._syn_id, self._syn_location]
         )
         data = data.loc[data[self._syn_id].isin(synapse_ids)]
-        read_columns = data.columns
-        data.columns = [self.decode_neuron_attribute(c) for c in read_columns]
+        data.rename(columns={self._syn_id: "synapse_id"}, inplace=True)
 
-        locations = data["location"].values
+        locations = data[self._syn_location].values
 
         # split the location into X, Y, Z
         X, Y, Z = [], [], []
@@ -958,10 +955,10 @@ class MANC_v_1_0(MANCReader):
                 pos = eval(name)  # read loc as a dict, use of x,y,z under the hood
             except TypeError:
                 pos = {"x": np.nan, "y": np.nan, "z": np.nan}
-                print(f"Type Error in reading location for {name}")
+                print(f"Type Error in reading synapse location for {name}")
             except NameError:
                 pos = {"x": np.nan, "y": np.nan, "z": np.nan}
-                print(f"Name Error in reading location for {name}")
+                print(f"Name Error in reading synapse location for {name}")
             if not isinstance(pos, dict):
                 pos = {"x": np.nan, "y": np.nan, "z": np.nan}
             X.append(pos["x"])
@@ -971,7 +968,7 @@ class MANC_v_1_0(MANCReader):
         data["Y"] = Y
         data["Z"] = Z
 
-        data.drop(columns=["location"], inplace=True)
+        data.drop(columns=[self._syn_location], inplace=True)
 
         return data
 
@@ -1131,7 +1128,6 @@ class MANC_v_1_2(MANCReader):
         self._hemilineage = "hemilineage"
         self._size = "size"
         self._position = "location"  # for neurons
-        # self._location = "location:point{srid:9157}"  # for synapses
         self._target = "target"
 
         # attributes specific to MANC
@@ -1179,6 +1175,8 @@ class MANC_v_1_2(MANCReader):
     def _load_synapse_locations(self, synapse_ids: list[int]) -> pd.DataFrame:
         """
         Get the locations of the synapses.
+
+        Returns a dataframe with columns: synapse_id, X, Y, Z
         """
         synapses = pd.read_feather(self._synapses_file)
 
