@@ -450,11 +450,11 @@ class ConnectomeReader(ABC):
         """
         return self._plot_save_dir
 
-    def list_possible_attributes(self) -> list[str]:
+    def list_possible_attributes(self) -> list[NeuronAttribute]:
         """
         List the possible attributes for a neuron.
         """
-        return list(self.generic_to_specific_attribute.values())
+        return list(self.generic_to_specific_attribute.keys())
 
     @staticmethod
     def node_base_attributes() -> list[NeuronAttribute]:
