@@ -233,7 +233,15 @@ class CMatrix:
                     lookup.loc[lookup["uid"] == id_].column_index.values[0]
                 )
         row_indices = [i for i in row_indices if not pd.isna(i)]
+        if isinstance(row_indices, int) | isinstance(
+            row_indices, np.int64
+        ):  # Issue with automatic conversion to int
+            row_indices = list(row_indices)
         column_indices = [i for i in column_indices if not pd.isna(i)]
+        if isinstance(column_indices, int) | isinstance(
+            column_indices, np.int64
+        ):  # Issue with automatic conversion to int
+            column_indices = list(column_indices)
         # return results
         if not allow_empty and len(empty_matches) > 0:
             raise ValueError(f"uid(s) not found: {empty_matches}")
@@ -857,6 +865,19 @@ class CMatrix:
         self.matrix = matrix
         return
 
+    def threshold(
+        self,
+        threshold: int,
+    ):
+        """
+        Threshold the adjacency matrix to a given value.
+        The threshold is applied to the absolute value of the matrix.
+        """
+        matrix = copy.deepcopy(self.get_matrix())
+        matrix.data[matrix.data < threshold] = np.nan
+        self.matrix = matrix
+        return
+
     # --- computations (returns something)
     def list_downstream_neurons(self, uids: UID | list[UID]) -> list[UID]:
         """
@@ -1150,6 +1171,34 @@ class CMatrix:
             plt.close()
 
         return new_cmatrix, return_clusters, clusters
+
+    def get_mat_entry(
+        self,
+        row_id: UID,
+        column_id: UID,
+    ):
+        """
+        Returns the entry of the adjacency matrix at the given row and column
+        indices.
+        Parameters
+        ----------
+        row_id : UID
+            The row index of the entry.
+        column_id : UID
+            The column index of the entry.
+        Returns
+        -------
+        float
+            The entry of the adjacency matrix at the given row and column
+            indices.
+        """
+        row_index = self.get_row_indices([row_id], allow_empty=False)
+        column_index = self.get_column_indices([column_id], allow_empty=False)
+        if len(row_index) == 0 or len(column_index) == 0:
+            raise ValueError(
+                f"Row {row_id} or column {column_id} not found in the lookup table."
+            )
+        return self.get_matrix()[row_index[0], column_index[0]]
 
     # --- visualisation
     def spy(
