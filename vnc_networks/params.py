@@ -135,8 +135,7 @@ NeuronAttribute = typing.Literal[
     "area",
     "length",
     "flow",
-    "position",  # for neurons
-    "location",  # for synapses
+    "position",
     # genetics
     "hemilineage",  # common to all
     # tracing related
@@ -163,6 +162,7 @@ NeuronClass = typing.Literal[
     "intrinsic",
     "glia",
     "sensory_ascending",
+    "sensory_descending",
     "efferent",
     "efferent_ascending",
     "unknown",

@@ -28,7 +28,7 @@ import scipy.cluster.hierarchy as sch
 from sklearn.cluster import DBSCAN
 
 from . import params
-from .connectome_reader import MANC, ConnectomeReader
+from .connectome_reader import ConnectomeReader, default_connectome_reader
 from .params import UID, BodyId
 from .utils import matrix_design, matrix_utils
 
@@ -54,7 +54,7 @@ class CMatrix:
         self,
         matrix: sc.sparse.csr_matrix,
         lookup: pd.DataFrame,
-        CR: ConnectomeReader = MANC("v1.0"),
+        CR: ConnectomeReader | None = None,
     ):
         """
         Initialises the cmatrix class, standing for connectome matrix.
@@ -93,7 +93,7 @@ class CMatrix:
                 "The lookup must include column indices up to the length of the matrix."
             )
 
-        self.CR = CR
+        self.CR = CR or default_connectome_reader()
 
     # private methods
     def __update_indexing(self):

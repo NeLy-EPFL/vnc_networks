@@ -30,6 +30,7 @@ dependencies = [
   "setuptools",
   "tqdm",
   "markov_clustering",
+  "bidict",
 ]
 
 [tool.setuptools.packages.find]
