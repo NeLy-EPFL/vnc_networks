@@ -5,16 +5,15 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vnc_networks"
 version = "0.0.1"
-authors = [
-  { name="Femke Hurtak", email="femke.hurtak@epfl.ch" },
-]
+authors = [{ name = "Femke Hurtak", email = "femke.hurtak@epfl.ch" }]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
 ]
 readme = "README.md"
 description = "Package to work with connectomes for network modelling"
+requires-python = ">=3.10"
 dependencies = [
   "pandas",
   "numpy",
@@ -32,6 +31,7 @@ dependencies = [
   "markov_clustering",
   "bidict",
 ]
+optional-dependencies = { dev = ["pytest", "ruff>=0.12"] }
 
 [tool.setuptools.packages.find]
 where = ["."]
