@@ -174,13 +174,13 @@ class Connections:
             connection_dict = pickle.load(file)
         for key, value in connection_dict.items():
             if key == "connectome_name":
-                assert (
-                    value == self.CR.connectome_name
-                ), "file created with another connectome!"
+                assert value == self.CR.connectome_name, (
+                    "file created with another connectome!"
+                )
             if key == "connectome_version":
-                assert (
-                    value == self.CR.connectome_version
-                ), "file created with another connectome version!"
+                assert value == self.CR.connectome_version, (
+                    "file created with another connectome version!"
+                )
             setattr(self, key, value)
 
     def __get_connections(self):
@@ -1040,9 +1040,9 @@ class Connections:
         hops: int = 1,
         intermediates: bool = True,
     ):
-        assert (
-            self.adjacency is not None
-        ), "Error: adjacency matrix is None - probably wasn't initialised"
+        assert self.adjacency is not None, (
+            "Error: adjacency matrix is None - probably wasn't initialised"
+        )
         match type_:
             case "norm":
                 mat_ = self.adjacency["mat_norm"]
@@ -1072,9 +1072,9 @@ class Connections:
         )
 
     def get_lookup(self):
-        assert (
-            self.adjacency is not None
-        ), "Error: adjacency matrix is None - probably wasn't initialised"
+        assert self.adjacency is not None, (
+            "Error: adjacency matrix is None - probably wasn't initialised"
+        )
         return self.adjacency["lookup"]
 
     def get_nx_graph(
@@ -1219,21 +1219,28 @@ class Connections:
     @typing.overload
     def get_neurons_downstream_of(
         self,
-        neuron_id: BodyId | UID,
+        neuron_id: UID | BodyId,
         input_type: typing.Literal["uid", "body_id"] = "uid",
         output_type: typing.Literal["uid"] = "uid",
     ) -> list[UID]: ...
     @typing.overload
     def get_neurons_downstream_of(
         self,
-        neuron_id: BodyId | UID,
-        input_type: typing.Literal["uid", "body_id"] = "uid",
-        output_type: typing.Literal["body_id"] = "body_id",
+        neuron_id: UID | BodyId,
+        input_type: typing.Literal["uid", "body_id"],
+        output_type: typing.Literal["body_id"],
+    ) -> list[BodyId]: ...
+    @typing.overload
+    def get_neurons_downstream_of(
+        self,
+        neuron_id: UID | BodyId,
+        *,
+        output_type: typing.Literal["body_id"],
     ) -> list[BodyId]: ...
 
     def get_neurons_downstream_of(
         self,
-        neuron_id: BodyId | UID,
+        neuron_id: UID | BodyId,
         input_type: typing.Literal["uid", "body_id"] = "uid",
         output_type: typing.Literal["uid", "body_id"] = "uid",
     ) -> list[UID] | list[BodyId]:
@@ -1242,7 +1249,7 @@ class Connections:
 
         Parameters
         ----------
-        neuron_id: int
+        neuron_id: UID | BodyId
             Identifier of the neuron.
         input_type: str
             Type of the input list, can be 'uid' or 'body_id'.
@@ -1251,7 +1258,7 @@ class Connections:
 
         Returns
         -------
-        list[int]
+        list[UID] | list[BodyId]
             List of identifiers of the downstream neurons.
         """
         # Get uid of the neuron as the graph indexes with uids
@@ -1282,21 +1289,28 @@ class Connections:
     @typing.overload
     def get_neurons_upstream_of(
         self,
-        neuron_id: BodyId | UID,
+        neuron_id: UID | BodyId,
         input_type: typing.Literal["uid", "body_id"] = "uid",
         output_type: typing.Literal["uid"] = "uid",
     ) -> list[UID]: ...
     @typing.overload
     def get_neurons_upstream_of(
         self,
-        neuron_id: BodyId | UID,
-        input_type: typing.Literal["uid", "body_id"] = "uid",
-        output_type: typing.Literal["body_id"] = "body_id",
+        neuron_id: UID | BodyId,
+        input_type: typing.Literal["uid", "body_id"],
+        output_type: typing.Literal["body_id"],
+    ) -> list[BodyId]: ...
+    @typing.overload
+    def get_neurons_upstream_of(
+        self,
+        neuron_id: UID | BodyId,
+        *,
+        output_type: typing.Literal["body_id"],
     ) -> list[BodyId]: ...
 
     def get_neurons_upstream_of(
         self,
-        neuron_id: BodyId | UID,
+        neuron_id: UID | BodyId,
         input_type: typing.Literal["uid", "body_id"] = "uid",
         output_type: typing.Literal["uid", "body_id"] = "uid",
     ) -> list[UID] | list[BodyId]:
@@ -1305,7 +1319,7 @@ class Connections:
 
         Parameters
         ----------
-        neuron_id: int
+        neuron_id: UID | BodyId
             Identifier of the neuron.
         input_type: str
             Type of the input list, can be 'uid' or 'body_id'.
@@ -1314,7 +1328,7 @@ class Connections:
 
         Returns
         -------
-        list[int]
+        list[UID] | list[BodyId]
             List of identifiers of the upstream neurons.
         """
         # Get uid of the neuron as the graph indexes with uids
@@ -1341,6 +1355,116 @@ class Connections:
                 f"Class Connections ::: > get_neurons_upstream_of():\
                 Unknown output type {output_type}"
             )
+
+    @typing.overload
+    def get_neurons_downstream_of_group(
+        self,
+        neuron_ids: typing.Iterable[UID] | typing.Iterable[BodyId],
+        input_type: typing.Literal["uid", "body_id"] = "uid",
+        output_type: typing.Literal["uid"] = "uid",
+    ) -> list[UID]: ...
+    @typing.overload
+    def get_neurons_downstream_of_group(
+        self,
+        neuron_ids: typing.Iterable[UID] | typing.Iterable[BodyId],
+        input_type: typing.Literal["uid", "body_id"],
+        output_type: typing.Literal["body_id"],
+    ) -> list[BodyId]: ...
+    @typing.overload
+    def get_neurons_downstream_of_group(
+        self,
+        neuron_ids: typing.Iterable[UID] | typing.Iterable[BodyId],
+        *,
+        output_type: typing.Literal["body_id"],
+    ) -> list[BodyId]: ...
+
+    def get_neurons_downstream_of_group(
+        self,
+        neuron_ids: typing.Iterable[UID] | typing.Iterable[BodyId],
+        input_type: typing.Literal["uid", "body_id"] = "uid",
+        output_type: typing.Literal["uid", "body_id"] = "uid",
+    ) -> list[BodyId] | list[UID]:
+        """
+        Get the neurons downstream of a group of neurons, based on the graph.
+
+        Parameters
+        ----------
+        neuron_ids: Iterable[UID] | Iterable[BodyId]
+            Identifier of the neuron.
+        input_type: str
+            Type of the input list, can be 'uid' or 'body_id'.
+        return_type: str
+            Type of the return list, can be 'uid' or 'body_id'.
+
+        Returns
+        -------
+        list[UID] | list[BodyId]
+            List of identifiers of the downstream neurons.
+        """
+        return list(
+            {
+                downstream_neuron
+                for neuron in neuron_ids
+                for downstream_neuron in self.get_neurons_downstream_of(
+                    neuron, input_type, output_type
+                )
+            }
+        )  # pyright: ignore[reportReturnType] - we know get_neurons_downstream_of will return the same type when we call it multiple times here
+
+    @typing.overload
+    def get_neurons_upstream_of_group(
+        self,
+        neuron_ids: typing.Iterable[UID] | typing.Iterable[BodyId],
+        input_type: typing.Literal["uid", "body_id"] = "uid",
+        output_type: typing.Literal["uid"] = "uid",
+    ) -> list[UID]: ...
+    @typing.overload
+    def get_neurons_upstream_of_group(
+        self,
+        neuron_ids: typing.Iterable[UID] | typing.Iterable[BodyId],
+        input_type: typing.Literal["body_id", "uid"],
+        output_type: typing.Literal["body_id"],
+    ) -> list[BodyId]: ...
+    @typing.overload
+    def get_neurons_upstream_of_group(
+        self,
+        neuron_ids: typing.Iterable[UID] | typing.Iterable[BodyId],
+        *,
+        output_type: typing.Literal["body_id"],
+    ) -> list[BodyId]: ...
+
+    def get_neurons_upstream_of_group(
+        self,
+        neuron_ids: typing.Iterable[UID] | typing.Iterable[BodyId],
+        input_type: typing.Literal["body_id", "uid"] = "uid",
+        output_type: typing.Literal["body_id", "uid"] = "uid",
+    ) -> list[BodyId] | list[UID]:
+        """
+        Get the neurons upstream of a group of neurons, based on the graph.
+
+        Parameters
+        ----------
+        neuron_ids: Iterable[UID] | Iterable[BodyId]
+            Identifier of the neuron.
+        input_type: str
+            Type of the input list, can be 'uid' or 'body_id'.
+        return_type: str
+            Type of the return list, can be 'uid' or 'body_id'.
+
+        Returns
+        -------
+        list[UID] | list[BodyId]
+            List of identifiers of the upstream neurons.
+        """
+        return list(
+            {
+                upstream_neuron
+                for neuron in neuron_ids
+                for upstream_neuron in self.get_neurons_upstream_of(
+                    neuron, input_type, output_type
+                )
+            }
+        )  # pyright: ignore[reportReturnType] - we know get_neurons_upstream_of will return the same type when we call it multiple times here
 
     def get_bodyids_from_uids(
         self, uids: UID | list[UID] | list[int] | set[UID] | set[int]
@@ -1495,9 +1619,9 @@ class Connections:
                 if order_type == "uid":
                     order_ = order
                 elif order_type == "index":
-                    assert (
-                        self.adjacency is not None
-                    ), "Error: adjacency matrix is None - probably wasn't initialised"
+                    assert self.adjacency is not None, (
+                        "Error: adjacency matrix is None - probably wasn't initialised"
+                    )
                     order_ = self.adjacency["lookup"].loc[order, "uid"].to_list()
                 else:
                     raise ValueError(
@@ -1538,9 +1662,9 @@ class Connections:
         """
         # TODO: edit such that it creates a new Connections object instead
         # compute the n-hop adjacency matrix
-        assert (
-            self.adjacency is not None
-        ), "Error: adjacency matrix is None - probably wasn't initialised"
+        assert self.adjacency is not None, (
+            "Error: adjacency matrix is None - probably wasn't initialised"
+        )
         self.adjacency[f"mat_norm_{n}_hops"] = matrix_utils.connections_up_to_n_hops(
             self.adjacency["mat_norm"], n
         )
