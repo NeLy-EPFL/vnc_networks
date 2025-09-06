@@ -35,7 +35,8 @@ class TestConnectomeReaderMANC:
         """
         Test that we can get neuron and synapse counts by neuropil
         """
-        import pandas as pd
+        import polars as pl
+        import polars.testing
 
         import vnc_networks
 
@@ -43,11 +44,11 @@ class TestConnectomeReaderMANC:
         connectome_reader = vnc_networks.connectome_reader.MANC("v1.2.1")
 
         # check that this matches what we expect
-        pd.testing.assert_frame_equal(
+        polars.testing.assert_frame_equal(
             connectome_reader.get_synapse_counts_by_neuropil(
                 "downstream", [10000, 23458]
             ),
-            pd.DataFrame(
+            pl.DataFrame(
                 {
                     "body_id": [10000, 23458],
                     "CV": [703, 0],
@@ -57,11 +58,11 @@ class TestConnectomeReaderMANC:
                 }
             ),
         )
-        pd.testing.assert_frame_equal(
+        polars.testing.assert_frame_equal(
             connectome_reader.get_synapse_counts_by_neuropil(
                 "upstream", [10000, 23458]
             ),
-            pd.DataFrame(
+            pl.DataFrame(
                 {
                     "body_id": [10000, 23458],
                     "CV": [224, 0],
@@ -71,9 +72,9 @@ class TestConnectomeReaderMANC:
                 }
             ),
         )
-        pd.testing.assert_frame_equal(
+        polars.testing.assert_frame_equal(
             connectome_reader.get_synapse_counts_by_neuropil("pre", [10000, 23458]),
-            pd.DataFrame(
+            pl.DataFrame(
                 {
                     "body_id": [10000, 23458],
                     "CV": [138, 0],
@@ -83,9 +84,9 @@ class TestConnectomeReaderMANC:
                 }
             ),
         )
-        pd.testing.assert_frame_equal(
+        polars.testing.assert_frame_equal(
             connectome_reader.get_synapse_counts_by_neuropil("post", [10000, 23458]),
-            pd.DataFrame(
+            pl.DataFrame(
                 {
                     "body_id": [10000, 23458],
                     "CV": [224, 0],
@@ -95,11 +96,11 @@ class TestConnectomeReaderMANC:
                 }
             ),
         )
-        pd.testing.assert_frame_equal(
+        polars.testing.assert_frame_equal(
             connectome_reader.get_synapse_counts_by_neuropil(
                 "total_synapses", [10000, 23458]
             ),
-            pd.DataFrame(
+            pl.DataFrame(
                 {
                     "body_id": [10000, 23458],
                     "CV": [927, 0],
@@ -116,7 +117,8 @@ class TestConnectomeReaderFAFB:
         """
         Test that we can get neuron and synapse counts by neuropil
         """
-        import pandas as pd
+        import polars as pl
+        import polars.testing
 
         import vnc_networks
 
@@ -124,11 +126,11 @@ class TestConnectomeReaderFAFB:
         connectome_reader = vnc_networks.connectome_reader.FAFB_v783()
 
         # check that this matches what we expect
-        pd.testing.assert_frame_equal(
+        polars.testing.assert_frame_equal(
             connectome_reader.get_synapse_counts_by_neuropil(
                 "downstream", [720575940627036426, 720575940633587552]
             ),
-            pd.DataFrame(
+            pl.DataFrame(
                 {
                     "body_id": [720575940627036426, 720575940633587552],
                     "LOP_L": [9, 0],
@@ -137,12 +139,15 @@ class TestConnectomeReaderFAFB:
                     "SMP_R": [0, 31],
                 }
             ),
+            check_column_order=False,
+            check_row_order=False,
+            check_dtypes=False,
         )
-        pd.testing.assert_frame_equal(
+        polars.testing.assert_frame_equal(
             connectome_reader.get_synapse_counts_by_neuropil(
                 "upstream", [720575940627036426, 720575940633587552]
             ),
-            pd.DataFrame(
+            pl.DataFrame(
                 {
                     "body_id": [720575940627036426, 720575940633587552],
                     "LOP_L": [3, 0],
@@ -151,12 +156,15 @@ class TestConnectomeReaderFAFB:
                     "SMP_R": [0, 13],
                 }
             ),
+            check_column_order=False,
+            check_row_order=False,
+            check_dtypes=False,
         )
-        pd.testing.assert_frame_equal(
+        polars.testing.assert_frame_equal(
             connectome_reader.get_synapse_counts_by_neuropil(
                 "pre", [720575940627036426, 720575940633587552]
             ),
-            pd.DataFrame(
+            pl.DataFrame(
                 {
                     "body_id": [720575940627036426, 720575940633587552],
                     "LOP_L": [14, 0],
@@ -165,12 +173,15 @@ class TestConnectomeReaderFAFB:
                     "SMP_R": [0, 75],
                 }
             ),
+            check_column_order=False,
+            check_row_order=False,
+            check_dtypes=False,
         )
-        pd.testing.assert_frame_equal(
+        polars.testing.assert_frame_equal(
             connectome_reader.get_synapse_counts_by_neuropil(
                 "post", [720575940627036426, 720575940633587552]
             ),
-            pd.DataFrame(
+            pl.DataFrame(
                 {
                     "body_id": [720575940627036426, 720575940633587552],
                     "LOP_L": [100, 0],
@@ -179,12 +190,15 @@ class TestConnectomeReaderFAFB:
                     "SMP_R": [0, 284],
                 }
             ),
+            check_column_order=False,
+            check_row_order=False,
+            check_dtypes=False,
         )
-        pd.testing.assert_frame_equal(
+        polars.testing.assert_frame_equal(
             connectome_reader.get_synapse_counts_by_neuropil(
                 "total_synapses", [720575940627036426, 720575940633587552]
             ),
-            pd.DataFrame(
+            pl.DataFrame(
                 {
                     "body_id": [720575940627036426, 720575940633587552],
                     "LOP_L": [114, 0],
@@ -193,10 +207,14 @@ class TestConnectomeReaderFAFB:
                     "SMP_R": [0, 359],
                 }
             ),
+            check_column_order=False,
+            check_row_order=False,
+            check_dtypes=False,
         )
 
     def test_get_synapse_df_FAFBv783(self):
-        import pandas as pd
+        import polars as pl
+        import polars.testing
 
         import vnc_networks
 
@@ -204,17 +222,25 @@ class TestConnectomeReaderFAFB:
         connectome_reader = vnc_networks.connectome_reader.FAFB_v783()
 
         # check that this matches what we expect
-        pd.testing.assert_frame_equal(
-            connectome_reader.get_synapse_df(720575940625986035).reset_index(drop=True),
-            pd.DataFrame(
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_df(720575940625986035),
+            pl.DataFrame(
                 {
+                    "synapse_id": list(range(18194614, 18194618 + 1)),
                     "start_bid": [720575940625986035] * 5,
                     "end_bid": [720575940613052200] * 5,
                     "X": [482078, 482094, 482426, 486034, 487160],
                     "Y": [140110, 139918, 140470, 143752, 143970],
                     "Z": [103400, 103480, 103080, 101040, 100760],
-                    "synapse_id": list(range(18194614, 18194618 + 1)),
-                }
+                },
+                schema={
+                    "synapse_id": pl.UInt64,
+                    "start_bid": pl.UInt64,
+                    "end_bid": pl.UInt64,
+                    "X": pl.Int32,
+                    "Y": pl.Int32,
+                    "Z": pl.Int32,
+                },
             ),
         )
 
@@ -261,17 +287,18 @@ class TestConnectomeReaderFAFB:
         )
 
     def test_load_data_neuron_FAFBv783(self):
-        import pandas as pd
+        import polars as pl
+        import polars.testing
 
         import vnc_networks
 
         connectome_reader = vnc_networks.connectome_reader.FAFB_v783()
 
-        pd.testing.assert_frame_equal(
+        polars.testing.assert_frame_equal(
             connectome_reader.load_data_neuron(
                 720575940628842314, ["class_1", "class_2", "name", "neuropil"]
             ),
-            pd.DataFrame(
+            pl.DataFrame(
                 {
                     "class_1": ["central"],
                     "class_2": ["mAL"],
@@ -283,18 +310,19 @@ class TestConnectomeReaderFAFB:
         )
 
     def test_load_data_neuron_set_FAFBv783(self):
-        import pandas as pd
+        import polars as pl
+        import polars.testing
 
         import vnc_networks
 
         connectome_reader = vnc_networks.connectome_reader.FAFB_v783()
 
-        pd.testing.assert_frame_equal(
+        polars.testing.assert_frame_equal(
             connectome_reader.load_data_neuron_set(
                 [720575940628842314, 720575940624547622],
                 ["class_1", "class_2", "name", "neuropil"],
             ),
-            pd.DataFrame(
+            pl.DataFrame(
                 {
                     "class_1": ["central", "central"],
                     "class_2": ["mAL", "MBIN"],

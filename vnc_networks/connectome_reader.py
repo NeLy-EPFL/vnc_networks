@@ -18,6 +18,7 @@ from typing import Any, Optional
 
 import numpy as np
 import polars as pl
+import polars.selectors as cs
 from bidict import bidict
 from pandas._typing import DtypeArg
 
@@ -577,7 +578,7 @@ class MANCReader(ConnectomeReader):
         """
         Get the body ids of the traced neurons.
         """
-        nodes_data = pl.read_feather(
+        nodes_data = pl.read_ipc(
             self._nodes_file, columns=[self._body_id, self._tracing_status]
         )
         nodes_data = nodes_data[nodes_data[self._tracing_status] == self.traced_entry]
@@ -592,14 +593,14 @@ class MANCReader(ConnectomeReader):
         # Loading data in the connections file
         columns: list[NeuronAttribute] = ["start_bid", "end_bid", "syn_count"]
         columns_to_read = [self.sna(a) for a in columns]
-        connections = pl.read_feather(self._connections_file, columns=columns_to_read)
+        connections = pl.read_ipc(self._connections_file, columns=columns_to_read)
         read_columns = (
             connections.columns
         )  # ordering can be different than columns_to_read
         connections.columns = [self.decode_neuron_attribute(c) for c in read_columns]
 
         # add nt_type information
-        data = pl.read_feather(self._nodes_file, columns=[self._body_id, self._nt_type])
+        data = pl.read_ipc(self._nodes_file, columns=[self._body_id, self._nt_type])
         read_columns = data.columns
         data.columns = [self.decode_neuron_attribute(c) for c in read_columns]
         connections = pl.join(
@@ -619,7 +620,7 @@ class MANCReader(ConnectomeReader):
         """
         List all the neurons existing in the connectome.
         """
-        data = pl.read_feather(self._nodes_file, columns=[self._body_id])
+        data = pl.read_ipc(self._nodes_file, columns=[self._body_id])
         return list(data[self._body_id].values)
 
     def get_neuron_bodyids(
@@ -648,7 +649,7 @@ class MANCReader(ConnectomeReader):
             columns_to_read.append(self._body_id)  # specific name field
             columns_to_write.append("body_id")  # generic name field
 
-        neurons = pl.read_feather(self._nodes_file, columns=list(columns_to_read))
+        neurons = pl.read_ipc(self._nodes_file, columns=list(columns_to_read))
 
         if s_dict is not None:
             for key in s_dict.keys():
@@ -696,7 +697,7 @@ class MANCReader(ConnectomeReader):
             columns_to_write.append("body_id")  # generic name field
 
         # Load data
-        neurons = pl.read_feather(self._nodes_file, columns=columns_to_read)
+        neurons = pl.read_ipc(self._nodes_file, columns=columns_to_read)
         # rename the columns to the generic names
         read_columns = neurons.columns  # ordering can be different than columns_to_read
         neurons.columns = [self.decode_neuron_attribute(c) for c in read_columns]
@@ -732,7 +733,7 @@ class MANCReader(ConnectomeReader):
             columns_to_write.append("body_id")  # generic name field
 
         # Load data
-        neurons = pl.read_feather(self._nodes_file, columns=columns_to_read)
+        neurons = pl.read_ipc(self._nodes_file, columns=columns_to_read)
         # rename the columns to the generic names
         read_columns = neurons.columns  # ordering can be different than columns_to_read
         neurons.columns = [self.decode_neuron_attribute(c) for c in read_columns]
@@ -940,7 +941,7 @@ class MANC_v_1_0(MANCReader):
 
         Returns a dataframe with columns: synapse_id, X, Y, Z
         """
-        data = pl.read_feather(
+        data = pl.read_ipc(
             self._synapse_file, columns=[self._syn_id, self._syn_location]
         )
         data = data.loc[data[self._syn_id].isin(synapse_ids)]
@@ -981,13 +982,13 @@ class MANC_v_1_0(MANCReader):
         ['synapse_id','start_bid','end_bid', 'X', 'Y', 'Z']
         """
         # neuron to synapse set
-        neuron_to_synapse = pl.read_feather(self._neuron_synapseset_file)
+        neuron_to_synapse = pl.read_ipc(self._neuron_synapseset_file)
         synset_list = neuron_to_synapse.loc[
             neuron_to_synapse[self._start_bid] == body_id
         ][self._end_synset_id].values
 
         # synapse set to synapse
-        synapses = pl.read_feather(self._synapseset_file)
+        synapses = pl.read_ipc(self._synapseset_file)
         synapses = synapses.loc[synapses[self._start_synset_id].isin(synset_list)]
         synapses.reset_index(drop=True, inplace=True)
 
@@ -1018,7 +1019,7 @@ class MANC_v_1_0(MANCReader):
 
         # add a column with 'tracing_status' of the postsynaptic neuron if it exists
         if self.exists_tracing_status():
-            nodes_data = pl.read_feather(
+            nodes_data = pl.read_ipc(
                 self._nodes_file,
                 columns=[self._body_id, self._tracing_status],
             )
@@ -1068,13 +1069,13 @@ class MANC_v_1_0(MANCReader):
         # find the subset of the synapses in the dataset that we care about for this neuron
         # then for each possible ROI, check which synapses are in that ROI
         # store each synapse's ROI in the neuropil column
-        data = pl.read_feather(self._synapse_file, columns=[self._syn_id])
+        data = pl.read_ipc(self._synapse_file, columns=[self._syn_id])
         data.columns = ["synapse_id"]
         data["neuropil"] = "None"
 
         for roi in rois:
             column_name = roi + ":boolean"
-            roi_column = pl.read_feather(
+            roi_column = pl.read_ipc(
                 self._synapse_file,
                 columns=[column_name, self._syn_id],
             )
@@ -1189,7 +1190,7 @@ class MANC_v_1_2(MANCReader):
 
         Returns a dataframe with columns: synapse_id, X, Y, Z
         """
-        synapses = pl.read_feather(self._synapses_file)
+        synapses = pl.read_ipc(self._synapses_file)
 
         # create synapse ids from the index
         synapses = synapses.loc[synapses[self._syn_id].isin(synapse_ids)]
@@ -1213,7 +1214,7 @@ class MANC_v_1_2(MANCReader):
         ['synapse_id','start_bid','end_bid', 'X', 'Y', 'Z']
         """
         # synapse set to synapse
-        synapses = pl.read_feather(self._synapses_file)
+        synapses = pl.read_ipc(self._synapses_file)
 
         # filter on the presynaptic neuron
         synapses = synapses.loc[synapses[self._start_bid] == body_id]
@@ -1233,7 +1234,7 @@ class MANC_v_1_2(MANCReader):
         # filter out non traced postsynaptic neurons
         # add a column with 'tracing_status' of the postsynaptic neuron if it exists
         if self.exists_tracing_status():
-            nodes_data = pl.read_feather(
+            nodes_data = pl.read_ipc(
                 self._nodes_file,
                 columns=[self._body_id, self._tracing_status],
             )
@@ -1263,7 +1264,7 @@ class MANC_v_1_2(MANCReader):
         In MANC v1.2, the synapse id is unique only for a given presynaptic neuron,
         so we need to filter on the presynaptic neuron as well.
         """
-        synapses = pl.read_feather(self._synapses_file)
+        synapses = pl.read_ipc(self._synapses_file)
 
         # filter on synapse_ids
         synapses = synapses.loc[synapses[self._syn_id].isin(synapse_ids)]
@@ -1310,37 +1311,28 @@ class MANC_v_1_2(MANCReader):
             else synapse_count_type
         )
 
-        roi_info_table = pl.read_feather(
-            self._nodes_file, [self._body_id, self._roi_info]
+        roi_info_table = pl.read_ipc(
+            self._nodes_file, columns=[self._body_id, self._roi_info]
         )
         if body_id_subset is not None:
             # Note: this removes some ROIs from the columns...
-            # roi_info_table = roi_info_table[
-            #     roi_info_table[self._body_id].isin(body_id_subset)
-            # ]
             roi_info_table = roi_info_table.filter(
                 pl.col(self._body_id).is_in(body_id_subset)
             )
+
+        # the roi_Info column contains the number of synapses in a json string like:
+        # {ROI: {"downstream" : 0, "upstream" : 1, ...}, ...}
+        # we parse each row (which is a string) into a dict using ast.literal_eval
+        # then use pl.json_normalize to parse this list of nested dicts into a dataframe
+        # the column names end up like ROI.downstream, ROI.upstream, ...
+        # so we choose just the columns with the type of count we want and drop the rest
+        # then rename the columns
         return (
-            pl.DataFrame(
-                {
-                    body_id: {
-                        roi: (
-                            roi_connections[synapse_count_type_name]
-                            if synapse_count_type_name in roi_connections
-                            else 0
-                        )
-                        for roi, roi_connections in connections.items()
-                    }
-                    for body_id, connections in zip(
-                        roi_info_table[self._body_id],
-                        roi_info_table[self._roi_info].apply(ast.literal_eval).values,
-                    )
-                }
-            )
-            .T.reset_index(names="body_id")
-            .fillna(0)
-            .astype(int)
+            pl.json_normalize([ast.literal_eval(x) for x in roi_info_table["roiInfo"]])
+            .select(cs.ends_with(f".{synapse_count_type_name}"))
+            .rename(lambda column_name: column_name.split(".")[0])
+            .fill_null(0)
+            .select(roi_info_table[self._body_id].alias("body_id"), pl.all())
         )
 
 
@@ -1621,12 +1613,9 @@ class FAFBReader(ConnectomeReader):
             data = pl.read_csv(
                 filename,
                 columns=[self._body_id, att],
-                schema_overrides={
-                    self._body_id: pl.String
-                },  # in case there are only ints in the file
-            )
-            data = data[data[att] == value]
-            return set(data[self._body_id].astype(int).values)
+                schema_overrides={self._body_id: pl.UInt64},
+            ).filter(pl.col(att) == value)
+            return set(data[self._body_id].to_list())
 
         if attribute in ["nt_type", "nt_proba", "neuropil"]:
             filename = self._node_nt_type_file
@@ -1658,8 +1647,7 @@ class FAFBReader(ConnectomeReader):
         should define the columns
         ['synapse_id','start_bid','end_bid', 'X', 'Y', 'Z']
         """
-        type_dict = {  # the rootids are so long that they are corrupted upon reading
-            # need to first read them as a string before converting to int
+        type_dict = {
             "pre_root_id": pl.UInt64,
             "post_root_id": pl.UInt64,
             "x": pl.Int32,
@@ -1668,20 +1656,18 @@ class FAFBReader(ConnectomeReader):
         }
         all_synapses = pl.read_csv(
             self._synapses_file,
-            schema_overrides=type_dict,
+            schema=type_dict,
         )
         all_synapses.columns = ["start_bid", "end_bid", "X", "Y", "Z"]  # file order
-        all_synapses = all_synapses.fill_null(strategy="forward")
-        # all_synapses.ffill(inplace=True)  # fill the NaNs with the previous value
-        # all_synapses["synapse_id"] = (
-        #     all_synapses.index
-        # )  # do before filtering for potential comparison across bodyids
-        all_synapses.with_columns(synapse_id=pl.int_range(len(all_synapses)))
-        # all_synapses = all_synapses.cast({"start_bid": int, "end_bid": int})
-        # filter for the synapses of the neuron
-        # synapses = all_synapses[all_synapses["start_bid"] == body_id]
-        synapses = all_synapses.filter(pl.col("start_bid") == body_id)
-        return synapses
+        return (
+            all_synapses.fill_null(strategy="forward")
+            # put the synapse_id column first
+            .select(
+                pl.int_range(len(all_synapses), dtype=pl.UInt64).alias("synapse_id"),
+                pl.all(),
+            )
+            .filter(pl.col("start_bid") == body_id)
+        )
 
     def get_synapse_neuropil(
         self,
@@ -1726,10 +1712,10 @@ class FAFBReader(ConnectomeReader):
         if synapse_count_type == "total_synapses":
             if body_id_subset is not None:
                 # Note: this removes some ROIs from the columns...
-                connections_table = connections_table[
-                    connections_table[self._start_bid].is_in(body_id_subset)
-                    | connections_table[self._end_bid].is_in(body_id_subset)
-                ]
+                connections_table = connections_table.filter(
+                    pl.col(self._start_bid).is_in(body_id_subset)
+                    | pl.col(self._end_bid).is_in(body_id_subset)
+                )
             # separately get the pre and post synapse counts then sum them
             synapse_counts = (
                 pl.concat(
@@ -1739,30 +1725,27 @@ class FAFBReader(ConnectomeReader):
                         ]
                         .group_by([neuron_body_id_we_care_about, "neuropil"])
                         .sum()
-                        # .reset_index()
                         .pivot(
                             index=neuron_body_id_we_care_about,
                             on="neuropil",
                             values="syn_count",
                         )
-                        # .reset_index(names="body_id")
-                        .fill_nan(0)
-                        .cast(pl.Int32)
+                        .fill_null(0)
+                        .rename({neuron_body_id_we_care_about: "body_id"})
                         for neuron_body_id_we_care_about in [
                             self._start_bid,
                             self._end_bid,
                         ]
-                    ]
+                    ],
+                    how="diagonal",  # because the column order mightn't be the same
                 )
                 .group_by("body_id")
                 .sum()
-                # .reset_index()
-                # .rename_axis(None, axis=1)  # otherwise the index has a name
             )
             if body_id_subset is not None:
-                synapse_counts = synapse_counts[
-                    synapse_counts["body_id"].is_in(body_id_subset)
-                ]  # .reset_index(drop=True)
+                synapse_counts = synapse_counts.filter(
+                    pl.col("body_id").is_in(body_id_subset)
+                )
             return synapse_counts
         elif synapse_count_type in ["downstream", "post"]:
             neuron_body_id_we_care_about = self._start_bid
@@ -1771,13 +1754,15 @@ class FAFBReader(ConnectomeReader):
 
         if body_id_subset is not None:
             # Note: this removes some ROIs from the columns...
-            connections_table = connections_table[
-                connections_table[neuron_body_id_we_care_about].is_in(body_id_subset)
-            ]
+            connections_table = connections_table.filter(
+                pl.col(neuron_body_id_we_care_about).is_in(body_id_subset)
+            )
 
         if synapse_count_type in ["downstream", "upstream"]:
-            aggregate_group_function = lambda group: group.count()
+            # resulting column should be called syn_count
+            aggregate_group_function = lambda group: group.len("syn_count")
         else:
+            # sum preserves column names
             aggregate_group_function = lambda group: group.sum()
 
         return (
@@ -1786,16 +1771,13 @@ class FAFBReader(ConnectomeReader):
                     [neuron_body_id_we_care_about, "neuropil", "syn_count"]
                 ].group_by([neuron_body_id_we_care_about, "neuropil"])
             )
-            # .reset_index()
             .pivot(
                 index=neuron_body_id_we_care_about,
-                columns="neuropil",
+                on="neuropil",
                 values="syn_count",
             )
-            # .reset_index(names="body_id")
-            # .rename_axis(None, axis=1)  # otherwise the index has a name
-            .fill_nan(0)
-            .cast(pl.Int64)
+            .fill_null(0)
+            .rename({neuron_body_id_we_care_about: "body_id"})
         )
 
     def list_all_nodes(self) -> list[BodyId]:
@@ -1899,14 +1881,11 @@ class FAFBReader(ConnectomeReader):
             data = pl.read_csv(
                 filename,
                 columns=columns_to_read,
-                schema_overrides={
-                    self._body_id: pl.String
-                },  # in case there are only ints in the file
+                schema_overrides={self._body_id: pl.UInt64},
             )
             loaded_columns = data.columns  # does not respect our ordering
             data.columns = [self.decode_neuron_attribute(c) for c in loaded_columns]
-            data["body_id"] = data["body_id"].cast(int)
-            data = data[data["body_id"].is_in(bids)]
+            data = data.filter(pl.col("body_id").is_in(bids))
             return data
 
         # Load data
@@ -1941,7 +1920,7 @@ class FAFBReader(ConnectomeReader):
         if attributes is not None:
             if "body_id" not in attributes:
                 attributes.append("body_id")
-            return neurons[neurons["body_id"].is_in(ids)][attributes]
+            return neurons.filter(pl.col("body_id").is_in(ids))[attributes]
         return neurons[neurons["body_id"].is_in(ids)]
 
 
