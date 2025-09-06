@@ -2,8 +2,19 @@
 Can only run when the data is available. Not run in the CI.
 """
 
+import pytest
+
 
 class TestConnectomeReaderMANC:
+    # def test_version_mapping_MANCv1_0(self):
+    #     from vnc_networks.connectome_reader import MANC
+
+    #     connectome_reader = MANC("v1.0")
+    #     assert connectome_reader.connectome_name == "manc", "Incorrect connectome name"
+    #     assert connectome_reader.connectome_version == "v1.0", (
+    #         "Incorrect connectome version. MANC v1.0 should map to v1.0"
+    #     )
+
     def test_version_mapping_MANCv1_2(self):
         from vnc_networks.connectome_reader import MANC
 
@@ -113,6 +124,24 @@ class TestConnectomeReaderMANC:
 
 
 class TestConnectomeReaderFAFB:
+    # def test_version_mapping_FAFBv630(self):
+    #     from vnc_networks.connectome_reader import FAFB
+
+    #     connectome_reader = FAFB("v630")
+    #     assert connectome_reader.connectome_name == "fafb", "Incorrect connectome name"
+    #     assert connectome_reader.connectome_version == "v630", (
+    #         "Incorrect connectome version. FAFB v630 should map to v630"
+    #     )
+
+    def test_version_mapping_FAFBv783(self):
+        from vnc_networks.connectome_reader import FAFB
+
+        connectome_reader = FAFB("v783")
+        assert connectome_reader.connectome_name == "fafb", "Incorrect connectome name"
+        assert connectome_reader.connectome_version == "v783", (
+            "Incorrect connectome version. FAFB v630 should map to v783"
+        )
+
     def test_getting_counts_by_neuropil_FAFBv783(self):
         """
         Test that we can get neuron and synapse counts by neuropil
@@ -285,6 +314,17 @@ class TestConnectomeReaderFAFB:
             )
             == 0
         )
+        assert (
+            len(connectome_reader.get_neuron_bodyids(nodes=[720575940624547622])) == 1
+        )
+        assert (
+            len(
+                connectome_reader.get_neuron_bodyids(
+                    {"class_1": "descending"}, nodes=[720575940624547622]
+                )
+            )
+            == 0
+        )
 
     def test_load_data_neuron_FAFBv783(self):
         import polars as pl
@@ -320,7 +360,18 @@ class TestConnectomeReaderFAFB:
         polars.testing.assert_frame_equal(
             connectome_reader.load_data_neuron_set(
                 [720575940628842314, 720575940624547622],
-                ["class_1", "class_2", "name", "neuropil"],
+            ),
+            pl.DataFrame(
+                {
+                    "body_id": [720575940628842314, 720575940624547622],
+                }
+            ),
+        )
+
+        polars.testing.assert_frame_equal(
+            connectome_reader.load_data_neuron_set(
+                [720575940628842314, 720575940624547622],
+                ["class_1", "class_2", "name", "neuropil", "area", "position"],
             ),
             pl.DataFrame(
                 {
@@ -328,6 +379,8 @@ class TestConnectomeReaderFAFB:
                     "class_2": ["mAL", "MBIN"],
                     "name": ["mAL", None],
                     "neuropil": ["SLP", "MB_ML"],
+                    "area": [2799552000, 170377170432],
+                    "position": ["[585000 201472  22520]", "[390432 155100 166960]"],
                     "body_id": [720575940628842314, 720575940624547622],
                 }
             ),

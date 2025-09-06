@@ -1871,57 +1871,63 @@ class FAFBReader(ConnectomeReader):
 
         def _load_df(
             filename: str,
-            columns: list[NeuronAttribute],
+            columns: set[NeuronAttribute],
             bids: list[BodyId] | list[int],
         ) -> pl.DataFrame:
-            if columns is None or len(columns) == 0:
-                raise ValueError("No columns to load.")
-            columns.append("body_id")
+            columns.add("body_id")
             columns_to_read = [self.sna(a) for a in columns]
-            data = pl.read_csv(
-                filename,
-                columns=columns_to_read,
-                schema_overrides={self._body_id: pl.UInt64},
+            return (
+                pl.read_csv(
+                    filename,
+                    columns=columns_to_read,
+                    schema_overrides={self._body_id: pl.UInt64},
+                )
+                .rename(lambda column_name: self.decode_neuron_attribute(column_name))
+                .filter(pl.col("body_id").is_in(bids))
             )
-            loaded_columns = data.columns  # does not respect our ordering
-            data.columns = [self.decode_neuron_attribute(c) for c in loaded_columns]
-            data = data.filter(pl.col("body_id").is_in(bids))
-            return data
 
         # Load data
         neurons = pl.DataFrame({"body_id": ids})
         # split the data loading as a function of the files required
         # 1. nt_type, nt_proba, neuropil
-        nt_fields = list(
-            set(attributes).intersection({"nt_type", "nt_proba", "neuropil"})
+        nt_fields = set(attributes).intersection(
+            {
+                "nt_type",
+                "nt_proba",
+                "neuropil",
+            }
         )
         if len(nt_fields) > 0:
             data = _load_df(self._node_nt_type_file, nt_fields, ids)
             neurons = neurons.join(data, on="body_id", how="inner")
+
         # 2. length, area, size
-        stat_fields = list(set(attributes).intersection({"length", "area", "size"}))
+        stat_fields = set(attributes).intersection({"length", "area", "size"})
         if len(stat_fields) > 0:
             data = _load_df(self._node_stats_file, stat_fields, ids)
             neurons = neurons.join(data, on="body_id", how="inner")
+
         # 3. position
         if "position" in attributes:
-            data = _load_df(self._node_position_file, ["position"], ids)
+            data = _load_df(self._node_position_file, {"position"}, ids)
+            # FIX: data contains multiple positions for the same body id. Why?
+            data = data.unique("body_id")
             neurons = neurons.join(data, on="body_id", how="inner")
+
         # 4. class, hemilineage, side etc.
-        class_fields = list(
-            set(attributes).difference(
-                set(nt_fields).union(set(stat_fields)).union({"position"})
-            )
+        class_fields = (
+            set(attributes)
+            .difference(nt_fields)
+            .difference(stat_fields)
+            .difference({"position", "body_id"})
         )
         if len(class_fields) > 0:
             data = _load_df(self._node_class_file, class_fields, ids)
             neurons = neurons.join(data, on="body_id", how="inner")
 
-        if attributes is not None:
-            if "body_id" not in attributes:
-                attributes.append("body_id")
-            return neurons.filter(pl.col("body_id").is_in(ids))[attributes]
-        return neurons[neurons["body_id"].is_in(ids)]
+        if "body_id" not in attributes:
+            attributes.append("body_id")
+        return neurons.filter(pl.col("body_id").is_in(ids))[attributes]
 
 
 # Specific versions of FAFB
