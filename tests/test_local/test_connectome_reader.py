@@ -42,6 +42,66 @@ class TestConnectomeReaderMANC:
             "Incorrect connectome version. MANC v1.2.3 should map to v1.2.3"
         )
 
+    def test_get_synapse_df_MANC_v1_2_3(self):
+        import polars as pl
+        import polars.testing
+
+        import vnc_networks
+
+        # Instantiate ConnectomeReader
+        connectome_reader = vnc_networks.connectome_reader.MANC_v_1_2_3()
+
+        # check we get nothing if the connection has less than 5 synapses
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_df(22285),
+            pl.DataFrame(
+                {
+                    "synapse_id": [],
+                    "start_bid": [],
+                    "end_bid": [],
+                    "X": [],
+                    "Y": [],
+                    "Z": [],
+                },
+            ),
+            check_dtypes=False,
+        )
+        # check we get what we expect
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_df(24585),
+            pl.DataFrame(
+                {
+                    "synapse_id": list(range(24140937, 24140941 + 1)),
+                    "start_bid": [24585] * 5,
+                    "end_bid": [10002] * 5,
+                    "X": [22785, 22841, 22830, 22832, 22844],
+                    "Y": [36014, 39169, 38791, 38756, 38737],
+                    "Z": [72108, 78509, 77935, 77890, 77842],
+                },
+            ),
+            check_dtypes=False,
+        )
+
+    def test_get_synapse_neuropil_MANC_v1_2_3(self):
+        import polars as pl
+        import polars.testing
+
+        import vnc_networks
+
+        # Instantiate ConnectomeReader
+        connectome_reader = vnc_networks.connectome_reader.MANC_v_1_2_3()
+
+        # check that this matches what we expect
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_neuropil([24140937]),
+            pl.DataFrame(
+                {
+                    "synapse_id": [24140937],
+                    "neuropil": ["CV"],
+                },
+            ),
+        )
+
     def test_getting_counts_by_neuropil_MANCv1_2_1(self):
         """
         Test that we can get neuron and synapse counts by neuropil

@@ -620,8 +620,9 @@ class MANCReader(ConnectomeReader):
         """
         List all the neurons existing in the connectome.
         """
-        data = pl.read_ipc(self._nodes_file, columns=[self._body_id])
-        return list(data[self._body_id].values)
+        return pl.read_ipc(self._nodes_file, columns=[self._body_id])[
+            self._body_id
+        ].to_list()
 
     def get_neuron_bodyids(
         self,
@@ -640,34 +641,30 @@ class MANCReader(ConnectomeReader):
         Returns:
             list[BodyId]: list of the BodyIds of neurons that fulfilled all supplied conditions.
         """
+        if "body_id" not in selection_dict:
+            selection_dict["body_id"] = self._body_id
         s_dict = self.specific_selection_dict(selection_dict)
 
         # Identify columns to load
         columns_to_read = [self.sna(a) for a in selection_dict.keys()]
         columns_to_write = list(selection_dict.keys())
-        if "body_id" not in selection_dict.keys():
-            columns_to_read.append(self._body_id)  # specific name field
-            columns_to_write.append("body_id")  # generic name field
 
         neurons = pl.read_ipc(self._nodes_file, columns=list(columns_to_read))
 
-        if s_dict is not None:
-            for key in s_dict.keys():
-                if key == self.sna("class_1"):
-                    requested_value = s_dict[
-                        key
-                    ]  # can be 'sensory' or 'sensory neuron'
-                    try:  # will work if a generic NeuronClass is given
-                        specific_value = self.specific_neuron_class(requested_value)  # type: ignore requested_value might be a generic NeuronClass, or if not a specific class already
-                    except KeyError:  # will work if a specific NeuronClass is given
-                        specific_value = requested_value
-                    neurons = neurons[neurons[self._class_1] == specific_value]
-                else:
-                    neurons = neurons[neurons[key] == s_dict[key]]
+        for key in s_dict.keys():
+            if key == self.sna("class_1"):
+                requested_value = s_dict[key]  # can be 'sensory' or 'sensory neuron'
+                try:  # will work if a generic NeuronClass is given
+                    specific_value = self.specific_neuron_class(requested_value)  # type: ignore requested_value might be a generic NeuronClass, or if not a specific class already
+                except KeyError:  # will work if a specific NeuronClass is given
+                    specific_value = requested_value
+                neurons = neurons.filter(pl.col(self._class_1) == specific_value)
+            else:
+                neurons = neurons.filter(pl.col(key) == s_dict[key])
         if nodes is not None:
-            neurons = neurons[neurons[self._body_id].isin(nodes)]
+            neurons = neurons.filter(pl.col(self._body_id).is_in(nodes))
 
-        return list(neurons[self._body_id].values)
+        return neurons[self._body_id].to_list()
 
     def load_data_neuron(
         self,
@@ -689,21 +686,15 @@ class MANCReader(ConnectomeReader):
         polars.DataFrame
             The data of the neuron.
         """
+        if "body_id" not in attributes:
+            attributes.append("body_id")
         # Identify columns to load
         columns_to_read = [self.sna(a) for a in attributes]
         columns_to_write = attributes
-        if "body_id" not in attributes:
-            columns_to_read.append(self._body_id)  # specific name field
-            columns_to_write.append("body_id")  # generic name field
 
         # Load data
-        neurons = pl.read_ipc(self._nodes_file, columns=columns_to_read)
-        # rename the columns to the generic names
-        read_columns = neurons.columns  # ordering can be different than columns_to_read
-        neurons.columns = [self.decode_neuron_attribute(c) for c in read_columns]
-        if attributes is not None:
-            return neurons[neurons["body_id"] == id_][columns_to_write]
-        return neurons[neurons["body_id"] == id_]
+        neurons = pl.read_ipc(self._nodes_file, columns=columns_to_read).rename(self.decode_neuron_attribute))
+        return neurons.filter(body_id=id_)[columns_to_write]
 
     def load_data_neuron_set(
         self,
@@ -725,23 +716,17 @@ class MANCReader(ConnectomeReader):
         polars.DataFrame
             The data of the neurons.
         """
+        if "body_id" not in attributes:
+            attributes.append("body_id")
         # Identify columns to load
         columns_to_read = [self.sna(a) for a in attributes]
         columns_to_write = attributes
-        if "body_id" not in attributes:
-            columns_to_read.append(self._body_id)  # specific name field
-            columns_to_write.append("body_id")  # generic name field
 
         # Load data
-        neurons = pl.read_ipc(self._nodes_file, columns=columns_to_read)
-        # rename the columns to the generic names
-        read_columns = neurons.columns  # ordering can be different than columns_to_read
-        neurons.columns = [self.decode_neuron_attribute(c) for c in read_columns]
+        neurons = pl.read_ipc(self._nodes_file, columns=columns_to_read).rename(self.decode_neuron_attribute)
 
         # return columns in the order they were requested in attributes
-        if len(attributes) > 0:
-            return neurons[neurons["body_id"].isin(ids)][columns_to_write]
-        return neurons[neurons["body_id"].isin(ids)]
+        return neurons.filter(pl.col("body_id").is_in(ids))[columns_to_write]
 
 
 # Specific versions of MANC
@@ -1190,21 +1175,18 @@ class MANC_v_1_2(MANCReader):
 
         Returns a dataframe with columns: synapse_id, X, Y, Z
         """
-        synapses = pl.read_ipc(self._synapses_file)
-
-        # create synapse ids from the index
-        synapses = synapses.loc[synapses[self._syn_id].isin(synapse_ids)]
-
-        synapses = synapses[
-            [
-                self._syn_id,
-                self._synapse_x,
-                self._synapse_y,
-                self._synapse_z,
-            ]
-        ]
-        synapses.columns = ["synapse_id", "X", "Y", "Z"]
-        return synapses
+        column_name_mapping = {
+            self._syn_id: "synapse_id",
+            self._synapse_x: "X",
+            self._synapse_y: "Y",
+            self._synapse_z: "Z",
+        }
+        return (
+            pl.read_ipc(self._synapses_file, columns=list(column_name_mapping.keys()))
+            # create synapse ids from the index
+            .filter(pl.col(self._syn_id).is_in(synapse_ids))
+            .rename(column_name_mapping)
+        )
 
     # public methods
     def get_synapse_df(self, body_id: BodyId | int) -> pl.DataFrame:
@@ -1213,23 +1195,20 @@ class MANC_v_1_2(MANCReader):
         should define the columns
         ['synapse_id','start_bid','end_bid', 'X', 'Y', 'Z']
         """
-        # synapse set to synapse
-        synapses = pl.read_ipc(self._synapses_file)
-
-        # filter on the presynaptic neuron
-        synapses = synapses.loc[synapses[self._start_bid] == body_id]
-
-        synapses = synapses[
-            [
-                self._syn_id,
-                self._start_bid,
-                self._end_bid,
-                self._synapse_x,
-                self._synapse_y,
-                self._synapse_z,
-            ]
-        ]
-        synapses.columns = ["synapse_id", "start_bid", "end_bid", "X", "Y", "Z"]
+        column_name_mapping = {
+            self._syn_id: "synapse_id",
+            self._start_bid: "start_bid",
+            self._end_bid: "end_bid",
+            self._synapse_x: "X",
+            self._synapse_y: "Y",
+            self._synapse_z: "Z",
+        }
+        synapses = (
+            pl.read_ipc(self._synapses_file, columns=list(column_name_mapping.keys()))
+            # filter on the presynaptic neuron
+            .filter(pl.col(self._start_bid) == body_id)
+            .rename(column_name_mapping)
+        )
 
         # filter out non traced postsynaptic neurons
         # add a column with 'tracing_status' of the postsynaptic neuron if it exists
@@ -1237,23 +1216,22 @@ class MANC_v_1_2(MANCReader):
             nodes_data = pl.read_ipc(
                 self._nodes_file,
                 columns=[self._body_id, self._tracing_status],
-            )
-            read_columns = nodes_data.columns
-            nodes_data.columns = [self.decode_neuron_attribute(c) for c in read_columns]
-            synapses = synapses.merge(
-                nodes_data, left_on="end_bid", right_on="body_id", how="left"
-            )
-            synapses.drop(columns=["body_id"], inplace=True)
+            ).rename(self.decode_neuron_attribute)
             # remove the rows where the postsynaptic neuron is not traced
-            synapses = synapses.loc[synapses["tracing_status"] == self.traced_entry]
-            synapses.drop(columns=["tracing_status"], inplace=True)
+            synapses = (
+                synapses.join(
+                    nodes_data, left_on="end_bid", right_on="body_id", how="left"
+                )
+                .filter(pl.col("tracing_status") == self.traced_entry)
+                .drop(["tracing_status"])
+            )
 
         # remove the rows where there are fewer than threshold synapses from
         # a presynaptic neuron to a postsynaptic neuron
-        synapses = synapses.groupby(["start_bid", "end_bid"]).filter(
-            lambda x: len(x) >= self.connectome_preprocessing.min_synapse_count_cutoff
+        return synapses.filter(
+            pl.len().over("start_bid", "end_bid")
+            >= self.connectome_preprocessing.min_synapse_count_cutoff
         )
-        return synapses
 
     def get_synapse_neuropil(
         self,
@@ -1264,19 +1242,16 @@ class MANC_v_1_2(MANCReader):
         In MANC v1.2, the synapse id is unique only for a given presynaptic neuron,
         so we need to filter on the presynaptic neuron as well.
         """
-        synapses = pl.read_ipc(self._synapses_file)
-
-        # filter on synapse_ids
-        synapses = synapses.loc[synapses[self._syn_id].isin(synapse_ids)]
-
-        synapses = synapses[
-            [
-                self._syn_id,
-                self._syn_neuropil,
-            ]
-        ]
-        synapses.columns = ["synapse_id", "neuropil"]
-        return synapses
+        column_name_mapping = {
+            self._syn_id: "synapse_id",
+            self._syn_neuropil: "neuropil",
+        }
+        return (
+            pl.read_ipc(self._synapses_file, columns=list(column_name_mapping.keys()))
+            # filter on synapse_ids
+            .filter(pl.col(self._syn_id).is_in(synapse_ids))
+            .rename(column_name_mapping)
+        )
 
     def get_synapse_counts_by_neuropil(
         self,
