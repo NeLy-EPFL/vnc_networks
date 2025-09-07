@@ -91,7 +91,7 @@ class Connections:
     * `mat_norm` - sparse adjacency matrix of normalised effective weights
     * `mat_unnorm` - sparse adjacency matrix of non-normalised effective weights
     * `mat_syncount` - sparse adjacency matrix of raw synapse counts (ignoring neurotransmitter signs)
-    * `lookup` - polars DataFrame
+    * `lookup` - polars DataFrame containing the equivalence between node indices and node identities.
     """
 
     def __deepcopy__(self, memo):
