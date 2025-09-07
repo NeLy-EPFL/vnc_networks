@@ -22,7 +22,7 @@ import matplotlib
 import matplotlib.axes
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
+import polars as pl
 import scipy as sc
 import scipy.cluster.hierarchy as sch
 from sklearn.cluster import DBSCAN
@@ -53,7 +53,7 @@ class CMatrix:
     def __init__(
         self,
         matrix: sc.sparse.csr_matrix,
-        lookup: pd.DataFrame,
+        lookup: pl.DataFrame,
         CR: ConnectomeReader | None = None,
     ):
         """
@@ -63,7 +63,7 @@ class CMatrix:
         ----------
         matrix : scipy.sparse.csr_matrix
             The adjacency matrix of the connectome.
-        lookup : pandas.DataFrame
+        lookup : polars.DataFrame
             The lookup table for the equivalence between node indices and node identities.
         """
         # verify that the matrix is a csr matrix
@@ -73,22 +73,25 @@ class CMatrix:
             matrix = matrix.tocsr()
         self.matrix = matrix
 
-        # verify that the lookup is a pandas dataframe
-        if not isinstance(lookup, pd.DataFrame):
-            raise ValueError("The lookup must be a pandas dataframe.")
+        # verify that the lookup is a polars dataframe
+        if not isinstance(lookup, pl.DataFrame):
+            raise ValueError("The lookup must be a polars dataframe.")
 
         # duplicate the 'index' column into a 'row_index' and 'column_index' column
-        lookup = lookup.copy()
-        lookup["row_index"] = lookup["index"].values
-        lookup["column_index"] = lookup["index"].values
-        self.lookup = lookup.drop(columns="index")
+        self.lookup = lookup.with_columns(
+            row_index=pl.col("index"),
+            column_index=pl.col("index"),
+        ).drop("index")
+        # lookup["row_index"] = lookup["index"].values
+        # lookup["column_index"] = lookup["index"].values
+        # self.lookup = lookup.drop(columns="index")
 
         # verify that the lookup includes indices up to the length of the matrix
-        if not all(self.lookup["row_index"].isin(range(self.matrix.shape[0]))):
+        if not all(self.lookup["row_index"].is_in(range(self.matrix.shape[0]))):
             raise ValueError(
                 "The lookup must include row indices up to the length of the matrix."
             )
-        if not all(self.lookup["column_index"].isin(range(self.matrix.shape[1]))):
+        if not all(self.lookup["column_index"].is_in(range(self.matrix.shape[1]))):
             raise ValueError(
                 "The lookup must include column indices up to the length of the matrix."
             )
@@ -102,10 +105,10 @@ class CMatrix:
         Every time the matrix is restricted, the lookup table must be updated and
         the indexing shifted back to a continuous range starting from 0.
         """
-        lookup = self.get_lookup().copy()
+        lookup = self.get_lookup()
 
         # rows
-        lookup.sort_values(by="row_index", inplace=True)
+        lookup = lookup.sort(by="row_index")
         n_rows = lookup["row_index"].count()
         n_nan = len(lookup) - n_rows
         new_row_indices = list(range(n_rows))
@@ -113,7 +116,7 @@ class CMatrix:
         lookup["row_index"] = new_row_indices
 
         # columns
-        lookup = lookup.sort_values(by="column_index")
+        lookup = lookup.sort(by="column_index")
         n_columns = lookup["column_index"].count()
         n_nan = len(lookup) - n_columns
         new_column_indices = list(range(n_columns))
@@ -121,11 +124,8 @@ class CMatrix:
         lookup["column_index"] = new_column_indices
 
         # clean up unindexed uids
-        lookup.dropna(
-            axis="index",
+        lookup = lookup.drop_nulls(
             subset=["row_index", "column_index"],
-            how="all",
-            inplace=True,
         )
         # verify that the lookup includes indices up to the length of the matrix
         if n_rows != self.matrix.shape[0]:
@@ -137,7 +137,6 @@ class CMatrix:
                 "The lookup must include column indices up to the length of the matrix."
             )
         self.lookup = lookup
-        return
 
     def __restrict_row_indices(
         self,
@@ -225,15 +224,13 @@ class CMatrix:
         row_indices, column_indices = [], []
         lookup = self.get_lookup()
         for id_ in uid:
-            if not lookup["uid"].isin([id_]).any():
+            if not lookup["uid"].is_in([id_]).any():
                 empty_matches.append(id_)
             else:
-                row_indices.append(lookup.loc[lookup["uid"] == id_].row_index.values[0])
-                column_indices.append(
-                    lookup.loc[lookup["uid"] == id_].column_index.values[0]
-                )
-        row_indices = [i for i in row_indices if not pd.isna(i)]
-        column_indices = [i for i in column_indices if not pd.isna(i)]
+                row_indices.append(lookup.filter(uid=id_)[0, "row_index"])
+                column_indices.append(lookup.filter(uid=id_)[0, "column_index"])
+        row_indices = [i for i in row_indices if not np.isnan(i)]
+        column_indices = [i for i in column_indices if not np.isnan(i)]
         # return results
         if not allow_empty and len(empty_matches) > 0:
             raise ValueError(f"uid(s) not found: {empty_matches}")
@@ -420,13 +417,13 @@ class CMatrix:
         mat = mat[rows, :][:, cols]
         return mat
 
-    def get_lookup(self) -> pd.DataFrame:
+    def get_lookup(self) -> pl.DataFrame:
         """
         Returns the lookup table for the equivalence between node indices and node identities.
 
         Returns
         -------
-        pandas.DataFrame
+        polars.DataFrame
             The lookup table for the equivalence between node indices and node identities.
         """
         return self.lookup
