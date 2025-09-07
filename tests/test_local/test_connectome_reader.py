@@ -182,6 +182,115 @@ class TestConnectomeReaderMANC:
             ),
         )
 
+    def test_list_all_nodes_MANC_v1_2_3(self):
+        import vnc_networks
+
+        connectome_reader = vnc_networks.connectome_reader.MANC_v_1_2_3()
+
+        assert len(connectome_reader.list_all_nodes()) == 102158
+
+    def test_get_neuron_bodyids_MANC_v1_2_3(self):
+        import vnc_networks
+
+        connectome_reader = vnc_networks.connectome_reader.MANC_v_1_2_3()
+
+        assert len(connectome_reader.get_neuron_bodyids()) == 102158
+        # we can filter neurons by a generic neuron class
+        assert (
+            len(connectome_reader.get_neuron_bodyids({"class_1": "descending"})) == 1322
+        )
+        # we can also filter neurons by a specific neuron class (actual value in MANC)
+        assert (
+            len(connectome_reader.get_neuron_bodyids({"class_1": "descending neuron"}))
+            == 1322
+        )
+        assert (
+            len(
+                connectome_reader.get_neuron_bodyids(
+                    {"class_1": "descending", "root_side": "LHS"}
+                )
+            )
+            == 661
+        )
+        assert (
+            len(
+                connectome_reader.get_neuron_bodyids(
+                    {"class_1": "descending", "root_side": "mid"}
+                )
+            )
+            == 0
+        )
+        assert len(connectome_reader.get_neuron_bodyids(nodes=[10000])) == 1
+        assert (
+            len(
+                connectome_reader.get_neuron_bodyids(
+                    {"class_1": "ascending"}, nodes=[10000]
+                )
+            )
+            == 0
+        )
+
+    def test_load_data_neuron_MANC_v1_2_3(self):
+        import polars as pl
+        import polars.testing
+
+        import vnc_networks
+
+        connectome_reader = vnc_networks.connectome_reader.MANC_v_1_2_3()
+
+        polars.testing.assert_frame_equal(
+            connectome_reader.load_data_neuron(
+                10000, ["class_1", "class_2", "name", "neuropil"]
+            ),
+            pl.DataFrame(
+                {
+                    "class_1": ["descending neuron"],
+                    "class_2": ["lt"],
+                    "name": ["DNlt002"],
+                    "neuropil": [None],
+                    "body_id": [10000],
+                }
+            ),
+            check_dtypes=False,
+        )
+
+    def test_load_data_neuron_set_MANC_v1_2_3(self):
+        import polars as pl
+        import polars.testing
+
+        import vnc_networks
+
+        connectome_reader = vnc_networks.connectome_reader.MANC_v_1_2_3()
+
+        polars.testing.assert_frame_equal(
+            connectome_reader.load_data_neuron_set(
+                [10000, 10712],
+            ),
+            pl.DataFrame(
+                {
+                    "body_id": [10000, 10712],
+                }
+            ),
+        )
+
+        polars.testing.assert_frame_equal(
+            connectome_reader.load_data_neuron_set(
+                [10000, 10712],
+                ["class_1", "class_2", "name", "neuropil", "size", "position"],
+            ),
+            pl.DataFrame(
+                {
+                    "class_1": ["descending neuron", "intrinsic neuron"],
+                    "class_2": ["lt", "BI"],
+                    "name": ["DNlt002", "INXXX045"],
+                    "neuropil": [None, "T1"],
+                    "size": [38743961712, 4214330177],
+                    "position": [[24481, 36044, 67070], [15363, 39326, 45260]],
+                    "body_id": [10000, 10712],
+                }
+            ),
+        )
+
 
 class TestConnectomeReaderFAFB:
     # def test_version_mapping_FAFBv630(self):

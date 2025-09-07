@@ -396,8 +396,10 @@ class ConnectomeReader(ABC):
         # Filter out the untraced neurons
         if keep_only_traced_neurons and self.exists_tracing_status():
             traced_bids = self._get_traced_bids()
-            df = df[df["start_bid"].is_in(traced_bids)]
-            df = df[df["end_bid"].is_in(traced_bids)]
+            df = df.filter(
+                pl.col("start_bid").is_in(traced_bids)
+                & pl.col("end_bid").is_in(traced_bids)
+            )
 
         return df
 
@@ -578,12 +580,11 @@ class MANCReader(ConnectomeReader):
         """
         Get the body ids of the traced neurons.
         """
-        nodes_data = pl.read_ipc(
-            self._nodes_file, columns=[self._body_id, self._tracing_status]
+        return (
+            pl.read_ipc(self._nodes_file, columns=[self._body_id, self._tracing_status])
+            .filter(pl.col(self._tracing_status) == self.traced_entry)[self._body_id]
+            .to_list()
         )
-        nodes_data = nodes_data[nodes_data[self._tracing_status] == self.traced_entry]
-        traced_bids = list(nodes_data[self._body_id].values)
-        return traced_bids
 
     def _load_connections(self) -> pl.DataFrame:
         """
@@ -591,29 +592,22 @@ class MANCReader(ConnectomeReader):
         Needs to gather the columns ['start_bid', 'end_bid', 'syn_count', 'nt_type'].
         """
         # Loading data in the connections file
-        columns: list[NeuronAttribute] = ["start_bid", "end_bid", "syn_count"]
-        columns_to_read = [self.sna(a) for a in columns]
-        connections = pl.read_ipc(self._connections_file, columns=columns_to_read)
-        read_columns = (
-            connections.columns
-        )  # ordering can be different than columns_to_read
-        connections.columns = [self.decode_neuron_attribute(c) for c in read_columns]
+        connections = pl.read_ipc(
+            self._connections_file,
+            columns=[self._start_bid, self._end_bid, self._syn_count],
+        ).rename(self.decode_neuron_attribute)
 
         # add nt_type information
-        data = pl.read_ipc(self._nodes_file, columns=[self._body_id, self._nt_type])
-        read_columns = data.columns
-        data.columns = [self.decode_neuron_attribute(c) for c in read_columns]
-        connections = pl.join(
-            connections,
+        data = pl.read_ipc(
+            self._nodes_file, columns=[self._body_id, self._nt_type]
+        ).rename(self.decode_neuron_attribute)
+
+        return connections.join(
             data,
             left_on="start_bid",
             right_on="body_id",
             how="left",
-            suffixes=("", ""),
         )
-        connections = connections.drop(columns=["body_id"])
-
-        return connections
 
     # public methods
     def list_all_nodes(self) -> list[BodyId]:
@@ -641,13 +635,12 @@ class MANCReader(ConnectomeReader):
         Returns:
             list[BodyId]: list of the BodyIds of neurons that fulfilled all supplied conditions.
         """
-        if "body_id" not in selection_dict:
-            selection_dict["body_id"] = self._body_id
         s_dict = self.specific_selection_dict(selection_dict)
 
         # Identify columns to load
         columns_to_read = [self.sna(a) for a in selection_dict.keys()]
-        columns_to_write = list(selection_dict.keys())
+        if self._body_id not in columns_to_read:
+            columns_to_read.append(self._body_id)
 
         neurons = pl.read_ipc(self._nodes_file, columns=list(columns_to_read))
 
@@ -656,7 +649,7 @@ class MANCReader(ConnectomeReader):
                 requested_value = s_dict[key]  # can be 'sensory' or 'sensory neuron'
                 try:  # will work if a generic NeuronClass is given
                     specific_value = self.specific_neuron_class(requested_value)  # type: ignore requested_value might be a generic NeuronClass, or if not a specific class already
-                except KeyError:  # will work if a specific NeuronClass is given
+                except ValueError:  # will work if a specific NeuronClass is given
                     specific_value = requested_value
                 neurons = neurons.filter(pl.col(self._class_1) == specific_value)
             else:
@@ -693,7 +686,9 @@ class MANCReader(ConnectomeReader):
         columns_to_write = attributes
 
         # Load data
-        neurons = pl.read_ipc(self._nodes_file, columns=columns_to_read).rename(self.decode_neuron_attribute))
+        neurons = pl.read_ipc(self._nodes_file, columns=columns_to_read).rename(
+            self.decode_neuron_attribute
+        )
         return neurons.filter(body_id=id_)[columns_to_write]
 
     def load_data_neuron_set(
@@ -723,7 +718,9 @@ class MANCReader(ConnectomeReader):
         columns_to_write = attributes
 
         # Load data
-        neurons = pl.read_ipc(self._nodes_file, columns=columns_to_read).rename(self.decode_neuron_attribute)
+        neurons = pl.read_ipc(self._nodes_file, columns=columns_to_read).rename(
+            self.decode_neuron_attribute
+        )
 
         # return columns in the order they were requested in attributes
         return neurons.filter(pl.col("body_id").is_in(ids))[columns_to_write]
