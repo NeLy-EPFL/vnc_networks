@@ -38,13 +38,21 @@ import matplotlib.axes
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-import pandas as pd
+import polars as pl
+import scipy
 import seaborn as sns
 
 from . import cmatrix, params
 from .connectome_reader import ConnectomeReader, default_connectome_reader
 from .neuron import Neuron
-from .params import UID, BodyId, NeuronAttribute, NeuronClass, SelectionDict
+from .params import (
+    SYNAPSE_CUTOFF,
+    UID,
+    BodyId,
+    NeuronAttribute,
+    NeuronClass,
+    SelectionDict,
+)
 from .utils import matrix_utils, nx_design, nx_utils, plots_design
 
 ## ---- Types ---- ##
@@ -58,8 +66,34 @@ SortingStyle = typing.Literal[
 ]
 
 
+class AdjacencyDict(typing.TypedDict):
+    mat_norm: scipy.sparse.spmatrix
+    mat_unnorm: scipy.sparse.spmatrix
+    mat_syncount: scipy.sparse.spmatrix
+    lookup: pl.DataFrame
+
+
 ## ---- Classes ---- ##
 class Connections:
+    CR: ConnectomeReader
+    nt_weights: Mapping[str, int]
+    """How much weight to assign to each different neurotransmitter type.
+    Usually 1 for excitatory, -1 for inhibitory, and 0 for neuromodulators."""
+    graph: nx.DiGraph
+    connections: pl.DataFrame
+    uid: pl.DataFrame
+    subgraphs: dict[str, nx.DiGraph]
+    neurons_pre: list[BodyId]
+    neurons_post: list[BodyId]
+    adjacency: AdjacencyDict
+    """Collection of adjacency matrices with keys
+    
+    * `mat_norm` - sparse adjacency matrix of normalised effective weights
+    * `mat_unnorm` - sparse adjacency matrix of non-normalised effective weights
+    * `mat_syncount` - sparse adjacency matrix of raw synapse counts (ignoring neurotransmitter signs)
+    * `lookup` - polars DataFrame
+    """
+
     def __deepcopy__(self, memo):
         """
         deepcopy everything except the ConnectomeReader instance that can
@@ -128,11 +162,11 @@ class Connections:
             if neurons_pre is None:
                 self.neurons_pre = self.CR.list_all_nodes()
             else:
-                self.neurons_pre_ = neurons_pre
+                self.neurons_pre = neurons_pre  # type: ignore
             if neurons_post is None:
                 self.neurons_post = self.neurons_pre
             else:
-                self.neurons_post = neurons_post
+                self.neurons_post = neurons_post  # type: ignore
             self.subgraphs = {}
 
             self.__initialize(split_neurons, not_connected)
@@ -187,33 +221,36 @@ class Connections:
         """
         Create a pandas dataframe with the connections between the neurons.
         All columns are named according to the standard convention as defined
-        by the NeuronAtrribute type.
+        by the NeuronAttribute type.
         """
-        connections_ = self.CR.get_connections(
-            keep_only_traced_neurons=self.keep_only_traced_neurons,
+        self.connections = (
+            self.CR.get_connections(
+                keep_only_traced_neurons=self.keep_only_traced_neurons,
+            )
+            .filter(
+                # filter out only the connections relevant here
+                pl.col("start_bid").is_in(self.neurons_pre)
+                & pl.col("end_bid").is_in(self.neurons_post)
+                # filter synapse count
+                # FIX: this should be handled by the connectome reader!
+                & (pl.col("syn_count") >= params.SYNAPSE_CUTOFF),
+            )
+            .with_columns(
+                # add the neurotransmitter type to the connections
+                eff_weight=pl.col("syn_count")
+                * pl.col("nt_type").replace_strict(
+                    old=pl.Series(self.nt_weights.keys(), strict=False),
+                    new=pl.Series(self.nt_weights.values(), strict=False),
+                ),
+                # add a column with 'subdivision_start' and 'subdivision_end' with zeros as values
+                subdivision_start=0,
+                subdivision_end=0,
+            )
         )
-        # filter out only the connections relevant here
-        connections_ = connections_[
-            connections_["start_bid"].isin(self.neurons_pre)
-            & connections_["end_bid"].isin(self.neurons_post)
-        ]
 
-        # filter synapse count
-        connections_ = connections_[connections_["syn_count"] >= params.SYNAPSE_CUTOFF]
-
-        # add relevant information for the processing steps
-
-        ## add the neurotransmitter type to the connections
-        weight_vec = np.array([self.nt_weights[x] for x in connections_["nt_type"]])
-        connections_["eff_weight"] = connections_["syn_count"] * weight_vec
-
-        # add a column with 'subdivision_start' and 'subdivision_end' with zeros as values
-        connections_["subdivision_start"] = 0
-        connections_["subdivision_end"] = 0
-
-        self.connections = connections_
-
-    def __compute_effective_weights_in_connections(self, ids: str = "body_id"):
+    def __compute_effective_weights_in_connections(
+        self, ids: typing.Literal["body_id", "uid"] = "body_id"
+    ):
         """
         Compute the effective weights of the connections.
         """
@@ -228,18 +265,24 @@ class Connections:
                 Unknown id type {ids}"
             )
         ## Calculate effective weights normalized by total incoming synapses
-        in_total = self.connections.groupby(grouping_on)["syn_count"].sum()
-        in_total = in_total.to_frame(name="in_total")
-        self.connections = self.connections.merge(
-            in_total, left_on=grouping_on, right_index=True
+        # in_total = self.connections.group_by(grouping_on).sum("syn_count")
+        # in_total = in_total.to_frame(name="in_total")
+        # self.connections = self.connections.join(
+        # in_total, left_on=grouping_on, right_index=True
+        self.connections = (
+            self.connections.with_columns(
+                in_total=pl.sum("syn_count").over(grouping_on)
+            )
+            .with_columns(
+                syn_count_norm=pl.col("syn_count") / pl.col("in_total"),
+                eff_weight_norm=pl.col("eff_weight") / pl.col("in_total"),
+            )
+            .drop(["in_total"])
         )
-        self.connections["syn_count_norm"] = (
-            self.connections["syn_count"] / self.connections["in_total"]
-        )
-        self.connections["eff_weight_norm"] = (
-            self.connections["eff_weight"] / self.connections["in_total"]
-        )
-        self.connections = self.connections.drop(columns=["in_total"])
+        # self.connections["syn_count_norm"] = ()
+        # self.connections["eff_weight_norm"] = (
+        # self.connections["eff_weight"] / self.connections["in_total"]
+        # )
         return
 
     def __remove_connections_between(
@@ -255,12 +298,10 @@ class Connections:
         """
         if not_connected is None:
             return
-        self.connections = self.connections[
-            ~(
-                (self.connections["start_bid"].isin(not_connected))
-                & (self.connections["end_bid"].isin(not_connected))
-            )
-        ]
+        self.connections = self.connections.filter(
+            ~pl.col("start_bid").is_in(not_connected)
+            | ~pl.col("end_bid").is_in(not_connected)
+        )
 
     def __split_neuron(self, neuron: Neuron):
         """
@@ -302,10 +343,10 @@ class Connections:
                 & (self.connections["end_bid"] == end_body_id)
             ].copy()
             # duplicate the template len(subdivisions_) times
-            new_connections_ = pd.concat(
+            new_connections_ = pl.concat(
                 [template] * len(subdivisions_), ignore_index=True
             )  # these can be multiple rows if the target is subdivided
-            subdivisions_ = pd.concat(
+            subdivisions_ = pl.concat(
                 [subdivisions_] * len(template), ignore_index=True
             )  # will duplicate the operations to apply to each end subdivision
             # add the subdivisions to the new connections
@@ -330,7 +371,7 @@ class Connections:
                 x * y for x in template["eff_weight_norm"] for y in ratios
             ]
             # replace the template line with the new connections
-            self.connections = pd.concat(
+            self.connections = pl.concat(
                 [
                     self.connections[  # remove the initial entry
                         ~(
@@ -353,7 +394,7 @@ class Connections:
                 & (self.connections["end_bid"] == split_body_id)
             ].copy()
             # duplicate the template for each existing subdivision
-            new_connections_ = pd.concat(
+            new_connections_ = pl.concat(
                 [template] * len(split_neuron_subdivision_ids), ignore_index=True
             )
             # add the subdivisions to the new connections
@@ -364,7 +405,7 @@ class Connections:
             ]  # of the form [0,0,..1,1,..2,2,..]
             # The other values are kept the same
             # (dendrites converge in our model)
-            self.connections = pd.concat(
+            self.connections = pl.concat(
                 [
                     self.connections[
                         ~(
@@ -427,7 +468,7 @@ class Connections:
         )
         # create a new df mapping elements in the set to integers
         uids = list(range(len(unique_objects)))
-        self.uid = pd.DataFrame(
+        self.uid = pl.DataFrame(
             {
                 "uid": uids,
                 "neuron_ids": unique_objects,
@@ -439,28 +480,34 @@ class Connections:
         # add uids to the connections table using pandas join
         # take UID for start_bid and subdivision_start -> rename to start_uid
         self.connections = self.connections.join(
-            self.uid[["body_id", "subdivision", "uid"]].set_index(
-                ["body_id", "subdivision"]
-            ),
-            on=["start_bid", "subdivision_start"],
+            self.uid["body_id", "subdivision", "uid"],
+            left_on=("start_bid", "subdivision_start"),
+            right_on=("body_id", "subdivision"),
+            # self.uid[["body_id", "subdivision", "uid"]].set_index(
+            # ["body_id", "subdivision"]
+            # ),
+            # on=["start_bid", "subdivision_start"],
             how="left",
-        )
+        ).rename({"uid": "start_uid"})
         # renaming the columns in place is much faster
         # otherwise it creates a copy of the dataframe
-        self.connections.columns = self.connections.columns.to_series().replace(
-            {"uid": "start_uid"}
-        )
+        # self.connections.columns = self.connections.columns.to_series().replace(
+        #     {"uid": "start_uid"}
+        # )
         # take UID for end_bid and subdivision_end -> rename to end_bid
         self.connections = self.connections.join(
-            self.uid[["body_id", "subdivision", "uid"]].set_index(
-                ["body_id", "subdivision"]
-            ),
-            on=["end_bid", "subdivision_end"],
+            self.uid["body_id", "subdivision", "uid"],
+            left_on=("end_bid", "subdivision_end"),
+            right_on=("body_id", "subdivision"),
+            # self.uid[["body_id", "subdivision", "uid"]].set_index(
+            #     ["body_id", "subdivision"]
+            # ),
+            # on=["end_bid", "subdivision_end"],
             how="left",
-        )
-        self.connections.columns = self.connections.columns.to_series().replace(
-            {"uid": "end_uid"}
-        )
+        ).rename({"uid": "end_uid"})
+        # self.connections.columns = self.connections.columns.to_series().replace(
+        # {"uid": "end_uid"}
+        # )
 
         return
 
@@ -475,7 +522,7 @@ class Connections:
         self,
         uids,
         output_type: typing.Literal["table"] = "table",
-    ) -> pd.DataFrame: ...
+    ) -> pl.DataFrame: ...
     @typing.overload
     def __convert_uid_to_neuron_ids(
         self,
@@ -494,7 +541,7 @@ class Connections:
         output_type: typing.Literal[
             "tuple", "table", "body_id", "subdivision"
         ] = "tuple",
-    ) -> list[tuple[int, int]] | pd.DataFrame | list[BodyId]:
+    ) -> list[tuple[int, int]] | pl.DataFrame | list[BodyId]:
         """
         Convert a list of unique identifiers to a list of neuron ids.
 
@@ -515,27 +562,28 @@ class Connections:
                 ::: > convert_uid_to_neuron_ids():\
                 Unknown output type {output_type}"
             )
-        to_return = self.uid.loc[self.uid["uid"].isin(uids)]
-        # sort the table by the order of the input list
-        to_return = to_return.set_index("uid").loc[uids].reset_index()
+        to_return = self.uid.filter(pl.col("uid").is_in(uids)).sort(
+            # sort the table by the order of the input list
+            pl.col("uid").sort_by(pl.Series(uids))
+        )
         if output_type == "tuple":
-            return list(to_return["neuron_ids"].values)
+            return to_return["neuron_ids"].to_list()
         elif output_type == "table":
             return to_return
         elif output_type == "body_id":
-            return list(to_return["body_id"].values)
+            return to_return["body_id"].to_list()
         elif output_type == "subdivision":
-            return to_return["subdivision"].values
+            return to_return["subdivision"].to_list()
 
     def __get_uids_from_bodyids(self, body_ids: list[BodyId] | list[int]) -> list[UID]:
         """
         Get the unique identifiers from a list of body ids.
         """
-        return self.uid.loc[self.uid["body_id"].isin(body_ids)]["uid"].to_list()
+        return self.uid.filter(pl.col("body_id").is_in(body_ids))["uid"].to_list()
 
     def __build_graph(self):  # networkx graph
         self.graph = nx.from_pandas_edgelist(
-            self.connections,
+            self.connections.to_pandas(),
             source="start_uid",
             target="end_uid",
             edge_attr=[
@@ -591,16 +639,21 @@ class Connections:
         will have nodes A1 = 'A_T1' and A2 = 'A_T2'.
         """
         names = self.CR.load_data_neuron_set(  # retrieve data
-            ids=list(self.uid["body_id"].values),
+            ids=self.uid["body_id"].to_list(),
             attributes=["name"],
         )
-        self.uid = pd.merge(
-            self.uid,
+        self.uid = self.uid.join(
             names,
             on="body_id",
             how="left",
-        )
-        self.uid = self.uid.rename(columns={"name": "node_label"})
+        ).rename({"name": "node_label"})
+        # self.uid = pd.merge(
+        # self.uid,
+        # names,
+        # on="body_id",
+        # how="left",
+        # )
+        # self.uid = self.uid.rename(columns={"name": "node_label"})
 
         if split_neurons is None:
             return
@@ -609,9 +662,14 @@ class Connections:
             assert subdivisions is not None, "Neuron subdivisions is None"
             unique_starts = subdivisions[
                 ["start_bid", "subdivision_start", "subdivision_start_name"]
-            ].drop_duplicates()
-            for _, row in unique_starts.iterrows():
+            ].unique()
+            for _, row in unique_starts.iter_rows(named=True):
                 id_tuple = (row["start_bid"], row["subdivision_start"])
+                # self.uid.filter(
+                #     neuron_ids=id_tuple
+                # ).update(
+
+                # )
                 self.uid.loc[self.uid["neuron_ids"] == id_tuple, "node_label"] += row[
                     "subdivision_start_name"
                 ]
@@ -638,7 +696,7 @@ class Connections:
         mat_syn_count = nx.to_scipy_sparse_array(
             self.graph, nodelist=nodelist, weight="syn_count", format="csr"
         )
-        lookup = pd.DataFrame(
+        lookup = pl.DataFrame(
             data={
                 "index": np.arange(len(nodelist)),
                 "uid": nodelist,
@@ -649,8 +707,7 @@ class Connections:
                     nodelist, output_type="subdivision"
                 ),
             }
-        )
-        lookup = lookup.sort_values("index")
+        ).sort(by="index")
 
         self.adjacency = {
             "mat_norm": mat_norm,
@@ -658,7 +715,6 @@ class Connections:
             "mat_syncount": mat_syn_count,
             "lookup": lookup,
         }
-        return
 
     def __get_node_attributes(
         self,
@@ -707,7 +763,8 @@ class Connections:
                 print(f"Attribute {attribute} not found in the graph. Adding it.")
                 nodes = self.get_nodes(type="uid")  # uids
                 body_ids = self.get_nodes(type="body_id")
-                attr = self.CR.load_data_neuron_set(  # retrieve data, systematic attribute naming
+                # retrieve data, systematic attribute naming
+                attr = self.CR.load_data_neuron_set(
                     ids=body_ids,
                     attributes=[attribute],
                 )
@@ -742,18 +799,18 @@ class Connections:
     def set_graph(
         self,
         graph: nx.DiGraph,
-        connections: pd.DataFrame,
+        connections: pl.DataFrame,
     ): ...
 
     def set_graph(
         self,
         graph: Optional[nx.DiGraph] = None,
-        connections: Optional[pd.DataFrame] = None,
+        connections: Optional[pl.DataFrame] = None,
     ):
         """
         Copy the graph, and update the normalised weights of the edges.
         """
-        if graph is None:
+        if graph is None or connections is None:
             self.__build_graph()
         else:
             edges = [
@@ -818,40 +875,35 @@ class Connections:
         Connections
             New Connections object with the subgraph.
         """
-        # copy the original object
-        new_connection_obj = copy.deepcopy(self)
-
         if nodes is None and edges is None:
-            return new_connection_obj
-
-        # recompute all the attributes inside from the subset
-        new_connection_obj.empty()
+            return copy.deepcopy(self)
 
         # Identify the connections to keep
         connections_ = self.get_dataframe()
         if nodes is not None:
-            connections_ = connections_[
-                connections_["start_uid"].isin(nodes)
-                & connections_["end_uid"].isin(nodes)
-            ]
+            connections_ = connections_.filter(
+                pl.col("start_uid").is_in(nodes) & pl.col("end_uid").is_in(nodes)
+            )
         else:
             # edges is necessarily not None. otherwise already returned above
             # get all the elements present in the tuples edges
             nodes = list(set([x for y in edges for x in y]))
         if edges is not None:
-            rows_to_drop = []
-            for index, row in connections_.iterrows():
-                if (row["start_uid"], row["end_uid"]) not in edges:
-                    rows_to_drop.append(index)
-            connections_ = connections_.drop(rows_to_drop)
+            connections_ = connections_.filter(
+                pl.concat_list(pl.col("start_uid", "end_uid")).is_in(edges)
+            )
 
-        # Update the neuron list fields
-        new_connection_obj.neurons_pre_ = connections_["start_bid"].to_list()
-        new_connection_obj.neurons_post_ = connections_["end_bid"].to_list()
+        new_connection_obj = Connections(
+            CR=self.CR,
+            neurons_pre=connections_["start_bid"].to_list(),
+            neurons_post=connections_["end_bid"].to_list(),
+            nt_weights=self.nt_weights,
+            split_neurons=[],
+        )
 
         # update the effective weights
         connections_ = connections_.drop(
-            columns=[
+            [
                 "syn_count_norm",
                 "eff_weight_norm",
             ]
@@ -861,7 +913,7 @@ class Connections:
 
         # Subset the uids, keeps the names
         new_connection_obj.uid = copy.deepcopy(
-            self.uid.loc[self.uid["uid"].isin(nodes)]
+            self.uid.filter(pl.col("uid").is_in(nodes))
         )
         # Initialize the graph
         new_connection_obj.set_graph()
@@ -925,7 +977,7 @@ class Connections:
     def get_connections_with_only_traced_neurons(self):
         """
         Remove the neurons in the graph for which the field "tracing_status"
-        is not "Traced". This can only be done on datastes where the status
+        is not "Traced". This can only be done on datasets where the status
         field is present.
 
         Returns
@@ -982,16 +1034,16 @@ class Connections:
         Get the connections table.
         """
         if specific_start_uids is not None and specific_end_uids is not None:
-            return self.connections[
-                self.connections["start_uid"].isin(specific_start_uids)
-                & self.connections["end_uid"].isin(specific_end_uids)
-            ]
+            return self.connections.filter(
+                pl.col("start_uid").is_in(specific_start_uids)
+                & pl.col("end_uid").is_in(specific_end_uids)
+            )
         if specific_start_uids is not None:
-            return self.connections[
-                self.connections["start_uid"].isin(specific_start_uids)
-            ]
+            return self.connections.filter(
+                pl.col("start_uid").is_in(specific_start_uids)
+            )
         if specific_end_uids is not None:
-            return self.connections[self.connections["end_uid"].isin(specific_end_uids)]
+            return self.connections.filter(pl.col("end_uid").is_in(specific_end_uids))
         return self.connections
 
     def get_graph(
@@ -1144,22 +1196,28 @@ class Connections:
         Get the number of synapses between two neurons.
         """
         if input_type == "body_id":
-            table = self.connections[
-                (self.connections["start_bid"] == start_id)
-                & (self.connections["end_bid"] == end_id)
-            ]
+            nb_synapses = (
+                self.connections.filter(start_bid=start_id, end_bid=end_id)
+                .unique(subset=["start_bid", "subdivision_start", "end_bid"])[
+                    "syn_count"
+                ]
+                .sum()
+            )
             # drop subdivision duplicates in the post synaptic neuron
             # (from duplication policy in neuron splitting)
-            table = table.drop_duplicates(
-                subset=["start_bid", "subdivision_start", "end_bid"]
-            )
-            nb_synapses = table["syn_count"].sum()
+            # table = table.drop_duplicates(
+            # subset=["start_bid", "subdivision_start", "end_bid"]
+            # )
+            # nb_synapses = table["syn_count"].sum()
         elif input_type == "uid":
-            table = self.connections[
-                (self.connections["start_uid"] == start_id)
-                & (self.connections["end_uid"] == end_id)
-            ]
-            nb_synapses = table["syn_count"].sum()
+            nb_synapses = self.connections.filter(start_uid=start_id, end_uid=end_id)[
+                "syn_count"
+            ].sum()
+            # table = self.connections[
+            #     (self.connections["start_uid"] == start_id)
+            #     & (self.connections["end_uid"] == end_id)
+            # ]
+            # nb_synapses = table["syn_count"].sum()
 
         else:
             raise ValueError(
@@ -1172,15 +1230,15 @@ class Connections:
         """
         Get the uids of the neurons that have a label containing the given string.
         """
-        return self.uid.loc[
-            self.uid["node_label"].str.contains(label_contains, na=False)
-        ]["uid"].values
+        return self.uid.filter(pl.col("node_label").str.contains(label_contains))[
+            "uid"
+        ].to_list()
 
     def get_node_label(self, uid: UID | int):
         """
         Get the label of a node.
         """
-        return self.uid.loc[self.uid["uid"] == uid]["node_label"].values[0]
+        return self.uid.filter(uid=uid)[0, "node_label"]
 
     def get_node_attribute(
         self, uid: list[UID] | list[int] | UID | int, attribute: NeuronAttribute
@@ -1541,7 +1599,11 @@ class Connections:
         return self.CR.get_synapse_counts_by_neuropil("pre", [body_id])
 
     # --- setters
-    def merge_nodes(self, nodes: list[UID] | list[int], combination_logic: str = "sum"):
+    def merge_nodes(
+        self,
+        nodes: list[UID] | list[int],
+        combination_logic: typing.Literal["sum", "min", "max"] = "sum",
+    ):
         """
         Merge a list of nodes into a single node.
         The first node in the list is kept as reference.
@@ -1554,44 +1616,50 @@ class Connections:
                 ref_node,
                 other_node,
             )
-            # merge the nodes in the connections dataframe
-            self.connections = self.connections.replace(
-                to_replace=other_node,
-                value=ref_node,
-            )
+        # merge the nodes in the connections dataframe
+        self.connections = self.connections.with_columns(
+            start_uid=pl.when(pl.col("start_uid").is_in(nodes))
+            .then(ref_node)
+            .otherwise(pl.col("start_uid")),
+            end_uid=pl.when(pl.col("end_uid").is_in(nodes))
+            .then(ref_node)
+            .otherwise(pl.col("end_uid")),
+        )
         # clear the connections table from duplicates:
         # if a connection is present in both nodes, the weight is summed
-        self.connections = (
-            self.connections.groupby(["start_uid", "end_uid", "nt_type"])
-            .agg(
-                syn_count=("syn_count", combination_logic),
-                eff_weight=("eff_weight", combination_logic),
-                syn_count_norm=("syn_count_norm", combination_logic),
-                eff_weight_norm=("eff_weight_norm", combination_logic),
-                subdivision_start=("subdivision_start", "first"),
-                subdivision_end=("subdivision_end", "first"),
-                start_bid=("start_bid", "first"),
-                end_bid=("end_bid", "first"),
-            )
-            .reset_index()
+        agg_function = {
+            "sum": pl.Expr.sum,
+            "min": pl.Expr.min,
+            "max": pl.Expr.max,
+        }[combination_logic]
+        self.connections = self.connections.group_by(
+            ["start_uid", "end_uid", "nt_type"]
+        ).agg(
+            syn_count=agg_function(pl.col("syn_count")),
+            eff_weight=agg_function(pl.col("eff_weight")),
+            syn_count_norm=agg_function(pl.col("syn_count_norm")),
+            eff_weight_norm=agg_function(pl.col("eff_weight_norm")),
+            subdivision_start=pl.first("subdivision_start"),
+            subdivision_end=pl.first("subdivision_end"),
+            start_bid=pl.first("start_bid"),
+            end_bid=pl.first("end_bid"),
         )
 
         # update the adjacency matrices
-        self.adjacency = self.__build_adjacency_matrices()
+        self.__build_adjacency_matrices()
 
         # update the neurons list
-        self.neurons_pre_ = self.connections["start_bid"].to_list()
-        self.neurons_post_ = self.connections["end_bid"].to_list()
+        self.neurons_pre = self.connections["start_bid"].to_list()
+        self.neurons_post = self.connections["end_bid"].to_list()
 
         # Update the uid table
-        defined_uids = (
-            self.connections["start_uid"].to_list()
-            + self.connections["end_uid"].to_list()
+        defined_uids = list(
+            set(
+                self.connections["start_uid"].to_list()
+                + self.connections["end_uid"].to_list()
+            )
         )
-        defined_uids = list(set(defined_uids))
-        self.uid = self.uid[self.uid["uid"].isin(defined_uids)]
-
-        return
+        self.uid = self.uid.filter(pl.col("uid").is_in(defined_uids))
 
     def reorder_neurons(
         self,
@@ -1622,30 +1690,26 @@ class Connections:
                     assert self.adjacency is not None, (
                         "Error: adjacency matrix is None - probably wasn't initialised"
                     )
-                    order_ = self.adjacency["lookup"].loc[order, "uid"].to_list()
+                    order_ = self.adjacency["lookup"][order, "uid"].to_list()
                 else:
                     raise ValueError(
                         f"Class Connections > reorder_neurons(): \
                             Unknown order type {order_type}"
                     )
-                self.adjacency = self.__build_adjacency_matrices(nodelist=order_)
+                self.__build_adjacency_matrices(nodelist=order_)
             case _:
                 raise ValueError(
                     f"Class Connections::: > reorder_neurons(): Unknown method {by}"
                 )
-        return
 
-    def set_connections(self, connections: pd.DataFrame):
+    def set_connections(self, connections: pl.DataFrame):
         self.connections = connections
-        return
 
     def set_nt_weights(self, nt_weights: dict[str, int]):
         self.nt_weights = nt_weights
-        return
 
     def set_adjacency_matrices(self):
         self.__build_adjacency_matrices()
-        return
 
     def include_node_attributes(self, attributes: list[NeuronAttribute]):
         """
@@ -1653,7 +1717,6 @@ class Connections:
         """
         for attribute in attributes:
             self.__load_node_attributes(attribute)
-        return
 
     # --- computations
     def __compute_n_hops(self, n: int, initialize_graph: bool = False):
@@ -1679,7 +1742,6 @@ class Connections:
                 self.subgraphs[f"graph_{n}_hops"],
                 nodes_data_,
             )
-        return
 
     def paths_length_n(
         self,
@@ -1798,7 +1860,6 @@ class Connections:
 
         if save:
             plt.savefig(os.path.join(self.CR.get_plots_dir(), title + "_matrix.pdf"))
-        return
 
     @typing.overload
     def display_graph(
@@ -2012,7 +2073,6 @@ class Connections:
             _ = nx_design.plot_xyz(graph_, x, y, sorting=sorting)
         # save the plot
         plt.savefig(os.path.join(self.CR.get_plots_dir(), title + "3d_plot.pdf"))
-        return
 
     def draw_3d_custom_axis(
         self,
@@ -2207,9 +2267,9 @@ class Connections:
         for uid in neurons:
             values.append(self.get_node_attribute(uid, attribute))
         values.sort()
-        values = pd.Series(values)
+        values = pl.Series(values)
         counts = values.value_counts()
-        counts.plot(kind="bar", ax=ax, colormap="grey")
+        counts.to_pandas().plot(kind="bar", ax=ax, colormap="grey")
         ax.set_xlabel(attribute)
         ax.set_ylabel(ylabel)
         ax = plots_design.make_nice_spines(ax)
@@ -2220,11 +2280,11 @@ class Connections:
         """
         List the attributes present in the nodes dataframe.
         """
-        all_attributes = self.__defined_attributes_in_graph
-        from_dataset = self.CR.list_possible_attributes()
-        all_attributes.extend(from_dataset)
-        all_attributes = np.unique(all_attributes)
-        return all_attributes
+        return list(
+            set(self.__defined_attributes_in_graph).union(
+                self.CR.list_possible_attributes()
+            )
+        )
 
     def list_neuron_properties(
         self,
@@ -2248,7 +2308,7 @@ class Connections:
 
         Returns
         -------
-        pd.DataFrame
+        pl.DataFrame
             Dataframe with the properties of the neurons.
         """
         defined_properties = self.__defined_attributes_in_graph
@@ -2265,13 +2325,11 @@ class Connections:
         if len(nodes) < len(neurons):
             print("WARNING:: Some neurons were not found in the graph.")
 
-        properties = pd.DataFrame(columns=defined_properties, index=nodes)
+        properties = pl.DataFrame({"uid": nodes})
 
         for p in defined_properties:
             values = self.__get_node_attributes(p)
-            properties[p] = [values[n] for n in nodes]
-
-        properties["uid"] = nodes
+            properties = properties.with_columns(pl.col("uid").replace(values).alias(p))
 
         return properties
 
@@ -2286,15 +2344,3 @@ class Connections:
         to_save = {key: value for key, value in self.__dict__.items() if key != "CR"}
         with open(filename, "wb") as f:
             pickle.dump(to_save, f)
-
-    # --- clearing
-    def empty(self):
-        """
-        Empty the connections object.
-        """
-        self.graph = None
-        self.connections = None
-        self.adjacency = None
-        self.subgraphs = {}
-        self.uid = None
-        return

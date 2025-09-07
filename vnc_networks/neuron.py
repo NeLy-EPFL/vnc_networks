@@ -19,7 +19,7 @@ import matplotlib.axes
 import matplotlib.colors
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
+import polars as pl
 from sklearn.cluster import KMeans
 
 from . import params
@@ -89,9 +89,9 @@ class Neuron:
         if from_file is not None:
             self.__load(from_file)
         else:
-            assert (
-                body_id is not None
-            ), "To initialise a `Neuron`, you must provide either a `body_id` or `from_file`, but both were None."
+            assert body_id is not None, (
+                "To initialise a `Neuron`, you must provide either a `body_id` or `from_file`, but both were None."
+            )
             self.body_id = body_id
             self.data = self.CR.load_data_neuron(
                 body_id, self.CR.node_base_attributes()
@@ -113,13 +113,13 @@ class Neuron:
             neuron = pickle.load(file)
         for key, value in neuron.items():
             if key == "connectome_name":
-                assert (
-                    value == self.CR.connectome_name
-                ), "file created with another connectome!"
+                assert value == self.CR.connectome_name, (
+                    "file created with another connectome!"
+                )
             if key == "connectome_version":
-                assert (
-                    value == self.CR.connectome_version
-                ), "file created with another connectome version!"
+                assert value == self.CR.connectome_version, (
+                    "file created with another connectome version!"
+                )
             setattr(self, key, value)
 
     def __initialise_base_attributes(self):
@@ -330,15 +330,14 @@ class Neuron:
         Clear the subdivisions table from neurons that have their bodyid in
         the not_connected list.
         """
-        assert (
-            self.subdivisions is not None
-        ), "Trying to clear not_connected but subdivisions is None"
-        self.subdivisions = self.subdivisions[
-            ~self.subdivisions["end_bid"].isin(not_connected)
-        ]
-        self.synapse_df = self.synapse_df[
-            ~self.synapse_df["end_bid"].isin(not_connected)
-        ]
+        assert self.subdivisions is not None, (
+            "Trying to clear not_connected but subdivisions is None"
+        )
+        # FIX: should this be start_bid in the first one?
+        self.subdivisions = self.subdivisions.filter(
+            ~pl.col("end_bid").is_in(not_connected)
+            & ~pl.col("end_bid").is_in(not_connected)
+        )
 
     def remove_defined_subdivisions(self):
         """

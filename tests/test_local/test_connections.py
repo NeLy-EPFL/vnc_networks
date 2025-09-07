@@ -65,11 +65,11 @@ class TestConnections:
         df = valid_connections.get_dataframe()
         assert df is not None, "Couldn't get connections dataframe"
 
-        df_1 = df[(df["start_bid"] == 11218) & (df["end_bid"] == 10094)]
-        assert df_1["eff_weight"].values[0] == 915, "Incorrect data values"
+        df_1 = df.filter(start_bid=11218, end_bid=10094)
+        assert df_1[0, "eff_weight"] == 915, "Incorrect data values"
 
-        df_2 = df[(df["start_bid"] == 10725) & (df["end_bid"] == 10439)]
-        assert df_2["eff_weight"].values[0] == -1080, "Incorrect nt_type handling"
+        df_2 = df.filter(start_bid=10725, end_bid=10439)
+        assert df_2[0, "eff_weight"] == -1080, "Incorrect nt_type handling"
 
     def test_connections_instantiation_MANCv1_2_3(self):
         """
@@ -86,11 +86,11 @@ class TestConnections:
         df = valid_connections.get_dataframe()
         assert df is not None, "Couldn't get connections dataframe"
 
-        df_1 = df[(df["start_bid"] == 11218) & (df["end_bid"] == 10094)]
-        assert df_1["eff_weight"].values[0] == 915, "Incorrect data values"
+        df_1 = df.filter(start_bid=11218, end_bid=10094)
+        assert df_1[0, "eff_weight"] == 915, "Incorrect data values"
 
-        df_2 = df[(df["start_bid"] == 10725) & (df["end_bid"] == 10439)]
-        assert df_2["eff_weight"].values[0] == -1080, "Incorrect nt_type handling"
+        df_2 = df.filter(start_bid=10725, end_bid=10439)
+        assert df_2[0, "eff_weight"] == -1080, "Incorrect nt_type handling"
 
     def test_connections_getting_neuron_ids_MANCv1_2_1(self):
         """
