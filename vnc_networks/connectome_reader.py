@@ -14,13 +14,13 @@ import os
 import typing
 from abc import ABC, abstractmethod
 from collections.abc import Collection, Mapping
+from gc import collect
 from typing import Any, Optional
 
 import numpy as np
 import polars as pl
 import polars.selectors as cs
 from bidict import bidict
-from pandas._typing import DtypeArg
 
 from . import params
 from .params import (
@@ -581,8 +581,11 @@ class MANCReader(ConnectomeReader):
         Get the body ids of the traced neurons.
         """
         return (
-            pl.read_ipc(self._nodes_file, columns=[self._body_id, self._tracing_status])
-            .filter(pl.col(self._tracing_status) == self.traced_entry)[self._body_id]
+            pl.scan_ipc(self._nodes_file)
+            .filter(pl.col(self._tracing_status) == self.traced_entry)
+            .select(self._body_id)
+            .collect()
+            .get_column(self._body_id)
             .to_list()
         )
 
@@ -591,22 +594,27 @@ class MANCReader(ConnectomeReader):
         Load the connections of the connectome.
         Needs to gather the columns ['start_bid', 'end_bid', 'syn_count', 'nt_type'].
         """
-        # Loading data in the connections file
-        connections = pl.read_ipc(
-            self._connections_file,
-            columns=[self._start_bid, self._end_bid, self._syn_count],
-        ).rename(self.decode_neuron_attribute)
-
-        # add nt_type information
-        data = pl.read_ipc(
-            self._nodes_file, columns=[self._body_id, self._nt_type]
-        ).rename(self.decode_neuron_attribute)
-
-        return connections.join(
-            data,
-            left_on="start_bid",
-            right_on="body_id",
-            how="left",
+        return (
+            (
+                # Loading data in the connections file
+                pl.scan_ipc(
+                    self._connections_file,
+                )
+                .select(self._start_bid, self._end_bid, self._syn_count)
+                .rename(self.decode_neuron_attribute)
+            )
+            .join(
+                # add nt_type information
+                pl.scan_ipc(
+                    self._nodes_file,
+                )
+                .select(self._body_id, self._nt_type)
+                .rename(self.decode_neuron_attribute),
+                left_on="start_bid",
+                right_on="body_id",
+                how="left",
+            )
+            .collect()
         )
 
     # public methods
@@ -614,9 +622,11 @@ class MANCReader(ConnectomeReader):
         """
         List all the neurons existing in the connectome.
         """
-        return pl.read_ipc(self._nodes_file, columns=[self._body_id])[
-            self._body_id
-        ].to_list()
+        return (
+            pl.read_ipc(self._nodes_file, columns=[self._body_id])
+            .get_column(self._body_id)
+            .to_list()
+        )
 
     def get_neuron_bodyids(
         self,
@@ -637,12 +647,7 @@ class MANCReader(ConnectomeReader):
         """
         s_dict = self.specific_selection_dict(selection_dict)
 
-        # Identify columns to load
-        columns_to_read = [self.sna(a) for a in selection_dict.keys()]
-        if self._body_id not in columns_to_read:
-            columns_to_read.append(self._body_id)
-
-        neurons = pl.read_ipc(self._nodes_file, columns=list(columns_to_read))
+        neurons = pl.scan_ipc(self._nodes_file)
 
         for key in s_dict.keys():
             if key == self.sna("class_1"):
@@ -657,7 +662,7 @@ class MANCReader(ConnectomeReader):
         if nodes is not None:
             neurons = neurons.filter(pl.col(self._body_id).is_in(nodes))
 
-        return neurons[self._body_id].to_list()
+        return neurons.collect().get_column(self._body_id).to_list()
 
     def load_data_neuron(
         self,
@@ -681,15 +686,18 @@ class MANCReader(ConnectomeReader):
         """
         if "body_id" not in attributes:
             attributes.append("body_id")
+
         # Identify columns to load
         columns_to_read = [self.sna(a) for a in attributes]
-        columns_to_write = attributes
 
         # Load data
-        neurons = pl.read_ipc(self._nodes_file, columns=columns_to_read).rename(
-            self.decode_neuron_attribute
+        return (
+            pl.scan_ipc(self._nodes_file)
+            .select(columns_to_read)
+            .rename(self.decode_neuron_attribute)
+            .filter(body_id=id_)
+            .collect()
         )
-        return neurons.filter(body_id=id_)[columns_to_write]
 
     def load_data_neuron_set(
         self,
@@ -713,17 +721,18 @@ class MANCReader(ConnectomeReader):
         """
         if "body_id" not in attributes:
             attributes.append("body_id")
+
         # Identify columns to load
         columns_to_read = [self.sna(a) for a in attributes]
-        columns_to_write = attributes
 
         # Load data
-        neurons = pl.read_ipc(self._nodes_file, columns=columns_to_read).rename(
-            self.decode_neuron_attribute
+        return (
+            pl.scan_ipc(self._nodes_file)
+            .select(columns_to_read)
+            .rename(self.decode_neuron_attribute)
+            .filter(pl.col("body_id").is_in(ids))
+            .collect()
         )
-
-        # return columns in the order they were requested in attributes
-        return neurons.filter(pl.col("body_id").is_in(ids))[columns_to_write]
 
 
 # Specific versions of MANC
@@ -1170,26 +1179,6 @@ class MANC_v_1_2(MANCReader):
         self._synapses_file = os.path.join(self._connectome_dir, "synapses.ftr")
         self._connections_file = os.path.join(self._connectome_dir, "connections.ftr")
 
-    # --- specific private methods
-    def _load_synapse_locations(self, synapse_ids: list[int]) -> pl.DataFrame:
-        """
-        Get the locations of the synapses.
-
-        Returns a dataframe with columns: synapse_id, X, Y, Z
-        """
-        column_name_mapping = {
-            self._syn_id: "synapse_id",
-            self._synapse_x: "X",
-            self._synapse_y: "Y",
-            self._synapse_z: "Z",
-        }
-        return (
-            pl.read_ipc(self._synapses_file, columns=list(column_name_mapping.keys()))
-            # create synapse ids from the index
-            .filter(pl.col(self._syn_id).is_in(synapse_ids))
-            .rename(column_name_mapping)
-        )
-
     # public methods
     def get_synapse_df(self, body_id: BodyId | int) -> pl.DataFrame:
         """
@@ -1206,7 +1195,8 @@ class MANC_v_1_2(MANCReader):
             self._synapse_z: "Z",
         }
         synapses = (
-            pl.read_ipc(self._synapses_file, columns=list(column_name_mapping.keys()))
+            pl.scan_ipc(self._synapses_file)
+            .select(list(column_name_mapping.keys()))
             # filter on the presynaptic neuron
             .filter(pl.col(self._start_bid) == body_id)
             .rename(column_name_mapping)
@@ -1215,10 +1205,11 @@ class MANC_v_1_2(MANCReader):
         # filter out non traced postsynaptic neurons
         # add a column with 'tracing_status' of the postsynaptic neuron if it exists
         if self.exists_tracing_status():
-            nodes_data = pl.read_ipc(
-                self._nodes_file,
-                columns=[self._body_id, self._tracing_status],
-            ).rename(self.decode_neuron_attribute)
+            nodes_data = (
+                pl.scan_ipc(self._nodes_file)
+                .select(self._body_id, self._tracing_status)
+                .rename(self.decode_neuron_attribute)
+            )
             # remove the rows where the postsynaptic neuron is not traced
             synapses = (
                 synapses.join(
@@ -1233,7 +1224,7 @@ class MANC_v_1_2(MANCReader):
         return synapses.filter(
             pl.len().over("start_bid", "end_bid")
             >= self.connectome_preprocessing.min_synapse_count_cutoff
-        )
+        ).collect()
 
     def get_synapse_neuropil(
         self,
@@ -1249,10 +1240,12 @@ class MANC_v_1_2(MANCReader):
             self._syn_neuropil: "neuropil",
         }
         return (
-            pl.read_ipc(self._synapses_file, columns=list(column_name_mapping.keys()))
+            pl.scan_ipc(self._synapses_file)
+            .select(list(column_name_mapping.keys()))
             # filter on synapse_ids
             .filter(pl.col(self._syn_id).is_in(synapse_ids))
             .rename(column_name_mapping)
+            .collect()
         )
 
     def get_synapse_counts_by_neuropil(
@@ -1288,14 +1281,15 @@ class MANC_v_1_2(MANCReader):
             else synapse_count_type
         )
 
-        roi_info_table = pl.read_ipc(
-            self._nodes_file, columns=[self._body_id, self._roi_info]
+        roi_info_table = pl.scan_ipc(self._nodes_file).select(
+            self._body_id, self._roi_info
         )
         if body_id_subset is not None:
             # Note: this removes some ROIs from the columns...
             roi_info_table = roi_info_table.filter(
                 pl.col(self._body_id).is_in(body_id_subset)
             )
+        roi_info_table = roi_info_table.collect()
 
         # the roi_Info column contains the number of synapses in a json string like:
         # {ROI: {"downstream" : 0, "upstream" : 1, ...}, ...}
@@ -1305,11 +1299,13 @@ class MANC_v_1_2(MANCReader):
         # so we choose just the columns with the type of count we want and drop the rest
         # then rename the columns
         return (
-            pl.json_normalize([ast.literal_eval(x) for x in roi_info_table["roiInfo"]])
+            pl.json_normalize(
+                [ast.literal_eval(x) for x in roi_info_table.get_column("roiInfo")]
+            )
             .select(cs.ends_with(f".{synapse_count_type_name}"))
             .rename(lambda column_name: column_name.split(".")[0])
             .fill_null(0)
-            .select(roi_info_table[self._body_id].alias("body_id"), pl.all())
+            .select(roi_info_table.get_column(self._body_id).alias("body_id"), pl.all())
         )
 
 
@@ -1557,20 +1553,10 @@ class FAFBReader(ConnectomeReader):
         Load the connections of the connectome.
         Needs to gather the columns ['start_bid', 'end_bid', 'syn_count', 'nt_type'].
         """
-        columns: list[NeuronAttribute] = [
-            "start_bid",
-            "end_bid",
-            "syn_count",
-            "nt_type",
-        ]
-        columns_to_read = [self.sna(a) for a in columns]
-        # here the root_id length is not an issue because there are mixed types
-        # in the dataframe. In practice that means that the root_ids are parsed
-        # first, and converted to int only if they are integers, which is fine.
-        connections = pl.read_csv(self._connections_file, columns=columns_to_read)
-        read_columns = connections.columns
-        connections.columns = [self.decode_neuron_attribute(c) for c in read_columns]
-        return connections
+        return pl.read_csv(
+            self._connections_file,
+            columns=[self._start_bid, self._end_bid, self._syn_count, self._nt_type],
+        ).rename(self.decode_neuron_attribute)
 
     # --- specific private methods
     def _filter_neurons(
@@ -1587,12 +1573,13 @@ class FAFBReader(ConnectomeReader):
         att = self.sna(attribute)  # specific name attribute
 
         def _simply_filter_df(filename: str, att: str, value) -> set[BodyId]:
-            data = pl.read_csv(
-                filename,
-                columns=[self._body_id, att],
-                schema_overrides={self._body_id: pl.UInt64},
-            ).filter(pl.col(att) == value)
-            return set(data[self._body_id].to_list())
+            return set(
+                pl.scan_csv(filename, schema_overrides={self._body_id: pl.UInt64})
+                .filter(pl.col(att) == value)
+                .select(self._body_id)
+                .collect()
+                .get_column(self._body_id)
+            )
 
         if attribute in ["nt_type", "nt_proba", "neuropil"]:
             filename = self._node_nt_type_file
@@ -1631,19 +1618,28 @@ class FAFBReader(ConnectomeReader):
             "y": pl.Int32,
             "z": pl.Int32,
         }
-        all_synapses = pl.read_csv(
-            self._synapses_file,
-            schema=type_dict,
-        )
-        all_synapses.columns = ["start_bid", "end_bid", "X", "Y", "Z"]  # file order
         return (
-            all_synapses.fill_null(strategy="forward")
+            pl.scan_csv(
+                self._synapses_file,
+                schema=type_dict,
+            )
+            .rename(
+                {
+                    "pre_root_id": "start_bid",
+                    "post_root_id": "end_bid",
+                    "x": "X",
+                    "y": "Y",
+                    "z": "Z",
+                }
+            )
+            .fill_null(strategy="forward")
             # put the synapse_id column first
             .select(
-                pl.int_range(len(all_synapses), dtype=pl.UInt64).alias("synapse_id"),
+                pl.int_range(pl.len(), dtype=pl.UInt64).alias("synapse_id"),
                 pl.all(),
             )
             .filter(pl.col("start_bid") == body_id)
+            .collect()
         )
 
     def get_synapse_neuropil(
@@ -1682,7 +1678,7 @@ class FAFBReader(ConnectomeReader):
                 **Note:** ROI columns won't be returned if no neurons have a count in that column (ie. if specifying
                 a small number of neurons for `body_id_subset`).
         """
-        connections_table = pl.read_csv(
+        connections_table = pl.scan_csv(
             self._connections_file,
         )
 
@@ -1697,11 +1693,12 @@ class FAFBReader(ConnectomeReader):
             synapse_counts = (
                 pl.concat(
                     [
-                        connections_table[
-                            [neuron_body_id_we_care_about, "neuropil", "syn_count"]
-                        ]
+                        connections_table.select(
+                            neuron_body_id_we_care_about, "neuropil", "syn_count"
+                        )
                         .group_by([neuron_body_id_we_care_about, "neuropil"])
                         .sum()
+                        .collect()
                         .pivot(
                             index=neuron_body_id_we_care_about,
                             on="neuropil",
@@ -1744,10 +1741,11 @@ class FAFBReader(ConnectomeReader):
 
         return (
             aggregate_group_function(
-                connections_table[
-                    [neuron_body_id_we_care_about, "neuropil", "syn_count"]
-                ].group_by([neuron_body_id_we_care_about, "neuropil"])
+                connections_table.select(
+                    neuron_body_id_we_care_about, "neuropil", "syn_count"
+                ).group_by([neuron_body_id_we_care_about, "neuropil"])
             )
+            .collect()
             .pivot(
                 index=neuron_body_id_we_care_about,
                 on="neuropil",
@@ -1761,14 +1759,15 @@ class FAFBReader(ConnectomeReader):
         """
         List all the neurons existing in the connectome.
         """
-        data = pl.read_csv(
-            self._node_stats_file,
-            columns=[self._body_id],
-            schema_overrides={
-                self._body_id: pl.String
-            },  # in case there are only ints in the file
+        return (
+            pl.read_csv(
+                self._node_stats_file,
+                columns=[self._body_id],
+                schema_overrides={self._body_id: pl.UInt64},
+            )
+            .get_column(self._body_id)
+            .to_list()
         )
-        return data[self._body_id].cast(pl.Int64()).to_list()
 
     def get_neuron_bodyids(
         self,
@@ -1854,13 +1853,11 @@ class FAFBReader(ConnectomeReader):
             columns.add("body_id")
             columns_to_read = [self.sna(a) for a in columns]
             return (
-                pl.read_csv(
-                    filename,
-                    columns=columns_to_read,
-                    schema_overrides={self._body_id: pl.UInt64},
-                )
-                .rename(lambda column_name: self.decode_neuron_attribute(column_name))
+                pl.scan_csv(filename, schema_overrides={self._body_id: pl.UInt64})
+                .select(columns_to_read)
+                .rename(self.decode_neuron_attribute)
                 .filter(pl.col("body_id").is_in(bids))
+                .collect()
             )
 
         # Load data
