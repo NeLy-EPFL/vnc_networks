@@ -348,72 +348,75 @@ class Connections:
                 [subdivisions_] * len(template)
             )  # will duplicate the operations to apply to each end subdivision
             # add the subdivisions to the new connections
-            new_connections_["subdivision_start"] = subdivisions_[
-                "subdivision_start"
-            ]  # of the form [0,1,2,0,1,2,...]
+            new_connections_.with_columns(
+                subdivision_start=subdivisions_.get_column("subdivision_start")
+            )  # of the form [0,1,2,0,1,2,...]
             # compute the synaptic ratios for each subdivision
-            ratios = np.array(subdivisions_["syn_count"] / n_syn_in_neuron)[
+            ratios = np.array(subdivisions_.get_column("syn_count") / n_syn_in_neuron)[
                 0:n_rows_in_target
             ]  # original synapse distribution
             # update the synapse count in the new connections
-            new_connections_["syn_count"] = [
-                int(x * y) for x in template["syn_count"] for y in ratios
-            ]  # ! not permutable
-            new_connections_["eff_weight"] = [
-                x * y for x in template["eff_weight"] for y in ratios
-            ]
-            new_connections_["syn_count_norm"] = [
-                x * y for x in template["syn_count_norm"] for y in ratios
-            ]
-            new_connections_["eff_weight_norm"] = [
-                x * y for x in template["eff_weight_norm"] for y in ratios
-            ]
+            new_connections_.with_columns(
+                syn_count=pl.Series(
+                    [int(x * y) for x in template["syn_count"] for y in ratios]
+                ),
+                eff_weight=pl.Series(
+                    [x * y for x in template["eff_weight"] for y in ratios]
+                ),
+                syn_count_norm=pl.Series(
+                    [x * y for x in template["syn_count_norm"] for y in ratios]
+                ),
+                eff_weight_norm=pl.Series(
+                    [x * y for x in template["eff_weight_norm"] for y in ratios]
+                ),
+            )
             # replace the template line with the new connections
             self.connections = pl.concat(
                 [
-                    self.connections[  # remove the initial entry
-                        ~(
-                            (self.connections["start_bid"] == split_body_id)
-                            & (self.connections["end_bid"] == end_body_id)
-                        )
-                    ],
-                    new_connections_,  # add the new entries
+                    # remove the initial entry
+                    self.connections.filter(
+                        (pl.col("start_bid") != split_body_id)
+                        | (pl.col("end_bid") != end_body_id)
+                    ),
+                    # add the new entries
+                    new_connections_,
                 ],
-                ignore_index=True,
             )
 
         # --- Manage the splitting as post-synaptic neuron
-        relevant_inputs = self.connections[
-            self.connections["end_bid"] == split_body_id
-        ]["start_bid"].unique()
+        relevant_inputs = (
+            self.connections.filter(end_bid=split_body_id)
+            .get_column("start_bid")
+            .unique()
+        )
         for start_body_id in relevant_inputs:
-            template = self.connections[
-                (self.connections["start_bid"] == start_body_id)
-                & (self.connections["end_bid"] == split_body_id)
-            ].copy()
+            template = self.connections.filter(
+                start_bid=start_body_id, end_bid=split_body_id
+            )
             # duplicate the template for each existing subdivision
             new_connections_ = pl.concat(
-                [template] * len(split_neuron_subdivision_ids), ignore_index=True
+                [template] * len(split_neuron_subdivision_ids)
+            ).with_columns(
+                # add the subdivisions to the new connections
+                subdivision_end=pl.Series(
+                    [
+                        i
+                        for i in split_neuron_subdivision_ids
+                        for _ in range(len(template))  # ! not permutable
+                    ],
+                    dtype=pl.Int32,
+                )  # of the form [0,0,..1,1,..2,2,..]
             )
-            # add the subdivisions to the new connections
-            new_connections_["subdivision_end"] = [
-                i
-                for i in split_neuron_subdivision_ids
-                for _ in range(len(template))  # ! not permutable
-            ]  # of the form [0,0,..1,1,..2,2,..]
             # The other values are kept the same
             # (dendrites converge in our model)
             self.connections = pl.concat(
                 [
-                    self.connections[
-                        ~(
-                            (self.connections["start_bid"] == start_body_id)
-                            & (self.connections["end_bid"] == split_body_id)
-                        )
-                    ],
+                    self.connections.filter(
+                        (pl.col("start_bid") != start_body_id)
+                        | (pl.col("end_bid") != split_body_id)
+                    ),
                     new_connections_,
                 ],
-                ignore_index=True,
             )
 
     def __split_neurons_in_connections(
@@ -475,39 +478,22 @@ class Connections:
             }
         )
 
-        # add uids to the connections table using pandas join
-        # take UID for start_bid and subdivision_start -> rename to start_uid
-        self.connections = self.connections.join(
-            self.uid["body_id", "subdivision", "uid"],
-            left_on=("start_bid", "subdivision_start"),
-            right_on=("body_id", "subdivision"),
-            # self.uid[["body_id", "subdivision", "uid"]].set_index(
-            # ["body_id", "subdivision"]
-            # ),
-            # on=["start_bid", "subdivision_start"],
-            how="left",
-        ).rename({"uid": "start_uid"})
-        # renaming the columns in place is much faster
-        # otherwise it creates a copy of the dataframe
-        # self.connections.columns = self.connections.columns.to_series().replace(
-        #     {"uid": "start_uid"}
-        # )
-        # take UID for end_bid and subdivision_end -> rename to end_bid
-        self.connections = self.connections.join(
-            self.uid["body_id", "subdivision", "uid"],
-            left_on=("end_bid", "subdivision_end"),
-            right_on=("body_id", "subdivision"),
-            # self.uid[["body_id", "subdivision", "uid"]].set_index(
-            #     ["body_id", "subdivision"]
-            # ),
-            # on=["end_bid", "subdivision_end"],
-            how="left",
-        ).rename({"uid": "end_uid"})
-        # self.connections.columns = self.connections.columns.to_series().replace(
-        # {"uid": "end_uid"}
-        # )
-
-        return
+        self.connections = (
+            self.connections.join(
+                self.uid["body_id", "subdivision", "uid"],
+                left_on=("start_bid", "subdivision_start"),
+                right_on=("body_id", "subdivision"),
+                how="left",
+            )
+            .rename({"uid": "start_uid"})
+            .join(
+                self.uid["body_id", "subdivision", "uid"],
+                left_on=("end_bid", "subdivision_end"),
+                right_on=("body_id", "subdivision"),
+                how="left",
+            )
+            .rename({"uid": "end_uid"})
+        )
 
     @typing.overload
     def __convert_uid_to_neuron_ids(
@@ -661,16 +647,25 @@ class Connections:
             unique_starts = subdivisions[
                 ["start_bid", "subdivision_start", "subdivision_start_name"]
             ].unique()
-            for _, row in unique_starts.iter_rows(named=True):
+            for row in unique_starts.iter_rows(named=True):
                 id_tuple = (row["start_bid"], row["subdivision_start"])
                 # self.uid.filter(
                 #     neuron_ids=id_tuple
                 # ).update(
 
                 # )
-                self.uid.loc[self.uid["neuron_ids"] == id_tuple, "node_label"] += row[
-                    "subdivision_start_name"
-                ]
+                self.uid.with_columns(
+                    node_label=pl.when(pl.col("neuron_ids") == id_tuple)
+                    .then(
+                        pl.concat_str(
+                            pl.col("node_label"), pl.lit(row["subdivision_start_name"])
+                        )
+                    )
+                    .otherwise(pl.col("node_label"))
+                )
+                # self.uid.loc[self.uid["neuron_ids"] == id_tuple, "node_label"] += row[
+                # "subdivision_start_name"
+                # ]
 
     def __build_adjacency_matrices(
         self, nodelist: Optional[list[UID] | list[int]] = None

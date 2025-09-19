@@ -623,7 +623,7 @@ class MANCReader(ConnectomeReader):
         List all the neurons existing in the connectome.
         """
         return (
-            pl.read_ipc(self._nodes_file, columns=[self._body_id])
+            pl.read_ipc(self._nodes_file, columns=[self._body_id], memory_map=False)
             .get_column(self._body_id)
             .to_list()
         )
