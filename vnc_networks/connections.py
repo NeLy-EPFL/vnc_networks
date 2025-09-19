@@ -320,10 +320,9 @@ class Connections:
         target_neurons = subdivisions["end_bid"].unique()  # body ids
         for end_body_id in target_neurons:
             # get the connections to split
-            subdivisions_ = subdivisions[
-                (subdivisions["start_bid"] == split_body_id)
-                & (subdivisions["end_bid"] == end_body_id)
-            ]
+            subdivisions_ = subdivisions.filter(
+                start_bid=split_body_id, end_bid=end_body_id
+            )
             n_rows_in_target = len(subdivisions_)
             # sanity check on the total synapse count
             n_syn_in_connections_table = self.get_nb_synapses(
@@ -338,16 +337,15 @@ class Connections:
                     {n_syn_in_neuron} in the neuron model."
                 )
             # get the data for the neuron pair before splitting
-            template = self.connections[
-                (self.connections["start_bid"] == split_body_id)
-                & (self.connections["end_bid"] == end_body_id)
-            ].copy()
+            template = self.connections.filter(
+                start_bid=split_body_id, end_bid=end_body_id
+            )
             # duplicate the template len(subdivisions_) times
             new_connections_ = pl.concat(
-                [template] * len(subdivisions_), ignore_index=True
+                [template] * len(subdivisions_)
             )  # these can be multiple rows if the target is subdivided
             subdivisions_ = pl.concat(
-                [subdivisions_] * len(template), ignore_index=True
+                [subdivisions_] * len(template)
             )  # will duplicate the operations to apply to each end subdivision
             # add the subdivisions to the new connections
             new_connections_["subdivision_start"] = subdivisions_[
