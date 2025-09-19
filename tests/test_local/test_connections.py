@@ -44,11 +44,11 @@ class TestConnections:
         df = valid_connections.get_dataframe()
         assert df is not None, "Couldn't get connections dataframe"
 
-        df_1 = df[(df["start_bid"] == 10000) & (df["end_bid"] == 14882)]
-        assert df_1["eff_weight"].values[0] == 136, "Incorrect data values"
+        df_1 = df.filter(start_bid=10000, end_bid=14882)
+        assert df_1[0, "eff_weight"] == 136, "Incorrect data values"
 
-        df_2 = df[(df["start_bid"] == 10001) & (df["end_bid"] == 29119)]
-        assert df_2["eff_weight"].values[0] == -5, "Incorrect nt_type handling"
+        df_2 = df.filter(start_bid=10001, end_bid=29119)
+        assert df_2[0, "eff_weight"] == -5, "Incorrect nt_type handling"
 
     def test_connections_instantiation_MANCv1_2_1(self):
         """

@@ -6,14 +6,14 @@ import pytest
 
 
 class TestConnectomeReaderMANC:
-    # def test_version_mapping_MANCv1_0(self):
-    #     from vnc_networks.connectome_reader import MANC
+    def test_version_mapping_MANCv1_0(self):
+        from vnc_networks.connectome_reader import MANC
 
-    #     connectome_reader = MANC("v1.0")
-    #     assert connectome_reader.connectome_name == "manc", "Incorrect connectome name"
-    #     assert connectome_reader.connectome_version == "v1.0", (
-    #         "Incorrect connectome version. MANC v1.0 should map to v1.0"
-    #     )
+        connectome_reader = MANC("v1.0")
+        assert connectome_reader.connectome_name == "manc", "Incorrect connectome name"
+        assert connectome_reader.connectome_version == "v1.0", (
+            "Incorrect connectome version. MANC v1.0 should map to v1.0"
+        )
 
     def test_version_mapping_MANCv1_2(self):
         from vnc_networks.connectome_reader import MANC
@@ -40,6 +40,53 @@ class TestConnectomeReaderMANC:
         assert connectome_reader.connectome_name == "manc", "Incorrect connectome name"
         assert connectome_reader.connectome_version == "v1.2.3", (
             "Incorrect connectome version. MANC v1.2.3 should map to v1.2.3"
+        )
+
+    def test_get_synapse_df_MANC_v1_0(self):
+        import polars as pl
+        import polars.testing
+
+        import vnc_networks
+
+        # Instantiate ConnectomeReader
+        connectome_reader = vnc_networks.connectome_reader.MANC_v_1_0()
+
+        # check we get nothing if the connection has less than 5 synapses
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_df(22285),
+            pl.DataFrame(
+                {
+                    "synapse_id": [],
+                    "start_bid": [],
+                    "end_bid": [],
+                    "X": [],
+                    "Y": [],
+                    "Z": [],
+                },
+            ),
+            check_dtypes=False,
+        )
+        # check we get what we expect
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_df(24585),
+            pl.DataFrame(
+                {
+                    "synapse_id": [
+                        99097233490,
+                        99097268656,
+                        99097264247,
+                        99097263941,
+                        99097263597,
+                    ],
+                    "start_bid": [24585] * 5,
+                    "end_bid": [10002] * 5,
+                    "X": [22785, 22841, 22830, 22832, 22844],
+                    "Y": [36014, 39169, 38791, 38756, 38737],
+                    "Z": [72108, 78509, 77935, 77890, 77842],
+                },
+            ),
+            check_dtypes=False,
+            check_row_order=False,
         )
 
     def test_get_synapse_df_MANC_v1_2_3(self):
@@ -80,6 +127,26 @@ class TestConnectomeReaderMANC:
                 },
             ),
             check_dtypes=False,
+        )
+
+    def test_get_synapse_neuropil_MANC_v1_0(self):
+        import polars as pl
+        import polars.testing
+
+        import vnc_networks
+
+        # Instantiate ConnectomeReader
+        connectome_reader = vnc_networks.connectome_reader.MANC_v_1_0()
+
+        # check that this matches what we expect
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_neuropil([99097233490]),
+            pl.DataFrame(
+                {
+                    "synapse_id": [99097233490],
+                    "neuropil": ["CV"],
+                },
+            ),
         )
 
     def test_get_synapse_neuropil_MANC_v1_2_3(self):
@@ -181,6 +248,13 @@ class TestConnectomeReaderMANC:
                 }
             ),
         )
+
+    def test_list_all_nodes_MANC_v1_0(self):
+        import vnc_networks
+
+        connectome_reader = vnc_networks.connectome_reader.MANC_v_1_0()
+
+        assert len(connectome_reader.list_all_nodes()) == 24522126
 
     def test_list_all_nodes_MANC_v1_2_3(self):
         import vnc_networks

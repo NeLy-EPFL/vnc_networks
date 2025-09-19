@@ -13,7 +13,7 @@ import ast
 import os
 import typing
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from typing import Any, Optional
 
 import numpy as np
@@ -893,8 +893,6 @@ class MANC_v_1_0(MANCReader):
             params.RAW_DATA_DIR,
             self.connectome_name,
             self.connectome_version,
-            f"neuprint_manc_{self.connectome_version}",
-            f"neuprint_manc_{self.connectome_version}_ftr",
         )
         self._connections_file = os.path.join(
             self._connectome_dir, "Neuprint_Neuron_Connections_manc_v1.ftr"
@@ -917,44 +915,34 @@ class MANC_v_1_0(MANCReader):
         )
 
     # --- specific private methods
-    def _load_synapse_locations(self, synapse_ids: list[int]) -> pl.DataFrame:
+    def _load_synapse_locations(self, synapse_ids: Collection[int]) -> pl.DataFrame:
         """
         Get the locations of the synapses.
 
         Returns a dataframe with columns: synapse_id, X, Y, Z
         """
-        data = pl.read_ipc(
-            self._synapse_file, columns=[self._syn_id, self._syn_location]
-        )
-        data = data.loc[data[self._syn_id].isin(synapse_ids)]
-        data.rename(columns={self._syn_id: "synapse_id"}, inplace=True)
-
-        locations = data[self._syn_location].values
-
-        # split the location into X, Y, Z
-        X, Y, Z = [], [], []
-        for loc in locations:
-            name = loc.replace("x", '"x"').replace("y", '"y"').replace("z", '"z"')
-            try:
-                pos = eval(name)  # read loc as a dict, use of x,y,z under the hood
-            except TypeError:
-                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
-                print(f"Type Error in reading synapse location for {name}")
-            except NameError:
-                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
-                print(f"Name Error in reading synapse location for {name}")
-            if not isinstance(pos, dict):
-                pos = {"x": np.nan, "y": np.nan, "z": np.nan}
-            X.append(pos["x"])
-            Y.append(pos["y"])
-            Z.append(pos["z"])
-        data["X"] = X
-        data["Y"] = Y
-        data["Z"] = Z
-
-        data.drop(columns=[self._syn_location], inplace=True)
-
-        return data
+        return (
+            pl.scan_ipc(self._synapse_file)
+            .filter(pl.col(self._syn_id).is_in(synapse_ids))
+            .with_columns(
+                pl.col(self._syn_location)
+                # location column looks like {x:25381, y:12390, z:24749}
+                # need to wrap x, y, and z in "" so it's valid json
+                .str.replace_all("(.):", '"${1}":')
+                .str.json_decode(
+                    pl.Struct(
+                        [
+                            pl.Field("x", pl.Int32),
+                            pl.Field("y", pl.Int32),
+                            pl.Field("z", pl.Int32),
+                        ]
+                    )
+                )
+                .struct.unnest()
+            )
+            .rename({self._syn_id: "synapse_id", "x": "X", "y": "Y", "z": "Z"})
+            .select("synapse_id", "X", "Y", "Z")
+        ).collect()
 
     # public methods
     def get_synapse_df(self, body_id: BodyId | int) -> pl.DataFrame:
@@ -964,78 +952,70 @@ class MANC_v_1_0(MANCReader):
         ['synapse_id','start_bid','end_bid', 'X', 'Y', 'Z']
         """
         # neuron to synapse set
-        neuron_to_synapse = pl.read_ipc(self._neuron_synapseset_file)
-        synset_list = neuron_to_synapse.loc[
-            neuron_to_synapse[self._start_bid] == body_id
-        ][self._end_synset_id].values
-
-        # synapse set to synapse
-        synapses = pl.read_ipc(self._synapseset_file)
-        synapses = synapses.loc[synapses[self._start_synset_id].isin(synset_list)]
-        synapses.reset_index(drop=True, inplace=True)
-
-        # build a dataframe with columns 'syn_id', 'synset_id'
-        synapse_df = pl.DataFrame(
-            {
-                "synapse_id": synapses[self._end_syn_id],
-                "synset_id": synapses[self._start_synset_id],
-            }
+        synset_list = (
+            (
+                pl.scan_ipc(self._neuron_synapseset_file, memory_map=False)
+                .filter(pl.col(self._start_bid) == body_id)
+                .select(pl.col(self._end_synset_id))
+            )
+            .collect()
+            .get_column(self._end_synset_id)
         )
-        synapse_df["start_bid"] = synapse_df["synset_id"].str.split("_").arr.first()
-        # synapse_df["start_bid"] = synapse_df["synset_id"].apply(
-        #     lambda x: int(x.split("_")[0])
-        # )  # body id of the presynaptic neuron
-        synapse_df["end_bid"] = synapse_df["synset_id"].str.split("_").arr.get(1)
-        # synapse_df["end_bid"] = synapse_df["synset_id"].apply(
-        #     lambda x: int(x.split("_")[1])
-        # )  # body id of the postsynaptic neuron
-        synapse_df["location"] = synapse_df["synset_id"].str.split("_").arr.get(2)
-        # synapse_df["location"] = synapse_df["synset_id"].apply(
-        #     lambda x: x.split("_")[2]
-        # )  # pre or post
 
-        # remove the synapses that belong to partner neurons
-        synapse_df = synapse_df[synapse_df["location"] == "pre"]
-        # synapse_df.drop(columns=["location"], inplace=True)
-        synapse_df = synapse_df.drop(["location"])
+        # build a dataframe with the start and end neuron ids for each synapse.
+        # We get this by parsing the synset_id for this synapse which has the format
+        # `<start_bid>_<end_bid>_<pre/post>`.
+        # We just care the presynaptic neurons that belong to this neuron
+        synapse_df = (
+            pl.scan_ipc(self._synapseset_file, memory_map=False)
+            .filter(pl.col(self._start_synset_id).is_in(synset_list))
+            .rename(
+                {self._end_syn_id: "synapse_id", self._start_synset_id: "synset_id"}
+            )
+            .with_columns(
+                start_bid=pl.col("synset_id").str.split("_").list.get(0).cast(pl.Int64),
+                end_bid=pl.col("synset_id").str.split("_").list.get(1).cast(pl.Int64),
+            )
+            .filter(pl.col("synset_id").str.split("_").list.get(2) == "pre")
+            .select("synapse_id", "start_bid", "end_bid")
+        )
 
         # add a column with 'tracing_status' of the postsynaptic neuron if it exists
         if self.exists_tracing_status():
-            nodes_data = pl.read_ipc(
-                self._nodes_file,
-                columns=[self._body_id, self._tracing_status],
+            nodes_data = (
+                pl.scan_ipc(
+                    self._nodes_file,
+                    memory_map=False,
+                )
+                .select(self._body_id, self._tracing_status)
+                .rename(self.decode_neuron_attribute)
             )
-            read_columns = nodes_data.columns
-            nodes_data.columns = [self.decode_neuron_attribute(c) for c in read_columns]
-            synapse_df.join(
-                nodes_data, left_on="end_bid", right_on="body_id", how="left"
+            synapse_df = (
+                synapse_df.join(
+                    nodes_data, left_on="end_bid", right_on="body_id", how="left"
+                )
+                # remove the rows where the postsynaptic neuron is not traced
+                .filter(tracing_status=self.traced_entry)
+                .drop(["tracing_status"])
             )
-            # synapse_df = synapse_df.merge(
-            #     nodes_data, left_on="end_bid", right_on="body_id", how="left"
-            # )
-            # synapse_df.drop(columns=["body_id"], inplace=True)
-            synapse_df = synapse_df.drop(["body_id"])
-            # remove the rows where the postsynaptic neuron is not traced
-            synapse_df = synapse_df[synapse_df["tracing_status"] == self.traced_entry]
-            # synapse_df.drop(columns=["tracing_status"], inplace=True)
-            synapse_df = synapse_df.drop(["tracing_status"])
 
         # remove the rows where there are fewer than threshold synapses from
         # a presynaptic neuron to a postsynaptic neuron
-        synapse_df = synapse_df.group_by(["start_bid", "end_bid"]).filter(
-            lambda x: len(x) >= self.connectome_preprocessing.min_synapse_count_cutoff
+        synapse_df = synapse_df.filter(
+            pl.len().over("start_bid", "end_bid")
+            >= self.connectome_preprocessing.min_synapse_count_cutoff
         )
 
         # Load the synapse locations
-        syn_ids = list(synapse_df["synapse_id"].values)
-        data = self._load_synapse_locations(syn_ids)
-        synapse_df = synapse_df.merge(data, on="synapse_id", how="inner")
+        synapse_df = synapse_df.collect()
+        data = self._load_synapse_locations(synapse_df["synapse_id"])
+        synapse_df = synapse_df.join(data, on="synapse_id", how="inner")
 
         return synapse_df
 
     def get_synapse_neuropil(
         self,
-        synapse_ids: list[int],
+        synapse_ids: Collection[int],
     ) -> pl.DataFrame:
         """
         Get the neuropil of the synapses.
@@ -1044,29 +1024,52 @@ class MANC_v_1_0(MANCReader):
         In v1.0, each synapse has a unique identifier, so we can directly
         use the synapse id to find the neuropil.
         """
-        roi_file = os.path.join(self._connectome_dir, "all_ROIs.txt")
-        # rois = list(pl.read_csv(roi_file, sep="\t").values.flatten())
-        rois = pl.read_csv(roi_file, separator="\t")["values"].to_list()
+        # the synapse file looks like this
+        # |  synapse_id | ROI_1 | ROI_2 | ROI_3 | ... |
+        # | 99000000001 | False |  True | False | ... |
+        # | 99000000002 |  True | False | False | ... |
+        # | 99000000003 | False | False |  True | ... |
+        #
+        # we want to convert it to the following format
+        # |  synapse_id | neuropil |
+        # | 99000000001 |    ROI_2 |
+        # | 99000000002 |    ROI_1 |
+        # | 99000000003 |    ROI_3 |
 
-        # find the subset of the synapses in the dataset that we care about for this neuron
-        # then for each possible ROI, check which synapses are in that ROI
-        # store each synapse's ROI in the neuropil column
-        data = pl.read_ipc(self._synapse_file, columns=[self._syn_id])
-        data.columns = ["synapse_id"]
-        data["neuropil"] = "None"
+        # all the ROI column headers are boolean type
+        roi_columns = [
+            name
+            for name in pl.scan_ipc(self._synapse_file).collect_schema().names()
+            if name.endswith(":boolean")
+        ]
 
-        for roi in rois:
-            column_name = roi + ":boolean"
-            roi_column = pl.read_ipc(
-                self._synapse_file,
-                columns=[column_name, self._syn_id],
+        # make a map from synapse_id to neuropil
+        return (
+            pl.concat(
+                # load each ROI column individually to reduce memory usage
+                pl.collect_all(
+                    [
+                        pl.scan_ipc(self._synapse_file)
+                        .rename({self._syn_id: "synapse_id"})
+                        # just keep the rows where this ROI is true
+                        .filter(
+                            pl.col("synapse_id").is_in(synapse_ids),
+                            pl.col(roi_column) == True,
+                        )
+                        # now create the neuropil column for this ROI
+                        .with_columns(neuropil=pl.lit(roi_column.rstrip(":boolean")))
+                        .select("synapse_id", "neuropil")
+                        for roi_column in roi_columns
+                    ]
+                )
             )
-            roi_column = roi_column[roi_column[self._syn_id].isin(synapse_ids)]
-            synapses_in_roi = roi_column.loc[
-                roi_column[column_name] == True, self._syn_id
-            ].values  # type: ignore
-            data.loc[data["synapse_id"].isin(synapses_in_roi), "neuropil"] = roi
-        return data
+            # add the synapse IDs that don't have neuropils
+            .join(
+                pl.DataFrame({"synapse_id": synapse_ids}), on="synapse_id", how="right"
+            )
+            .fill_null("None")
+            .select("synapse_id", "neuropil")
+        )
 
     def get_synapse_counts_by_neuropil(
         self,
@@ -1094,7 +1097,9 @@ class MANC_v_1_0(MANCReader):
                 **Note:** ROI columns won't be returned if no neurons have a count in that column (ie. if specifying
                 a small number of neurons for `body_id_subset`).
         """
-        raise NotImplementedError("Not sure how to get this for MANCv1.0 yet...")
+        raise NotImplementedError(
+            "Not sure how to get synapse counts by neuropil for MANCv1.0 yet..."
+        )
 
 
 class MANC_v_1_2(MANCReader):
