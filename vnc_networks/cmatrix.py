@@ -82,9 +82,6 @@ class CMatrix:
             row_index=pl.col("index"),
             column_index=pl.col("index"),
         ).drop("index")
-        # lookup["row_index"] = lookup["index"].values
-        # lookup["column_index"] = lookup["index"].values
-        # self.lookup = lookup.drop(columns="index")
 
         # verify that the lookup includes indices up to the length of the matrix
         if not all(self.lookup["row_index"].is_in(range(self.matrix.shape[0]))):
@@ -110,22 +107,20 @@ class CMatrix:
         # rows
         lookup = lookup.sort(by="row_index")
         n_rows = lookup["row_index"].count()
-        n_nan = len(lookup) - n_rows
-        new_row_indices = list(range(n_rows))
-        new_row_indices.extend(np.nan * np.ones(n_nan))
-        lookup["row_index"] = new_row_indices
+        n_null = len(lookup) - n_rows
+        new_row_indices = list(range(n_rows)) + [None] * n_null
+        lookup = lookup.with_columns(row_index=pl.Series(new_row_indices))
 
         # columns
         lookup = lookup.sort(by="column_index")
         n_columns = lookup["column_index"].count()
-        n_nan = len(lookup) - n_columns
-        new_column_indices = list(range(n_columns))
-        new_column_indices.extend(np.nan * np.ones(n_nan))
-        lookup["column_index"] = new_column_indices
+        n_null = len(lookup) - n_columns
+        new_column_indices = list(range(n_columns)) + [None] * n_null
+        lookup = lookup.with_columns(column_index=pl.Series(new_column_indices))
 
         # clean up unindexed uids
         lookup = lookup.drop_nulls(
-            subset=["row_index", "column_index"],
+            ["row_index", "column_index"],
         )
         # verify that the lookup includes indices up to the length of the matrix
         if n_rows != self.matrix.shape[0]:
@@ -154,9 +149,9 @@ class CMatrix:
             If False, raises an error if the indices are not found in the lookup.
             The default is True.
         """
-        # replace elements of 'row_index' not in indices with NaN
+        # replace elements of 'row_index' not in indices with None
         new_vals = [
-            i if i in indices else np.nan
+            i if i in indices else None
             for i in self.get_row_indices()  # sorted numerically!
         ]
         restrict_indices = [  # keep the original index sorting
@@ -164,10 +159,12 @@ class CMatrix:
         ]
 
         # restrict the indices to those defined in the lookup
-        if not allow_empty and np.count_nonzero(~np.isnan(new_vals)) != len(indices):
+        if not allow_empty and len([val for val in new_vals if val is not None]) != len(
+            indices
+        ):
             raise ValueError("Some row indices not found in the lookup.")
 
-        self.lookup["row_index"] = new_vals
+        self.lookup = self.lookup.with_columns(row_index=pl.Series(new_vals))
 
         # restrict the matrix to the indices
         self.matrix = self.matrix[restrict_indices, :]
@@ -196,12 +193,12 @@ class CMatrix:
             raise ValueError("Some column indices not found in the lookup.")
         indices = defined_columns
 
-        # replace elements of 'column_index' not in indices with NaN
-        new_vals = [i if i in indices else np.nan for i in self.get_column_indices()]
+        # replace elements of 'column_index' not in indices with None to be removed
+        new_vals = [i if i in indices else None for i in self.get_column_indices()]
         restrict_indices = [  # keep the original index sorting
             i for i in self.get_column_indices() if i in indices
         ]
-        self.lookup["column_index"] = new_vals
+        self.lookup = self.lookup.with_columns(column_index=pl.Series(new_vals))
         # restrict the matrix to the indices
         self.matrix = self.matrix[:, restrict_indices]
         self.__update_indexing()
@@ -229,8 +226,8 @@ class CMatrix:
             else:
                 row_indices.append(lookup.filter(uid=id_)[0, "row_index"])
                 column_indices.append(lookup.filter(uid=id_)[0, "column_index"])
-        row_indices = [i for i in row_indices if not np.isnan(i)]
-        column_indices = [i for i in column_indices if not np.isnan(i)]
+        row_indices = [i for i in row_indices if i is not None]
+        column_indices = [i for i in column_indices if i is not None]
         # return results
         if not allow_empty and len(empty_matches) > 0:
             raise ValueError(f"uid(s) not found: {empty_matches}")
@@ -264,7 +261,9 @@ class CMatrix:
             index = [index]
         lookup = self.get_lookup()
         if axis == "row":
-            uids = [lookup.filter(row_index=id)[0, "uid"] for id in index]
+            uids = [
+<tab>                   lookup.filter(row_index=id).get_column("uid").row(0) for id in index
+            ]
         elif axis == "column":
             uids = [lookup.filter(column_index=id)[0, "uid"] for id in index]
         else:
@@ -334,7 +333,7 @@ class CMatrix:
         def __mapping(_x: int, _order: list[int]):
             if _x in _order:
                 return _order.index(_x)
-            return np.nan
+            return None
 
         # sort the column 'row_index' according to the order
         old_order = self.lookup["row_index"].to_list()
@@ -351,7 +350,7 @@ class CMatrix:
         def __mapping(_x: int, _order: list[int]):
             if _x in _order:
                 return _order.index(_x)
-            return np.nan
+            return None
 
         # sort he column 'column_index' according to the order
         old_order = self.lookup["column_index"].to_list()
@@ -473,7 +472,7 @@ class CMatrix:
 
         if input_type == "body_id":
             sub_uid = self.__get_uids_from_bodyids(sub_uid)
-        rows, _ = self.__convert_uid_to_index(  # already filters out the NaN values
+        rows, _ = self.__convert_uid_to_index(  # already filters out the None values
             sub_uid,
             allow_empty=allow_empty,
         )
@@ -513,7 +512,7 @@ class CMatrix:
         if sub_uid is None:
             # sort self.lookup by 'column_index' and return the 'column_index' column
             self.lookup = self.lookup.sort(by="column_index")
-            return self.lookup["column_index"].to_list()
+            return self.lookup.get_column("column_index").to_list()
         if input_type == "body_id":
             sub_uid = self.__get_uids_from_bodyids(sub_uid)
         _, columns = self.__convert_uid_to_index(
