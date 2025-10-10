@@ -5,7 +5,6 @@ Functions specific to working with MDNs to avoid copying code.
 
 import os
 import typing
-from typing import Optional
 
 import matplotlib.pyplot as plt
 
@@ -15,7 +14,8 @@ from ..connectome_reader import MANC, ConnectomeReader
 from ..neuron import Neuron
 from ..params import BodyId
 
-manc_version = "v1.2"  # used to be "v1.0"
+# need to explicitly type this
+manc_version: typing.Literal["v1.2"] = "v1.2"  # used to be "v1.0"
 
 FOLDER_NAME = "MDN_specific"
 FIG_DIR = MANC(manc_version).get_fig_dir()
@@ -23,14 +23,15 @@ FOLDER = os.path.join(FIG_DIR, FOLDER_NAME)
 os.makedirs(FOLDER, exist_ok=True)
 
 
-def get_mdn_bodyids(CR: ConnectomeReader = MANC(manc_version)):
+def get_mdn_bodyids(CR: ConnectomeReader | None = None):
+    CR = CR or MANC(manc_version)
     bids = CR.get_neuron_bodyids({"type": "MDN"})
     return bids
 
 
 def get_mdn_uids(
     data: Connections,
-    side: Optional[
+    side: typing.Optional[
         typing.Literal[
             "L", "Left", "l", "left", "LHS", "R", "Right", "r", "right", "RHS"
         ]
@@ -73,7 +74,7 @@ def get_subdivided_mdns(
         "h",
         "hl",
     ],
-    side: Optional[
+    side: typing.Optional[
         typing.Literal[
             "L", "Left", "l", "left", "LHS", "R", "Right", "r", "right", "RHS"
         ]
@@ -92,10 +93,13 @@ def get_subdivided_mdns(
         neuropil_ = "LegNp(T3)"
     else:
         raise ValueError("Neuropil not recognized.")
+
     if side in ["L", "Left", "l", "left", "LHS"]:
         side_ = "L"
     elif side in ["R", "Right", "r", "right", "RHS"]:
         side_ = "R"
+    else:
+        raise ValueError("Side not recognized.")
 
     mdns = VNC.get_neuron_ids({"type": "MDN"})
     if side is None:
@@ -113,13 +117,13 @@ def get_subdivided_mdns(
 
 
 def get_vnc_split_MDNs_by_neuropil(
-    not_connected: Optional[list[BodyId] | list[int]] = None,
-    CR: ConnectomeReader = MANC(manc_version),
+    not_connected: typing.Optional[list[BodyId] | list[int]] = None,
+    CR: ConnectomeReader | None = None,
 ):
     """
     Get the VNC Connections object with MDNs split by neuropil.
     """
-    CR = MANC(manc_version)
+    CR = CR or MANC(manc_version)
     try:
         VNC = Connections(
             from_file="VNC_split_MDNs_by_neuropil",
@@ -142,9 +146,7 @@ def get_vnc_split_MDNs_by_neuropil(
     return VNC
 
 
-def mdn_synapse_distribution(
-    n_clusters: int = 3, CR: ConnectomeReader = MANC(manc_version)
-):
+def mdn_synapse_distribution(n_clusters: int = 3, CR: ConnectomeReader | None = None):
     """
     show for each MDN the distribution of synapses in the neuropils.
     Each row is an MDN.
@@ -154,6 +156,7 @@ def mdn_synapse_distribution(
 
     Save the data for later use.
     """
+    CR = CR or MANC(manc_version)
     mdn_bodyids = CR.get_neuron_bodyids({"type": "MDN"})
     for i in range(4):  # each MDN
         MDN = Neuron(mdn_bodyids[i], CR=CR)
@@ -205,14 +208,15 @@ def mdn_synapse_distribution(
 
 
 def get_connectome_with_MDN_t3_branches(
-    n_clusters: int = 3, CR: ConnectomeReader = MANC(manc_version)
+    n_clusters: int = 3, CR: ConnectomeReader | None = None
 ):
     """
     Build the connectome with the T3 neuropil branches of MDN split.
     """
+    CR = CR or MANC(manc_version)
     connectome_name = "VNC_split_MDNs_by_T3_synapses"
     try:
-        VNC = Connections(from_file=connectome_name)
+        VNC_full = Connections(from_file=connectome_name)
         print("Loaded the connectome with T3 branches of MDN split.")
     except FileNotFoundError:
         print("Creating the connectome with T3 branches of MDN split...")

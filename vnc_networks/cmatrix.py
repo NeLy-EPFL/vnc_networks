@@ -214,7 +214,7 @@ class CMatrix:
         if allow_empty is False, raise an error if the uid is not found.
         """
         # format inputs
-        if isinstance(uid, int) or isinstance(uid, np.int64):
+        if isinstance(uid, int):
             uid = [uid]
         if uid is None or len(uid) == 0:
             raise ValueError("uid is None or empty.")
@@ -264,11 +264,9 @@ class CMatrix:
             index = [index]
         lookup = self.get_lookup()
         if axis == "row":
-            uids = [lookup.loc[lookup["row_index"] == id].uid.values[0] for id in index]
+            uids = [lookup.filter(row_index=id)[0, "uid"] for id in index]
         elif axis == "column":
-            uids = [
-                lookup.loc[lookup["column_index"] == id].uid.values[0] for id in index
-            ]
+            uids = [lookup.filter(column_index=id)[0, "uid"] for id in index]
         else:
             raise ValueError('The axis must be either "row" or "column".')
 
@@ -279,7 +277,7 @@ class CMatrix:
         Get the body ids corresponding to the uids.
         """
         lookup = self.get_lookup()
-        body_ids = [lookup.loc[lookup["uid"] == id].body_id.values[0] for id in uids]
+        body_ids = [lookup.filter(uid=id)[0, "body_id"] for id in uids]
         return body_ids
 
     def __convert_index_to_bodyid(self, index, axis="row"):
@@ -303,14 +301,9 @@ class CMatrix:
             index = [index]
         lookup = self.get_lookup()
         if axis == "row":
-            body_ids = [
-                lookup.loc[lookup["row_index"] == id].body_id.values[0] for id in index
-            ]
+            body_ids = [lookup.filter(row_index=id)[0, "body_id"] for id in index]
         elif axis == "column":
-            body_ids = [
-                lookup.loc[lookup["column_index"] == id].body_id.values[0]
-                for id in index
-            ]
+            body_ids = [lookup.filter(column_index=id)[0, "body_id"] for id in index]
         else:
             raise ValueError('The axis must be either "row" or "column".')
 
@@ -323,12 +316,11 @@ class CMatrix:
         be subdivided into multiple sub-neurons with their own uids.
         The returned uids are not necessarily ordered as the input body_ids.
         """
-        lookup = self.get_lookup().copy()
-        lookup = lookup[lookup["body_id"].isin(body_ids)]
-        missing = set(body_ids) - set(lookup["body_id"].tolist())
+        lookup = self.lookup.filter(pl.col("body_id").is_in(body_ids))
+        missing = set(body_ids) - set(lookup["body_id"].to_list())
         if len(missing) > 0:
             print(f"Warning: {len(missing)} body ids not found.")
-        uids = lookup["uid"].tolist()
+        uids = lookup["uid"].to_list()
         return uids
 
     def __reorder_row_indexing(self, order: list[int]):
@@ -339,18 +331,14 @@ class CMatrix:
         if len(order) != self.matrix.shape[0]:
             raise ValueError("The order must have the same length as the matrix.")
 
-        lookup = self.get_lookup().copy()
-
         def __mapping(_x: int, _order: list[int]):
             if _x in _order:
                 return _order.index(_x)
             return np.nan
 
         # sort the column 'row_index' according to the order
-        old_order = lookup["row_index"].tolist()
-        lookup["row_index"] = [__mapping(x, order) for x in old_order]
-        self.lookup = lookup
-        return
+        old_order = self.lookup["row_index"].to_list()
+        self.lookup.with_columns(row_index=[__mapping(x, order) for x in old_order])
 
     def __reorder_column_indexing(self, order: list[int]):
         """
@@ -360,18 +348,14 @@ class CMatrix:
         if len(order) != self.matrix.shape[1]:
             raise ValueError("The order must have the same length as the matrix.")
 
-        lookup = self.get_lookup().copy()
-
         def __mapping(_x: int, _order: list[int]):
             if _x in _order:
                 return _order.index(_x)
             return np.nan
 
         # sort he column 'column_index' according to the order
-        old_order = lookup["column_index"].tolist()
-        lookup["column_index"] = [__mapping(x, order) for x in old_order]
-        self.lookup = lookup
-        return
+        old_order = self.lookup["column_index"].to_list()
+        self.lookup.with_columns(column_index=[__mapping(x, order) for x in old_order])
 
     # public methods
 
@@ -450,10 +434,10 @@ class CMatrix:
         if sub_indices is None:
             # sort the lookup by indices of the axis and return the 'uid' column
             if axis == "row":
-                self.lookup.sort_values(by="row_index", inplace=True)
+                self.lookup.sort(by="row_index")
             elif axis == "column":
-                self.lookup.sort_values(by="column_index", inplace=True)
-            return self.lookup["uid"].tolist()
+                self.lookup.sort(by="column_index")
+            return self.lookup["uid"].to_list()
         return self.__convert_index_to_uid(sub_indices, axis=axis)
 
     def get_row_indices(
@@ -484,8 +468,8 @@ class CMatrix:
         """
         if sub_uid is None:
             # sort self.lookup by 'row_index' and return the 'row_index' column
-            self.lookup.sort_values(by="row_index", inplace=True)
-            return self.lookup["row_index"].tolist()
+            self.lookup = self.lookup.sort(by="row_index")
+            return self.lookup["row_index"].to_list()
 
         if input_type == "body_id":
             sub_uid = self.__get_uids_from_bodyids(sub_uid)
@@ -528,8 +512,8 @@ class CMatrix:
         """
         if sub_uid is None:
             # sort self.lookup by 'column_index' and return the 'column_index' column
-            self.lookup.sort_values(by="column_index", inplace=True)
-            return self.lookup["column_index"].tolist()
+            self.lookup = self.lookup.sort(by="column_index")
+            return self.lookup["column_index"].to_list()
         if input_type == "body_id":
             sub_uid = self.__get_uids_from_bodyids(sub_uid)
         _, columns = self.__convert_uid_to_index(
@@ -557,7 +541,7 @@ class CMatrix:
         self,
         row_ids: Optional[list] = None,
         column_ids: Optional[list] = None,
-        allow_empty: Optional[bool] = True,
+        allow_empty: bool = True,
         input_type: typing.Literal["uid", "body_id"] = "uid",
         keep_initial_order: bool = True,
     ):
@@ -618,8 +602,6 @@ class CMatrix:
             self.__reorder_row_indexing(row_indices)
             self.__reorder_column_indexing(column_indices)
 
-        return
-
     def restrict_nodes(
         self,
         nodes: list[UID],
@@ -645,7 +627,6 @@ class CMatrix:
             input_type="uid",
             keep_initial_order=keep_initial_order,
         )
-        return
 
     def restrict_rows(
         self,
@@ -671,7 +652,6 @@ class CMatrix:
         r_i = self.get_row_indices(rows, allow_empty=allow_empty, input_type=input_type)
         # restrict the matrix amd lookup to the indices
         self.__restrict_row_indices(r_i, allow_empty=allow_empty)
-        return
 
     def restrict_columns(
         self,
@@ -696,7 +676,6 @@ class CMatrix:
         )
         # restrict the matrix amd lookup to the indices
         self.__restrict_column_indices(c_i, allow_empty=allow_empty)
-        return
 
     # --- processing (modifies in place)
     def power_n(self, n: int):
@@ -887,7 +866,7 @@ class CMatrix:
 
     def list_neurons_upstream_set(
         self,
-        uids: list[UID],
+        uids: list[UID] | UID,
         ratio: float = 0.5,
     ) -> list[UID]:
         """
@@ -983,7 +962,7 @@ class CMatrix:
         cluster_size_cutoff: int = 2,
         show_plot: bool = False,
         cluster_data_type: typing.Literal["uid", "index", "body_id"] = "uid",
-        cluster_on_subset: list[int] | None = None,
+        cluster_on_subset: list[UID] | None = None,
         **kwargs,
     ):
         """
@@ -1136,7 +1115,8 @@ class CMatrix:
             # the clusters list.
 
             # create a matrix of zeros
-            mat = np.zeros((clustered_mat.shape[0], clustered_mat.shape[1]))
+            max_cluster_element = max([cluster[-1] for cluster in clusters]) + 1
+            mat = np.zeros((max_cluster_element, max_cluster_element))
             # draw the boundaries between clusters
             for cluster in clusters:
                 mat[cluster[0] : cluster[-1] + 1, cluster[0] : cluster[-1] + 1] = 1
@@ -1169,7 +1149,6 @@ class CMatrix:
         if savefig:
             title_ = os.path.join(self.CR.get_plots_dir(), title + "_spy.pdf")
             plt.savefig(title_)
-        return
 
     @typing.overload
     def imshow(
@@ -1179,6 +1158,9 @@ class CMatrix:
         vmax: Optional[float] = None,
         cmap=params.diverging_heatmap,
         ax: matplotlib.axes.Axes | None = None,
+        *,
+        snippet_up_to: int | None = None,
+        log_scale: bool = False,
         savefig: typing.Literal[True] = True,
     ) -> None: ...
     @typing.overload
@@ -1189,7 +1171,10 @@ class CMatrix:
         vmax: Optional[float] = None,
         cmap=params.diverging_heatmap,
         ax: matplotlib.axes.Axes | None = None,
-        savefig: typing.Literal[False] = False,
+        *,
+        snippet_up_to: int | None = None,
+        log_scale: bool = False,
+        savefig: typing.Literal[False],
     ) -> tuple[matplotlib.axes.Axes, str]: ...
 
     def imshow(
@@ -1199,9 +1184,10 @@ class CMatrix:
         vmax: Optional[float] = None,
         cmap=params.diverging_heatmap,
         ax: matplotlib.axes.Axes | None = None,
-        savefig: bool = True,
+        *,
         snippet_up_to: int | None = None,
         log_scale: bool = False,
+        savefig: bool = True,
     ):
         """
         Visualises the adjacency matrix with a colorbar.
@@ -1218,10 +1204,12 @@ class CMatrix:
             The colormap of the visualisation. The default is params.blue_heatmap.
         ax : matplotlib.axes.Axes, optional
             The axes on which to plot the visualisation. The default is None.
-        savefig : bool, optional
-            If True, saves the figure. The default is True.
         snippet_up_to : int, optional
             The maximum number of rows and columns to display. The default is None.
+        log_scale : bool, optional
+            If True, plot the connection matrix on a log scale.
+        savefig : bool, optional
+            If True, saves the figure. The default is True.
         """
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=params.FIGSIZE)
@@ -1242,6 +1230,5 @@ class CMatrix:
         if savefig:
             title_ = os.path.join(self.CR.get_plots_dir(), title + "_imshow.pdf")
             plt.savefig(title_)
-            return
         else:
             return ax, title

@@ -29,6 +29,8 @@ from .utils import plots_design
 
 
 class Neuron:
+    body_id: BodyId
+
     def __deepcopy__(self, memo):
         """
         Deepcopy the neuron.
@@ -92,7 +94,7 @@ class Neuron:
             assert body_id is not None, (
                 "To initialise a `Neuron`, you must provide either a `body_id` or `from_file`, but both were None."
             )
-            self.body_id = body_id
+            self.body_id = body_id  # type: ignore
             self.data = self.CR.load_data_neuron(
                 body_id, self.CR.node_base_attributes()
             )
@@ -164,7 +166,7 @@ class Neuron:
         )
 
         # replace None values with 'None'
-        data["neuropil"] = data["neuropil"].fill_null("None")
+        data = data.with_columns(neuropil=pl.col("neuropil").fill_null("None"))
 
         # merge with existing synapse df
         self.synapse_df = self.synapse_df.join(data, on="synapse_id", how="inner")
@@ -242,7 +244,7 @@ class Neuron:
         """
         return self.subdivisions
 
-    def get_body_id(self):
+    def get_body_id(self) -> BodyId:
         """
         Get the body id of the neuron.
         """
@@ -295,54 +297,30 @@ class Neuron:
             .filter(pl.len().over("end_bid") >= params.SYNAPSE_CUTOFF)
             .with_columns(pl.col(attribute).fill_null(-1))
         )
+        # define the subdivision a synapse belongs to by mapping the attribute to an index
         to_map = synapses[attribute].unique().sort().to_list()
         if "-1" in to_map:  # push unclassified synapses to the end
             to_map.remove("-1")
             to_map.append("-1")
-
         mapping = {val: i for i, val in enumerate(to_map)}
-        synapses = synapses.with_columns(
-            subdivision_start=pl.col(attribute).replace(
-                pl.Series(mapping.keys(), strict=False),
-                pl.Series(mapping.values(), strict=False),
-            ),
-            subdivison_start_name=pl.col(attribute),
-            # not sure about this one - I'm not sure what the groupby is meant to do...
-            syn_count=pl.col("synapse_id").len(),
-        ).drop(attribute)
-        # synapses = self.synapse_df[[attribute, "synapse_id", "start_bid", "end_bid"]]
-        # # ensure the 'attribute' column is a string
-        # synapses[attribute] = synapses[attribute].astype(str).values
-        # # find end_bid for which the number of synapses is below the threshold
-        # syn_count = synapses.groupby("end_bid").size().reset_index()
-        # syn_count.columns = ["end_bid", "syn_count"]
-        # syn_count = syn_count[syn_count["syn_count"] < params.SYNAPSE_CUTOFF]
-        # to_discard = syn_count["end_bid"].values
-        # synapses = synapses[~synapses["end_bid"].isin(to_discard)]
 
-        # # complete the table
-        # synapses.fillna(
-        #     {attribute: -1}, inplace=True
-        # )  # unclassified synapses get together
-        # define the subdivision a synapse belongs to by mapping the attribute to an index
-        # to_map = np.sort(synapses[attribute].dropna().unique()).tolist()
-        # if "-1" in to_map:  # push unclassified synapses to the end
-        #     to_map.remove("-1")
-        #     to_map.append("-1")
-
-        # mapping = {val: i for i, val in enumerate(to_map)}
-        # mapping[np.nan] = -1 if "-1" not in to_map else mapping["-1"]
-        # synapses["subdivision_start"] = synapses[attribute].map(mapping)
-        # synapses["subdivision_start_name"] = synapses[attribute]
-        # synapses.drop(columns=[attribute], inplace=True)
-        # synapses = (
-        #     synapses.groupby(
-        #         ["start_bid", "subdivision_start", "subdivision_start_name", "end_bid"]
-        #     )
-        #     .agg(list)
-        #     .reset_index()
-        # )
-        # synapses["syn_count"] = synapses["synapse_id"].apply(len)
+        synapses = (
+            synapses.with_columns(
+                subdivision_start=pl.col(attribute)
+                .replace(
+                    pl.Series(mapping.keys(), strict=False),
+                    pl.Series(mapping.values(), strict=False),
+                )
+                .cast(pl.Int32),  # subdivision_start should be an int
+                subdivision_start_name=pl.col(attribute),
+            )
+            .with_columns(
+                syn_count=pl.len().over(
+                    "start_bid", "end_bid", "subdivision_start_name", "end_bid"
+                ),
+            )
+            .drop(attribute)
+        )
 
         self.subdivisions = synapses
 
@@ -430,9 +408,6 @@ class Neuron:
                 )
                 .drop("index")
             )
-            # self.synapse_df.loc[
-            #     ~self.synapse_df.index.isin(kept_indices), "KMeans_cluster"  # type: ignore we know kept_indices is bound because on_attribute is not None
-            # ] = -1
 
     # --- visualisation
     def plot_synapse_distribution(
@@ -463,11 +438,6 @@ class Neuron:
                 synapses = self.synapse_df.filter(
                     pl.len().over("end_bid") >= params.SYNAPSE_CUTOFF
                 )
-                # syn_count = self.synapse_df.groupby("end_bid").size().reset_index()
-                # syn_count.columns = ["end_bid", "syn_count"]
-                # syn_count = syn_count[syn_count["syn_count"] >= params.SYNAPSE_CUTOFF]
-                # to_keep = syn_count["end_bid"].values
-                # synapses = self.synapse_df[self.synapse_df["end_bid"].isin(to_keep)]
             else:
                 synapses = self.synapse_df
 
@@ -517,21 +487,24 @@ class Neuron:
 def split_neuron_by_neuropil(
     neuron_id,
     CR: ConnectomeReader | None = None,
+    *,
     save: bool = True,
-    return_type: typing.Literal["Neuron"] = "Neuron",
-) -> Neuron: ...
+    return_type: typing.Literal["name"] = "name",
+) -> str: ...
 @typing.overload
 def split_neuron_by_neuropil(
     neuron_id,
     CR: ConnectomeReader | None = None,
+    *,
     save: bool = True,
-    return_type: typing.Literal["name"] = "name",
-) -> str: ...
+    return_type: typing.Literal["Neuron"],
+) -> Neuron: ...
 
 
 def split_neuron_by_neuropil(
     neuron_id,
     CR: ConnectomeReader | None = None,
+    *,
     save: bool = True,
     return_type: typing.Literal["Neuron", "name"] = "name",
 ):

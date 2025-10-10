@@ -477,7 +477,6 @@ class Connections:
                 "subdivision": [x[1] for x in unique_objects],
             }
         )
-
         self.connections = (
             self.connections.join(
                 self.uid["body_id", "subdivision", "uid"],
@@ -631,13 +630,6 @@ class Connections:
             on="body_id",
             how="left",
         ).rename({"name": "node_label"})
-        # self.uid = pd.merge(
-        # self.uid,
-        # names,
-        # on="body_id",
-        # how="left",
-        # )
-        # self.uid = self.uid.rename(columns={"name": "node_label"})
 
         if split_neurons is None:
             return
@@ -649,12 +641,7 @@ class Connections:
             ].unique()
             for row in unique_starts.iter_rows(named=True):
                 id_tuple = (row["start_bid"], row["subdivision_start"])
-                # self.uid.filter(
-                #     neuron_ids=id_tuple
-                # ).update(
-
-                # )
-                self.uid.with_columns(
+                self.uid = self.uid.with_columns(
                     node_label=pl.when(pl.col("neuron_ids") == id_tuple)
                     .then(
                         pl.concat_str(
@@ -663,9 +650,6 @@ class Connections:
                     )
                     .otherwise(pl.col("node_label"))
                 )
-                # self.uid.loc[self.uid["neuron_ids"] == id_tuple, "node_label"] += row[
-                # "subdivision_start_name"
-                # ]
 
     def __build_adjacency_matrices(
         self, nodelist: Optional[list[UID] | list[int]] = None
@@ -1219,19 +1203,21 @@ class Connections:
             )
         return nb_synapses
 
-    def subset_uids_on_label(self, label_contains: str):
+    def subset_uids_on_label(self, label_contains: str) -> list[int]:
         """
         Get the uids of the neurons that have a label containing the given string.
         """
-        return self.uid.filter(pl.col("node_label").str.contains(label_contains))[
-            "uid"
-        ].to_list()
+        return (
+            self.uid.filter(pl.col("node_label").str.contains(label_contains))
+            .get_column("uid")
+            .to_list()
+        )
 
-    def get_node_label(self, uid: UID | int):
+    def get_node_label(self, uid: UID | int) -> str:
         """
         Get the label of a node.
         """
-        return self.uid.filter(uid=uid)[0, "node_label"]
+        return self.uid.filter(uid=uid).get_column("node_label").item()
 
     def get_node_attribute(
         self, uid: list[UID] | list[int] | UID | int, attribute: NeuronAttribute
