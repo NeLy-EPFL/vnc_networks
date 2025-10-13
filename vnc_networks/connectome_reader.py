@@ -14,7 +14,6 @@ import os
 import typing
 from abc import ABC, abstractmethod
 from collections.abc import Collection, Mapping
-from gc import collect
 from typing import Any, Optional
 
 import numpy as np

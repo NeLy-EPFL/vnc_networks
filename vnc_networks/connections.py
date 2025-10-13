@@ -243,8 +243,8 @@ class Connections:
                     new=pl.Series(self.nt_weights.values(), strict=False),
                 ),
                 # add a column with 'subdivision_start' and 'subdivision_end' with zeros as values
-                subdivision_start=0,
-                subdivision_end=0,
+                subdivision_start=pl.lit(0),
+                subdivision_end=pl.lit(0),
             )
         )
 
@@ -265,10 +265,6 @@ class Connections:
                 Unknown id type {ids}"
             )
         ## Calculate effective weights normalized by total incoming synapses
-        # in_total = self.connections.group_by(grouping_on).sum("syn_count")
-        # in_total = in_total.to_frame(name="in_total")
-        # self.connections = self.connections.join(
-        # in_total, left_on=grouping_on, right_index=True
         self.connections = (
             self.connections.with_columns(
                 in_total=pl.sum("syn_count").over(grouping_on)
@@ -279,11 +275,6 @@ class Connections:
             )
             .drop(["in_total"])
         )
-        # self.connections["syn_count_norm"] = ()
-        # self.connections["eff_weight_norm"] = (
-        # self.connections["eff_weight"] / self.connections["in_total"]
-        # )
-        return
 
     def __remove_connections_between(
         self, not_connected: Optional[list[BodyId] | list[int]] = None
@@ -1182,19 +1173,10 @@ class Connections:
             )
             # drop subdivision duplicates in the post synaptic neuron
             # (from duplication policy in neuron splitting)
-            # table = table.drop_duplicates(
-            # subset=["start_bid", "subdivision_start", "end_bid"]
-            # )
-            # nb_synapses = table["syn_count"].sum()
         elif input_type == "uid":
             nb_synapses = self.connections.filter(start_uid=start_id, end_uid=end_id)[
                 "syn_count"
             ].sum()
-            # table = self.connections[
-            #     (self.connections["start_uid"] == start_id)
-            #     & (self.connections["end_uid"] == end_id)
-            # ]
-            # nb_synapses = table["syn_count"].sum()
 
         else:
             raise ValueError(

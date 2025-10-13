@@ -212,11 +212,6 @@ class Neuron:
 
         # threshold if for a given neuron, the number of synapses is below the threshold
         if threshold:
-            # syn_count = self.synapse_df.groupby("end_bid").size().reset_index()
-            # syn_count.columns = ["end_bid", "syn_count"]
-            # syn_count = syn_count[syn_count["syn_count"] >= params.SYNAPSE_CUTOFF]
-            # to_keep = syn_count["end_bid"].values
-            # synapses = self.synapse_df[self.synapse_df["end_bid"].isin(to_keep)]
             synapses = self.synapse_df.filter(
                 pl.len().over("end_bid") >= params.SYNAPSE_CUTOFF
             )
@@ -402,7 +397,7 @@ class Neuron:
             self.synapse_df = (
                 self.synapse_df.with_row_index()
                 .with_columns(
-                    KMeans_cluster=pl.when(pl.col("index").is_in(kept_indices))
+                    KMeans_cluster=pl.when(pl.col("index").is_in(kept_indices))  # type: ignore we know this is defined above
                     .then(pl.col("KMeans_cluster"))
                     .otherwise(-1)
                 )
