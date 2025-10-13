@@ -1363,6 +1363,71 @@ class MANC_v_1_2_3(MANC_v_1_2):
             }
         )
 
+    def get_synapse_counts_by_neuropil(
+        self,
+        synapse_count_type: typing.Literal[
+            "downstream", "upstream", "pre", "post", "total_synapses"
+        ],
+        body_id_subset: list[BodyId] | list[int] | None = None,
+    ) -> pl.DataFrame:
+        """
+        Get neuron or synapse counts for each neuron in each neuropil
+
+        Args:
+            synapse_count_type (typing.Literal[ "downstream", "upstream", "pre", "post", "total_synapses"]): which count to get
+                * `"downstream"` number of downstream neurons
+                * `"upstream"` number of upstream neurons
+                * `"pre"` number of presynaptic synapses (ie. synapses to upstream neurons)
+                * `"post"` number of postsynaptic synapses (ie. synapses to downstream neurons)
+                * `"total_synapses"` total number of synapses, sum of pre and post
+
+            body_id_subset (list[BodyId] | list[int] | None, optional): Only return counts for a certain set of neurons.
+                If None, return counts for all. Defaults to None.
+
+        Returns:
+            polars.DataFrame: a table [body_id, rois...] with the counts for each neuropil for each body_id.
+                **Note:** ROI columns won't be returned if no neurons have a count in that column (ie. if specifying
+                a small number of neurons for `body_id_subset`).
+        """
+        # the total synapses count is called "synweight" in MANC. Renamed it in the arguments so it's more intuitive
+        synapse_count_type_name = (
+            "synweight"
+            if synapse_count_type == "total_synapses"
+            else synapse_count_type
+        )
+
+        roi_info_table = pl.scan_ipc(self._nodes_file).select(
+            self._body_id, self._roi_info
+        )
+        if body_id_subset is not None:
+            # Note: this removes some ROIs from the columns...
+            roi_info_table = roi_info_table.filter(
+                pl.col(self._body_id).is_in(body_id_subset)
+            )
+        roi_info_table = roi_info_table.unnest("roiInfo").collect()
+
+        # the roi_Info column contains the number of synapses in a struct like:
+        # {ROI: {downstream : 0, upstream : 1, ...}, ...}
+        # we check extract the synapse count type that we care about from each struct column
+        # and drop the columns that don't contain any synapse counts (all null for all body ids)
+        return (
+            roi_info_table.select(
+                [
+                    (
+                        pl.col(series.name)
+                        .struct[synapse_count_type_name]
+                        .alias(series.name)
+                        if series.name != "bodyId"
+                        else pl.col(series.name)
+                    )
+                    for series in roi_info_table
+                    if series.null_count() < series.len()
+                ]
+            )
+            .fill_null(0)
+            .rename({self._body_id: "body_id"})
+        )
+
 
 @typing.overload
 def MANC(

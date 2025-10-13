@@ -249,6 +249,86 @@ class TestConnectomeReaderMANC:
             ),
         )
 
+    def test_getting_counts_by_neuropil_MANCv1_2_3(self):
+        """
+        Test that we can get neuron and synapse counts by neuropil
+        """
+        import polars as pl
+        import polars.testing
+
+        import vnc_networks
+
+        # Instantiate ConnectomeReader
+        connectome_reader = vnc_networks.connectome_reader.MANC("v1.2.3")
+
+        # check that this matches what we expect
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_counts_by_neuropil(
+                "downstream", [10000, 23458]
+            ),
+            pl.DataFrame(
+                {
+                    "body_id": [10000, 23458],
+                    "CV": [703, 0],
+                    "IntTct": [313, 0],
+                    "LTct": [3181, 0],
+                    "LegNp(T3)(R)": [0, 1688],
+                }
+            ),
+        )
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_counts_by_neuropil(
+                "upstream", [10000, 23458]
+            ),
+            pl.DataFrame(
+                {
+                    "body_id": [10000, 23458],
+                    "CV": [224, 0],
+                    "IntTct": [185, 0],
+                    "LTct": [1462, 0],
+                    "LegNp(T3)(R)": [0, 685],
+                }
+            ),
+        )
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_counts_by_neuropil("pre", [10000, 23458]),
+            pl.DataFrame(
+                {
+                    "body_id": [10000, 23458],
+                    "CV": [136, 0],
+                    "IntTct": [73, 0],
+                    "LTct": [749, 0],
+                    "LegNp(T3)(R)": [0, 207],
+                }
+            ),
+        )
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_counts_by_neuropil("post", [10000, 23458]),
+            pl.DataFrame(
+                {
+                    "body_id": [10000, 23458],
+                    "CV": [224, 0],
+                    "IntTct": [185, 0],
+                    "LTct": [1462, 0],
+                    "LegNp(T3)(R)": [0, 685],
+                }
+            ),
+        )
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_counts_by_neuropil(
+                "total_synapses", [10000, 23458]
+            ),
+            pl.DataFrame(
+                {
+                    "body_id": [10000, 23458],
+                    "CV": [927, 0],
+                    "IntTct": [498, 0],
+                    "LTct": [4643, 0],
+                    "LegNp(T3)(R)": [0, 2373],
+                }
+            ),
+        )
+
     def test_list_all_nodes_MANC_v1_0(self):
         import vnc_networks
 
