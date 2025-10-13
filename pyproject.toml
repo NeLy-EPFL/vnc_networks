@@ -15,6 +15,7 @@ readme = "README.md"
 description = "Package to work with connectomes for network modelling"
 requires-python = ">=3.10"
 dependencies = [
+  "polars",
   "numpy",
   "seaborn",
   "scipy",
