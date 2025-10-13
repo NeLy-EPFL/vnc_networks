@@ -219,7 +219,7 @@ class Connections:
 
     def __get_connections(self):
         """
-        Create a pandas dataframe with the connections between the neurons.
+        Create a polars dataframe with the connections between the neurons.
         All columns are named according to the standard convention as defined
         by the NeuronAttribute type.
         """
@@ -1549,7 +1549,7 @@ class Connections:
         """
         Get how many downstream neurons this neuron has in each neuropil.
 
-        Returns a pandas dataframe where the columns (apart from `body_id`) are the neuropils.
+        Returns a polars dataframe where the columns (apart from `body_id`) are the neuropils.
         """
         return self.CR.get_synapse_counts_by_neuropil("downstream", [body_id])
 
@@ -1557,7 +1557,7 @@ class Connections:
         """
         Get how many upstream neurons this neuron has in each neuropil.
 
-        Returns a pandas dataframe where the columns (apart from `body_id`) are the neuropils.
+        Returns a polars dataframe where the columns (apart from `body_id`) are the neuropils.
         """
         return self.CR.get_synapse_counts_by_neuropil("upstream", [body_id])
 
@@ -1565,7 +1565,7 @@ class Connections:
         """
         Get how many downstream synapses this neuron has in each neuropil.
 
-        Returns a pandas dataframe where the columns (apart from `body_id`) are the neuropils.
+        Returns a polars dataframe where the columns (apart from `body_id`) are the neuropils.
         """
         return self.CR.get_synapse_counts_by_neuropil("post", [body_id])
 
@@ -1573,7 +1573,7 @@ class Connections:
         """
         Get how many upstream synapses this neuron has in each neuropil.
 
-        Returns a pandas dataframe where the columns (apart from `body_id`) are the neuropils.
+        Returns a polars dataframe where the columns (apart from `body_id`) are the neuropils.
         """
         return self.CR.get_synapse_counts_by_neuropil("pre", [body_id])
 
@@ -2265,9 +2265,18 @@ class Connections:
             )
         )
 
+    @typing.overload
+    def list_neuron_properties(
+        self, neurons: list[UID] | list[int], input_type: typing.Literal["uid"] = "uid"
+    ) -> pl.DataFrame: ...
+    @typing.overload
+    def list_neuron_properties(
+        self, neurons: list[BodyId] | list[int], input_type: typing.Literal["body_id"]
+    ) -> pl.DataFrame: ...
+
     def list_neuron_properties(
         self,
-        neurons: list[int | BodyId | UID],
+        neurons: list[int] | list[BodyId] | list[UID],
         input_type: typing.Literal["uid", "body_id"] = "uid",
     ):
         """
@@ -2307,8 +2316,14 @@ class Connections:
         properties = pl.DataFrame({"uid": nodes})
 
         for p in defined_properties:
-            values = self.__get_node_attributes(p)
-            properties = properties.with_columns(pl.col("uid").replace(values).alias(p))
+            uid_to_values_map = self.__get_node_attributes(p)
+            # need to map uids to values because get_node_attributes returns them out of order
+            properties = properties.join(
+                pl.DataFrame(
+                    {"uid": uid_to_values_map.keys(), p: uid_to_values_map.values()}
+                ),
+                on="uid",
+            )
 
         return properties
 

@@ -16,7 +16,6 @@ import matplotlib.axes
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-import pandas as pd
 import pyvis.network
 from matplotlib.lines import Line2D
 from mpl_toolkits.mplot3d import Axes3D
@@ -239,7 +238,7 @@ def display_interactive_graph(
             {
                 node: str(node_data["name"])
                 + (
-                    f' [{node_data["side"][0].upper()}]'
+                    f" [{node_data['side'][0].upper()}]"
                     if isinstance(node_data["side"], str) and len(node_data["side"]) > 0
                     else ""
                 )
@@ -337,7 +336,7 @@ def add_edge_legend(
         ]
         lines = [lines[0], lines[len(lines) // 2], lines[-1]]
 
-    edges_weight_list = [f"{int(weight/arrow_norm)}" for weight in edges_weight_list]
+    edges_weight_list = [f"{int(weight / arrow_norm)}" for weight in edges_weight_list]
     ax.legend(
         lines,
         edges_weight_list,
