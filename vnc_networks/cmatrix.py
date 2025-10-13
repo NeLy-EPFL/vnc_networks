@@ -105,22 +105,22 @@ class CMatrix:
         lookup = self.get_lookup()
 
         # rows
-        lookup = lookup.sort(by="row_index")
+        lookup = lookup.sort(by="row_index", nulls_last=True)
         n_rows = lookup["row_index"].count()
         n_null = len(lookup) - n_rows
         new_row_indices = list(range(n_rows)) + [None] * n_null
         lookup = lookup.with_columns(row_index=pl.Series(new_row_indices))
 
         # columns
-        lookup = lookup.sort(by="column_index")
+        lookup = lookup.sort(by="column_index", nulls_last=True)
         n_columns = lookup["column_index"].count()
         n_null = len(lookup) - n_columns
         new_column_indices = list(range(n_columns)) + [None] * n_null
         lookup = lookup.with_columns(column_index=pl.Series(new_column_indices))
 
         # clean up unindexed uids
-        lookup = lookup.drop_nulls(
-            ["row_index", "column_index"],
+        lookup = lookup.filter(
+            ~pl.all_horizontal(pl.col("row_index", "column_index").is_null())
         )
         # verify that the lookup includes indices up to the length of the matrix
         if n_rows != self.matrix.shape[0]:
@@ -262,10 +262,12 @@ class CMatrix:
         lookup = self.get_lookup()
         if axis == "row":
             uids = [
-<tab>                   lookup.filter(row_index=id).get_column("uid").row(0) for id in index
+                lookup.filter(row_index=id).get_column("uid").item() for id in index
             ]
         elif axis == "column":
-            uids = [lookup.filter(column_index=id)[0, "uid"] for id in index]
+            uids = [
+                lookup.filter(column_index=id).get_column("uid").item() for id in index
+            ]
         else:
             raise ValueError('The axis must be either "row" or "column".')
 
@@ -433,9 +435,9 @@ class CMatrix:
         if sub_indices is None:
             # sort the lookup by indices of the axis and return the 'uid' column
             if axis == "row":
-                self.lookup.sort(by="row_index")
+                self.lookup = self.lookup.sort(by="row_index", nulls_last=True)
             elif axis == "column":
-                self.lookup.sort(by="column_index")
+                self.lookup = self.lookup.sort(by="column_index", nulls_last=True)
             return self.lookup["uid"].to_list()
         return self.__convert_index_to_uid(sub_indices, axis=axis)
 
