@@ -11,7 +11,6 @@ import matplotlib.colorbar
 import matplotlib.colors
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import seaborn as sns
 from matplotlib_venn import venn3
 
@@ -95,11 +94,10 @@ def scatter_xyz_2d(
         colors = sns.color_palette(palette=cmap, n_colors=n_c)
         # cmap = mpl.colors.ListedColormap(colors)
         color_map = dict(zip(unique_z, colors))
-        df = pd.DataFrame({"X": X, "Y": Y, "Z": Z})
         plt.scatter(
-            df["X"],
-            df["Y"],
-            c=df["Z"].map(color_map),
+            X,
+            Y,
+            c=[color_map[z] for z in Z],
             # cmap=cmap,
             marker=marker,
             alpha=0.8,

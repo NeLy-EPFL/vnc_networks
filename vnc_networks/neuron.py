@@ -19,7 +19,7 @@ import matplotlib.axes
 import matplotlib.colors
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
+import polars as pl
 from sklearn.cluster import KMeans
 
 from . import params
@@ -29,6 +29,8 @@ from .utils import plots_design
 
 
 class Neuron:
+    body_id: BodyId
+
     def __deepcopy__(self, memo):
         """
         Deepcopy the neuron.
@@ -89,10 +91,10 @@ class Neuron:
         if from_file is not None:
             self.__load(from_file)
         else:
-            assert (
-                body_id is not None
-            ), "To initialise a `Neuron`, you must provide either a `body_id` or `from_file`, but both were None."
-            self.body_id = body_id
+            assert body_id is not None, (
+                "To initialise a `Neuron`, you must provide either a `body_id` or `from_file`, but both were None."
+            )
+            self.body_id = body_id  # type: ignore
             self.data = self.CR.load_data_neuron(
                 body_id, self.CR.node_base_attributes()
             )
@@ -113,28 +115,28 @@ class Neuron:
             neuron = pickle.load(file)
         for key, value in neuron.items():
             if key == "connectome_name":
-                assert (
-                    value == self.CR.connectome_name
-                ), "file created with another connectome!"
+                assert value == self.CR.connectome_name, (
+                    "file created with another connectome!"
+                )
             if key == "connectome_version":
-                assert (
-                    value == self.CR.connectome_version
-                ), "file created with another connectome version!"
+                assert value == self.CR.connectome_version, (
+                    "file created with another connectome version!"
+                )
             setattr(self, key, value)
 
     def __initialise_base_attributes(self):
-        self.nt_type = self.data["nt_type"].values[0]
-        self.nt_proba = self.data["nt_proba"].values[0]
-        self.class_1 = self.data["class_1"].values[0]
-        self.class_2 = self.data["class_2"].values[0]
-        self.name = self.data["name"].values[0]
-        self.side = self.data["side"].values[0]
-        self.neuropil = self.data["neuropil"].values[0]
-        self.size = self.data["size"].values[0]
-        self.hemilineage = self.data["hemilineage"].values[0]
+        self.nt_type = self.data[0, "nt_type"]
+        self.nt_proba = self.data[0, "nt_proba"]
+        self.class_1 = self.data[0, "class_1"]
+        self.class_2 = self.data[0, "class_2"]
+        self.name = self.data[0, "name"]
+        self.side = self.data[0, "side"]
+        self.neuropil = self.data[0, "neuropil"]
+        self.size = self.data[0, "size"]
+        self.hemilineage = self.data[0, "hemilineage"]
 
     def __load_synapse_ids(self):
-        # Independently of the file structure, we should get a pd.dataframe
+        # Independently of the file structure, we should get a pl.dataframe
         # with columns
         # ['synapse_id', 'start_bid', 'end_bid', 'X', 'Y', 'Z']
 
@@ -160,14 +162,14 @@ class Neuron:
             return
 
         data = self.CR.get_synapse_neuropil(
-            synapse_ids=self.synapse_df["synapse_id"].tolist(),
+            synapse_ids=self.synapse_df["synapse_id"].to_list(),
         )
 
         # replace None values with 'None'
-        data["neuropil"] = data["neuropil"].fillna("None")
+        data = data.with_columns(neuropil=pl.col("neuropil").fill_null("None"))
 
         # merge with existing synapse df
-        self.synapse_df = self.synapse_df.merge(data, on="synapse_id", how="inner")
+        self.synapse_df = self.synapse_df.join(data, on="synapse_id", how="inner")
         return
 
     # public methods
@@ -210,11 +212,9 @@ class Neuron:
 
         # threshold if for a given neuron, the number of synapses is below the threshold
         if threshold:
-            syn_count = self.synapse_df.groupby("end_bid").size().reset_index()
-            syn_count.columns = ["end_bid", "syn_count"]
-            syn_count = syn_count[syn_count["syn_count"] >= params.SYNAPSE_CUTOFF]
-            to_keep = syn_count["end_bid"].values
-            synapses = self.synapse_df[self.synapse_df["end_bid"].isin(to_keep)]
+            synapses = self.synapse_df.filter(
+                pl.len().over("end_bid") >= params.SYNAPSE_CUTOFF
+            )
         else:
             synapses = self.synapse_df
 
@@ -223,15 +223,12 @@ class Neuron:
 
         # get the synapse positions
         angle = np.radians(angle)
-        X = synapses["X"].values
-        Y = np.cos(angle) * synapses["Y"].values - np.sin(angle) * synapses["Z"].values
+        X = synapses["X"]
+        Y = np.cos(angle) * synapses["Y"] - np.sin(angle) * synapses["Z"]
         if z_attribute is None:
-            Z = (
-                np.sin(angle) * synapses["Y"].values
-                + np.cos(angle) * synapses["Z"].values
-            )
+            Z = np.sin(angle) * synapses["Y"] + np.cos(angle) * synapses["Z"]
         else:
-            Z = synapses[z_attribute].values
+            Z = synapses[z_attribute]
 
         # save the positions in a convenient format in the neuron object
         return X, Y, Z
@@ -242,7 +239,7 @@ class Neuron:
         """
         return self.subdivisions
 
-    def get_body_id(self):
+    def get_body_id(self) -> BodyId:
         """
         Get the body id of the neuron.
         """
@@ -262,7 +259,7 @@ class Neuron:
         if to is None:
             return len(self.synapse_df)
         else:
-            return len(self.synapse_df[self.synapse_df["end_bid"] == to])
+            return len(self.synapse_df.filter(end_bid=to))
 
     # --- setters
     def add_neuropil_information(self):
@@ -289,39 +286,36 @@ class Neuron:
         # and a columns 'subdivision_pre'  with the index associated to the attribute split on.
         # Unclassified synapses have a -1 index.
         # Finally, it has a 'synapse_id' column with a list of the synapse ids.
-        synapses = self.synapse_df[[attribute, "synapse_id", "start_bid", "end_bid"]]
-        # ensure the 'attribute' column is a string
-        synapses[attribute] = synapses[attribute].astype(str).values
-        # find end_bid for which the number of synapses is below the threshold
-        syn_count = synapses.groupby("end_bid").size().reset_index()
-        syn_count.columns = ["end_bid", "syn_count"]
-        syn_count = syn_count[syn_count["syn_count"] < params.SYNAPSE_CUTOFF]
-        to_discard = syn_count["end_bid"].values
-        synapses = synapses[~synapses["end_bid"].isin(to_discard)]
 
-        # complete the table
-        synapses.fillna(
-            {attribute: -1}, inplace=True
-        )  # unclassified synapses get together
+        synapses = (
+            self.synapse_df[[attribute, "synapse_id", "start_bid", "end_bid"]]
+            .filter(pl.len().over("end_bid") >= params.SYNAPSE_CUTOFF)
+            .with_columns(pl.col(attribute).fill_null(-1))
+        )
         # define the subdivision a synapse belongs to by mapping the attribute to an index
-        to_map = np.sort(synapses[attribute].dropna().unique()).tolist()
+        to_map = synapses[attribute].unique().sort().to_list()
         if "-1" in to_map:  # push unclassified synapses to the end
             to_map.remove("-1")
             to_map.append("-1")
-
         mapping = {val: i for i, val in enumerate(to_map)}
-        mapping[np.nan] = -1 if "-1" not in to_map else mapping["-1"]
-        synapses["subdivision_start"] = synapses[attribute].map(mapping)
-        synapses["subdivision_start_name"] = synapses[attribute]
-        synapses.drop(columns=[attribute], inplace=True)
+
         synapses = (
-            synapses.groupby(
-                ["start_bid", "subdivision_start", "subdivision_start_name", "end_bid"]
+            synapses.with_columns(
+                subdivision_start=pl.col(attribute)
+                .replace(
+                    pl.Series(mapping.keys(), strict=False),
+                    pl.Series(mapping.values(), strict=False),
+                )
+                .cast(pl.Int32),  # subdivision_start should be an int
+                subdivision_start_name=pl.col(attribute),
             )
-            .agg(list)
-            .reset_index()
+            .with_columns(
+                syn_count=pl.len().over(
+                    "start_bid", "end_bid", "subdivision_start_name", "end_bid"
+                ),
+            )
+            .drop(attribute)
         )
-        synapses["syn_count"] = synapses["synapse_id"].apply(len)
 
         self.subdivisions = synapses
 
@@ -330,15 +324,14 @@ class Neuron:
         Clear the subdivisions table from neurons that have their bodyid in
         the not_connected list.
         """
-        assert (
-            self.subdivisions is not None
-        ), "Trying to clear not_connected but subdivisions is None"
-        self.subdivisions = self.subdivisions[
-            ~self.subdivisions["end_bid"].isin(not_connected)
-        ]
-        self.synapse_df = self.synapse_df[
-            ~self.synapse_df["end_bid"].isin(not_connected)
-        ]
+        assert self.subdivisions is not None, (
+            "Trying to clear not_connected but subdivisions is None"
+        )
+        # FIX: should this be start_bid in the first one?
+        self.subdivisions = self.subdivisions.filter(
+            ~pl.col("end_bid").is_in(not_connected)
+            & ~pl.col("end_bid").is_in(not_connected)
+        )
 
     def remove_defined_subdivisions(self):
         """
@@ -376,8 +369,11 @@ class Neuron:
                 key,
                 value,
             ) in on_attribute.items():  # only keep the synapses with the attribute
-                synapses = self.synapse_df[self.synapse_df[key].str.contains(value)]
-                kept_indices.extend(synapses.index)
+                kept_indices.extend(
+                    self.synapse_df.with_row_index().filter(
+                        pl.col(key).str.contains(value)
+                    )["index"]
+                )
             X = X[kept_indices]
             Y = Y[kept_indices]
             Z = Z[kept_indices]
@@ -385,20 +381,28 @@ class Neuron:
         # cluster the synapses
         kmeans = KMeans(n_clusters=n_clusters)
         kmeans.fit(np.array([X, Y, Z]).T)
-        self.synapse_df["KMeans_cluster"] = kmeans.predict(
-            np.array(
-                [
-                    self.synapse_df["X"],  # keep the order of the synapses
-                    self.synapse_df["Y"],
-                    self.synapse_df["Z"],
-                ]
-            ).T
+        self.synapse_df.with_columns(
+            KMeans_cluster=kmeans.predict(
+                np.array(
+                    [
+                        self.synapse_df["X"],  # keep the order of the synapses
+                        self.synapse_df["Y"],
+                        self.synapse_df["Z"],
+                    ]
+                ).T
+            ).tolist()
         )
 
         if on_attribute is not None:  # set the cluster to -1 for the synapses not kept
-            self.synapse_df.loc[
-                ~self.synapse_df.index.isin(kept_indices), "KMeans_cluster"  # type: ignore we know kept_indices is bound because on_attribute is not None
-            ] = -1
+            self.synapse_df = (
+                self.synapse_df.with_row_index()
+                .with_columns(
+                    KMeans_cluster=pl.when(pl.col("index").is_in(kept_indices))  # type: ignore we know this is defined above
+                    .then(pl.col("KMeans_cluster"))
+                    .otherwise(-1)
+                )
+                .drop("index")
+            )
 
     # --- visualisation
     def plot_synapse_distribution(
@@ -426,15 +430,14 @@ class Neuron:
                 raise AttributeError(f"Attribute {color_by} not in synapse dataframe.")
             # map self.synapse_df[color_by] categorical values to integers
             if threshold:
-                syn_count = self.synapse_df.groupby("end_bid").size().reset_index()
-                syn_count.columns = ["end_bid", "syn_count"]
-                syn_count = syn_count[syn_count["syn_count"] >= params.SYNAPSE_CUTOFF]
-                to_keep = syn_count["end_bid"].values
-                synapses = self.synapse_df[self.synapse_df["end_bid"].isin(to_keep)]
+                synapses = self.synapse_df.filter(
+                    pl.len().over("end_bid") >= params.SYNAPSE_CUTOFF
+                )
             else:
                 synapses = self.synapse_df
 
-            Z = synapses[color_by].dropna().values
+            Z = synapses[color_by]
+            # Z = synapses[color_by].dropna().values
             plots_design.scatter_xyz_2d(
                 X,
                 Y,
@@ -479,21 +482,24 @@ class Neuron:
 def split_neuron_by_neuropil(
     neuron_id,
     CR: ConnectomeReader | None = None,
+    *,
     save: bool = True,
-    return_type: typing.Literal["Neuron"] = "Neuron",
-) -> Neuron: ...
+    return_type: typing.Literal["name"] = "name",
+) -> str: ...
 @typing.overload
 def split_neuron_by_neuropil(
     neuron_id,
     CR: ConnectomeReader | None = None,
+    *,
     save: bool = True,
-    return_type: typing.Literal["name"] = "name",
-) -> str: ...
+    return_type: typing.Literal["Neuron"],
+) -> Neuron: ...
 
 
 def split_neuron_by_neuropil(
     neuron_id,
     CR: ConnectomeReader | None = None,
+    *,
     save: bool = True,
     return_type: typing.Literal["Neuron", "name"] = "name",
 ):

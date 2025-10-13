@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vnc_networks"
-version = "0.0.1"
+version = "0.1.0"
 authors = [{ name = "Femke Hurtak", email = "femke.hurtak@epfl.ch" }]
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -15,7 +15,7 @@ readme = "README.md"
 description = "Package to work with connectomes for network modelling"
 requires-python = ">=3.10"
 dependencies = [
-  "pandas",
+  "polars",
   "numpy",
   "seaborn",
   "scipy",
