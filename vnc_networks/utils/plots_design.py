@@ -97,7 +97,7 @@ def scatter_xyz_2d(
         plt.scatter(
             X,
             Y,
-            [color_map[z] for z in Z],
+            c=[color_map[z] for z in Z],
             # cmap=cmap,
             marker=marker,
             alpha=0.8,
