@@ -125,7 +125,9 @@ NeuronAttribute = typing.Literal[
     # classification
     "class_1",  # upper classification level, common to all
     "class_2",  # lower classification level, common to all
+    "class_3",  # even lower classification level, only BANC
     "name",  # common to all
+    "name_alternatives",  # only BANC
     "type",
     # morphology
     "side",  # common to all
@@ -159,7 +161,7 @@ NeuronClass = typing.Literal[
     "visual_projection",
     "other",
     # VNC specific
-    "intrinsic",
+    "vnc_intrinsic",
     "glia",
     "sensory_ascending",
     "sensory_descending",
@@ -168,6 +170,9 @@ NeuronClass = typing.Literal[
     "unknown",
     "sensory_unknown",
     "interneuron_unknown",
+    # extra BANC types
+    "ascending_visceral",
+    "visceral_circulatory",
 ]
 """Possible values for neuron class. These are the 'class:string' values in MANC v1.0 or the 'superclass' values in the FAFB v630 connectome"""
 
@@ -206,7 +211,7 @@ NEURON_CLASSES: dict[NeuronClass, dict[typing.Literal["color"], str]] = {
     "efferent_ascending": {"color": LIGHTBLUE},
     "visual_centrifugal": {"color": LIGHTBLUE},
     # green: interneurons
-    "intrinsic": {"color": GREEN},
+    "vnc_intrinsic": {"color": GREEN},
     "central": {"color": GREEN},
     # grey: other
     "interneuron_unknown": {"color": DARKGREY},
@@ -215,6 +220,9 @@ NEURON_CLASSES: dict[NeuronClass, dict[typing.Literal["color"], str]] = {
     "unknown": {"color": LIGHTGREY},
     "other": {"color": LIGHTGREY},
     "glia": {"color": LIGHTGREY},
+    # extra BANC types
+    "ascending_visceral": {"color": DARKORANGE},
+    "visceral_circulatory": {"color": DARKGREY},
 }
 
 

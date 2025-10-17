@@ -564,7 +564,7 @@ class MANCReader(ConnectomeReader):
 
         self.generic_to_specific_class.update(
             {
-                "intrinsic": self._intrinsic,
+                "vnc_intrinsic": self._intrinsic,
                 "glia": self._glia,
                 "sensory_ascending": self._sensory_ascending,
                 "efferent": self._efferent,
@@ -2019,4 +2019,376 @@ def FAFB(
             return FAFB_v783(connectome_preprocessing)
     raise ValueError(
         f"Version {version} is not a supported version for the FAFB connectome. Supported versions are v630 and v783"
+    )
+
+
+# === BANC: Brain and nerve cord
+class BANCReader(ConnectomeReader):
+    def __init__(
+        self,
+        connectome_version: str,
+        connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
+    ):
+        super().__init__("banc", connectome_version, connectome_preprocessing)
+
+        self.nt_weights = {
+            "ACH": +1,
+            "GABA": -1,
+            "GLUT": -1 if self.connectome_preprocessing.glutamate_inhibitory else +1,
+            "DA": 0,
+            "OCT": 0,
+            "SER": 0,
+            "TYR": 0,
+            "HIST": 0,
+            None: 0,
+        }
+
+    # ----- overwritten methods -----
+    def _load_specific_neuron_attributes(self):
+        """
+        Need to define the fields that are common to all connectomes.
+        BodyId, start_bid, end_bid, syn_count, nt_type, class_1, class_2, neuron_attributes
+        """
+
+        # rename common attributes
+        self._body_id = "Root ID"
+        self._syn_id = None
+        self._start_bid = "pre_root_id"
+        self._end_bid = "post_root_id"
+        self._syn_count = "syn_count"
+        self._nt_type = "Predicted NT type"
+        self._nt_proba = None
+        self._class_1 = (
+            "Super Class"  # There's also flow but I think it's a bit too coarse grained
+        )
+        self._class_2 = "Class"
+        self._name = "Primary Cell Type"
+        self._side = "Soma side"
+        self._neuropil = None
+        self._hemilineage = "Hemilineage"
+        self._size = "Volume (nm^3)"
+        # self._position = "position"
+        # self._target = "Sub Class"
+        # attributes specific to BANC
+        self._nerve = "Nerve"
+        self._area = "Surface area (nm^2)"
+        self._length = "Cable length (nm)"
+        self._flow = "Flow"
+        self._class_3 = "Sub Class"
+        self._name_alternatives = "Alternative Cell Type(s)"
+
+    def _load_specific_neuron_classes(self):
+        """
+        Name the neuron classes. Map internal variable to data set names.
+        """
+        # common types
+        self._sensory = "sensory"
+        self._motor = "motor"
+        self._ascending = "ascending"
+        self._descending = "descending"
+        # specific types
+        self._ascending_visceral = "ascending_visceral_circulatory"
+        self._central = "central_brain_intrinsic"
+        self._glia = "glia"
+        self._optic = "optic_lobe_intrinsic"
+        self._sensory_ascending = "sensory_ascending"
+        self._sensory_descending = "sensory_descending"
+        self._vnc_intrinsic = "ventral_nerve_cord_intrinsic"
+        self._visceral_circulatory = "visceral_circulatory"
+        self._visual_centrifugal = "visual_centrifugal"
+        self._visual_projection = "visual_projection"
+
+    def _build_attribute_mapping(self):
+        super()._build_attribute_mapping()
+
+        self.generic_to_specific_attribute.update(
+            {
+                "nerve": self._nerve,
+                "area": self._area,
+                "length": self._length,
+                "flow": self._flow,
+                "class_3": self._class_3,
+                "name_alternatives": self._name_alternatives,
+            }
+        )
+
+    def _build_class_mapping(self):
+        super()._build_class_mapping()
+
+        self.generic_to_specific_class.update(
+            {
+                "ascending_visceral": self._ascending_visceral,
+                "central": self._central,
+                "glia": self._glia,
+                "optic": self._optic,
+                "sensory_ascending": self._sensory_ascending,
+                "sensory_descending": self._sensory_descending,
+                "vnc_intrinsic": self._vnc_intrinsic,
+                "visceral_circulatory": self._visceral_circulatory,
+                "visual_centrifugal": self._visual_centrifugal,
+                "visual_projection": self._visual_projection,
+            }
+        )
+
+    def _load_data_directories(self):
+        """
+        Need to define the directories that are common to all connectomes.
+        """
+        self._connectome_dir = os.path.join(
+            params.RAW_DATA_DIR,
+            self.connectome_name,
+            self.connectome_version,
+        )
+
+        # all information for a neuron
+        self._node_stats_file = os.path.join(  # length, area, size
+            self._connectome_dir, "neurons.csv"
+        )
+
+        # connections between neurons
+        self._connections_file = os.path.join(
+            self._connectome_dir, "connections_princeton.csv"
+        )
+
+    def _get_traced_bids(self) -> list[BodyId]:
+        """
+        Get the body ids of the traced neurons.
+        """
+        raise NotImplementedError("Method should not be called on BANC.")
+
+    def _load_connections(self) -> pl.DataFrame:
+        """
+        Load the connections of the connectome.
+        Needs to gather the columns ['start_bid', 'end_bid', 'syn_count', 'nt_type'].
+        """
+        # the NT column in the connections file is all null, so we need to get the information from the presynaptic neuron
+        return (
+            pl.scan_csv(
+                self._connections_file,
+            )
+            .select(self._start_bid, self._end_bid, self._syn_count)
+            .join(
+                pl.scan_csv(self._node_stats_file).select(self._body_id, self._nt_type),
+                left_on=self._start_bid,
+                right_on=self._body_id,
+            )
+            .rename(self.decode_neuron_attribute)
+            .collect()
+        )
+
+    # --- specific private methods
+    def _filter_neurons(
+        self,
+        attribute: NeuronAttribute,
+        value,
+    ) -> set[BodyId]:
+        """
+        Return the set of neuron body_ids for which the attribute has the value.
+        """
+        if attribute == "body_id":
+            return {value}
+
+        attribute_specific = self.sna(attribute)
+
+        neurons_df = pl.scan_csv(
+            self._node_stats_file, schema_overrides={self._body_id: pl.UInt64}
+        )
+
+        if attribute == "class_1":
+            # need to check both the generic and the specific names
+            neurons_df = neurons_df.filter(
+                (pl.col(attribute_specific) == value)
+                | (pl.col(attribute_specific) == self.specific_neuron_class(value))
+            )
+        else:
+            neurons_df = neurons_df.filter(pl.col(attribute_specific) == value)
+
+        return set(neurons_df.select(self._body_id).collect().get_column(self._body_id))
+
+    # public methods
+    def get_synapse_df(self, body_id: BodyId | int) -> pl.DataFrame:
+        """
+        Load the synapse ids for the neuron.
+        should define the columns
+        ['synapse_id','start_bid','end_bid', 'X', 'Y', 'Z']
+        """
+        raise NotImplementedError("Can't get synapse coordinates for BANC")
+
+    def get_synapse_neuropil(
+        self,
+        synapse_ids: list[int],
+    ) -> pl.DataFrame:
+        raise NotImplementedError(
+            'No trivial match in FAFB between coordinates and neuropil...\
+            You can try to circumvent with the number of synapses in a neuropil for a given neuron.\
+            For that, load "neuropil_synapse_table.csv"'
+        )
+
+    def get_synapse_counts_by_neuropil(
+        self,
+        synapse_count_type: typing.Literal[
+            "downstream", "upstream", "pre", "post", "total_synapses"
+        ],
+        body_id_subset: list[BodyId] | list[int] | None = None,
+    ):
+        """
+        Get neuron or synapse counts for each neuron in each neuropil
+
+        Args:
+            synapse_count_type (typing.Literal[ "downstream", "upstream", "pre", "post", "total_synapses"]): which count to get
+                * `"downstream"` number of downstream neurons
+                * `"upstream"` number of upstream neurons
+                * `"pre"` number of presynaptic synapses (ie. synapses to upstream neurons)
+                * `"post"` number of postsynaptic synapses (ie. synapses to downstream neurons)
+                * `"total_synapses"` total number of synapses, sum of pre and post
+
+            body_id_subset (list[BodyId] | list[int] | None, optional): Only return counts for a certain set of neurons.
+                If None, return counts for all. Defaults to None.
+
+        Returns:
+            pl.DataFrame: a table [body_id, rois...] with the counts for each neuropil for each body_id.
+                **Note:** ROI columns won't be returned if no neurons have a count in that column (ie. if specifying
+                a small number of neurons for `body_id_subset`).
+        """
+        raise NotImplementedError("Can't get synapse counts by neuropil for the BANC")
+
+    def list_all_nodes(self) -> list[BodyId]:
+        """
+        List all the neurons existing in the connectome.
+        """
+        return (
+            pl.read_csv(
+                self._node_stats_file,
+                columns=[self._body_id],
+                schema_overrides={self._body_id: pl.UInt64},
+            )
+            .get_column(self._body_id)
+            .to_list()
+        )
+
+    def get_neuron_bodyids(
+        self,
+        selection_dict: SelectionDict = {},
+        nodes: Optional[list[BodyId] | list[int]] = None,
+    ) -> list[BodyId]:
+        """
+        Get the BodyIds of the neurons in the dataset that fulfil the conditions in the selection_dict.
+
+        For the specific case of "class_1" that refers to the NeuronClass, we need to verify both the generic and the specific names.
+
+        Args:
+            selection_dict (SelectionDict, optional): Criteria that the returned neurons need to fulfil. Different criteria are treated as 'and' conditions. Defaults to {}.
+            nodes (Optional[list[BodyId]  |  list[int]], optional): If not None, only return BodyIds which are contained in this list. Defaults to None.
+
+        Returns:
+            list[BodyId]: list of the BodyIds of neurons that fulfilled all supplied conditions.
+        """
+        # get all neurons in the dataset that are also in the nodes list
+        valid_nodes = set(self.list_all_nodes())
+        if nodes is not None:
+            valid_nodes = valid_nodes.intersection(nodes)
+
+        # Treat each attribute in the selection dict independently:
+        # get the nodes that satisfy each condition, and return the intersection of all
+        for key, value in selection_dict.items():
+            specific_valid_nodes = self._filter_neurons(
+                attribute=key,
+                value=value,
+            )
+            valid_nodes = valid_nodes.intersection(specific_valid_nodes)
+
+        return list(valid_nodes)
+
+    def load_data_neuron(
+        self,
+        id_: BodyId | int,
+        attributes: list[NeuronAttribute] = [],
+    ) -> pl.DataFrame:
+        """
+        Load the data of a neuron with a certain id.
+
+        Parameters
+        ----------
+        id : BodyId | int
+            The id of the neuron.
+        attributes : list
+            The attributes to load.
+
+        Returns
+        -------
+        polars.DataFrame
+            The data of the neuron.
+        """
+        return self.load_data_neuron_set([id_], attributes)
+
+    def load_data_neuron_set(
+        self,
+        ids: list[BodyId] | list[int],
+        attributes: list[NeuronAttribute] = [],
+    ) -> pl.DataFrame:
+        """
+        Load the data of a set of neurons with certain ids.
+
+        Parameters
+        ----------
+        ids : list
+            The bodyids of the neurons.
+        attributes : list
+            The attributes to load.
+
+        Returns
+        -------
+        polars.DataFrame
+            The data of the neurons.
+        """
+
+        if "body_id" not in attributes:
+            attributes.insert(0, "body_id")
+        columns_to_read = [self.sna(a) for a in attributes]
+        return (
+            # creating a dataframe with the body ids then joining the attributes keeps the rows in the same order
+            pl.DataFrame({"body_id": ids})
+            .lazy()
+            .join(
+                pl.scan_csv(
+                    self._node_stats_file, schema_overrides={self._body_id: pl.UInt64}
+                )
+                .select(columns_to_read)
+                .rename(self.decode_neuron_attribute)
+                .filter(pl.col("body_id").is_in(ids)),
+                on="body_id",
+            )
+            # return attributes in the specified order
+            .select(attributes)
+        ).collect()
+
+
+# Specific versions of BANC
+class BANC_v626(BANCReader):
+    def __init__(
+        self, connectome_preprocessing: ConnectomePreprocessingOptions | None = None
+    ):
+        super().__init__("v626", connectome_preprocessing)
+
+
+def BANC(
+    version: typing.Literal["v626"],
+    connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
+) -> FAFBReader:
+    """Get a connectome reader for one of the versions of the Brain and Nerve Cord connectome (BANC).
+
+    Args:
+        version (typing.Literal["v626"]): The valid versions of the BANC
+
+    Raises:
+        ValueError: If an incorrect connectome version is provided
+
+    Returns:
+        FAFBReader: BANC_v626
+    """
+    match version:
+        case "v626":
+            return BANC_v626(connectome_preprocessing)
+    raise ValueError(
+        f"Version {version} is not a supported version for the BANC connectome. Supported version is v626"
     )
