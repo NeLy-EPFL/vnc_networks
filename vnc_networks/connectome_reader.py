@@ -1808,7 +1808,7 @@ class FAFBReader(ConnectomeReader):
                 return synapse_counts
             case "downstream" | "post":
                 neuron_body_id_we_care_about = self._start_bid
-            case "pre" | "post":
+            case "upstream" | "pre":
                 neuron_body_id_we_care_about = self._end_bid
             case _:
                 raise ValueError(
