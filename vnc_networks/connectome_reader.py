@@ -1273,6 +1273,16 @@ class MANC_v_1_2(MANCReader):
                 **Note:** ROI columns won't be returned if no neurons have a count in that column (ie. if specifying
                 a small number of neurons for `body_id_subset`).
         """
+        if synapse_count_type not in {
+            "downstream",
+            "upstream",
+            "pre",
+            "post",
+            "total_synapses",
+        }:
+            raise ValueError(
+                f"Synapse count type {synapse_count_type} not recognised. Valid values are: ['downstream', 'upstream', 'pre', 'post', 'total_synapses']"
+            )
         # the total synapses count is called "synweight" in MANC. Renamed it in the arguments so it's more intuitive
         synapse_count_type_name = (
             "synweight"
@@ -1388,6 +1398,16 @@ class MANC_v_1_2_3(MANC_v_1_2):
                 **Note:** ROI columns won't be returned if no neurons have a count in that column (ie. if specifying
                 a small number of neurons for `body_id_subset`).
         """
+        if synapse_count_type not in {
+            "downstream",
+            "upstream",
+            "pre",
+            "post",
+            "total_synapses",
+        }:
+            raise ValueError(
+                f"Synapse count type {synapse_count_type} not recognised. Valid values are: ['downstream', 'upstream', 'pre', 'post', 'total_synapses']"
+            )
         # the total synapses count is called "synweight" in MANC. Renamed it in the arguments so it's more intuitive
         synapse_count_type_name = (
             "synweight"
@@ -1746,49 +1766,54 @@ class FAFBReader(ConnectomeReader):
             self._connections_file,
         )
 
-        if synapse_count_type == "total_synapses":
-            if body_id_subset is not None:
-                # Note: this removes some ROIs from the columns...
-                connections_table = connections_table.filter(
-                    pl.col(self._start_bid).is_in(body_id_subset)
-                    | pl.col(self._end_bid).is_in(body_id_subset)
+        match synapse_count_type:
+            case "total_synapses":
+                if body_id_subset is not None:
+                    # Note: this removes some ROIs from the columns...
+                    connections_table = connections_table.filter(
+                        pl.col(self._start_bid).is_in(body_id_subset)
+                        | pl.col(self._end_bid).is_in(body_id_subset)
+                    )
+                # separately get the pre and post synapse counts then sum them
+                synapse_counts = (
+                    pl.concat(
+                        [
+                            connections_table.select(
+                                neuron_body_id_we_care_about, "neuropil", "syn_count"
+                            )
+                            .group_by([neuron_body_id_we_care_about, "neuropil"])
+                            .sum()
+                            .collect()
+                            .pivot(
+                                index=neuron_body_id_we_care_about,
+                                on="neuropil",
+                                values="syn_count",
+                            )
+                            .fill_null(0)
+                            .rename({neuron_body_id_we_care_about: "body_id"})
+                            for neuron_body_id_we_care_about in [
+                                self._start_bid,
+                                self._end_bid,
+                            ]
+                        ],
+                        how="diagonal",  # because the column order mightn't be the same
+                    )
+                    .group_by("body_id")
+                    .sum()
                 )
-            # separately get the pre and post synapse counts then sum them
-            synapse_counts = (
-                pl.concat(
-                    [
-                        connections_table.select(
-                            neuron_body_id_we_care_about, "neuropil", "syn_count"
-                        )
-                        .group_by([neuron_body_id_we_care_about, "neuropil"])
-                        .sum()
-                        .collect()
-                        .pivot(
-                            index=neuron_body_id_we_care_about,
-                            on="neuropil",
-                            values="syn_count",
-                        )
-                        .fill_null(0)
-                        .rename({neuron_body_id_we_care_about: "body_id"})
-                        for neuron_body_id_we_care_about in [
-                            self._start_bid,
-                            self._end_bid,
-                        ]
-                    ],
-                    how="diagonal",  # because the column order mightn't be the same
+                if body_id_subset is not None:
+                    synapse_counts = synapse_counts.filter(
+                        pl.col("body_id").is_in(body_id_subset)
+                    )
+                return synapse_counts
+            case "downstream" | "post":
+                neuron_body_id_we_care_about = self._start_bid
+            case "pre" | "post":
+                neuron_body_id_we_care_about = self._end_bid
+            case _:
+                raise ValueError(
+                    f"Synapse count type {synapse_count_type} not recognised. Valid values are: ['downstream', 'upstream', 'pre', 'post', 'total_synapses']"
                 )
-                .group_by("body_id")
-                .sum()
-            )
-            if body_id_subset is not None:
-                synapse_counts = synapse_counts.filter(
-                    pl.col("body_id").is_in(body_id_subset)
-                )
-            return synapse_counts
-        elif synapse_count_type in ["downstream", "post"]:
-            neuron_body_id_we_care_about = self._start_bid
-        else:
-            neuron_body_id_we_care_about = self._end_bid
 
         if body_id_subset is not None:
             # Note: this removes some ROIs from the columns...
