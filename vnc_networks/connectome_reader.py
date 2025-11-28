@@ -2374,7 +2374,7 @@ class BANC_v626(BANCReader):
 def BANC(
     version: typing.Literal["v626"],
     connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
-) -> FAFBReader:
+) -> BANCReader:
     """Get a connectome reader for one of the versions of the Brain and Nerve Cord connectome (BANC).
 
     Args:
