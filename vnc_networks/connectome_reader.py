@@ -1698,10 +1698,7 @@ class FAFBReader(ConnectomeReader):
             )
             .fill_null(strategy="forward")
             # put the synapse_id column first
-            .select(
-                pl.int_range(pl.len(), dtype=pl.UInt64).alias("synapse_id"),
-                pl.all(),
-            )
+            .with_row_index("synapse_id")
             .filter(pl.col("start_bid") == body_id)
             .collect()
         )
@@ -1983,6 +1980,164 @@ class FAFB_v783(FAFBReader):
         super().__init__("v783", connectome_preprocessing)
 
 
+class FAFB_v783b(FAFBReader):
+    def __init__(
+        self, connectome_preprocessing: ConnectomePreprocessingOptions | None = None
+    ):
+        super().__init__("v783b", connectome_preprocessing)
+
+    # ----- overwritten methods -----
+    def _load_specific_neuron_attributes(self):
+        """
+        Need to define the fields that are common to all connectomes.
+        BodyId, start_bid, end_bid, syn_count, nt_type, class_1, class_2, neuron_attributes
+        """
+        super()._load_specific_neuron_attributes()
+        # rename common attributes
+        self._name = "primary_type"
+
+    def _load_data_directories(self):
+        """
+        Need to define the directories that are common to all connectomes.
+        """
+        super()._load_data_directories()
+
+        self._connections_file = os.path.join(
+            self._connectome_dir, "connections_princeton.csv"
+        )
+
+        # specific to FAFB
+        # all information for a neuron
+        self._node_class_file = os.path.join(  # class, hemilineage, side etc.
+            self._connectome_dir, "classification.csv"
+        )
+        self._node_cell_type_file = os.path.join(  # class, hemilineage, side etc.
+            self._connectome_dir, "consolidated_cell_types.csv"
+        )
+        # synapses
+        self._synapses_file = os.path.join(
+            self._connectome_dir, "fafb_v783_princeton_synapse_table.csv"
+        )
+
+    # --- specific private methods
+    def _filter_neurons(
+        self,
+        attribute: NeuronAttribute,
+        value,
+    ) -> set[BodyId]:
+        """
+        Return the set of neuron body_ids for which the attribute has the value.
+        """
+        # attribute name got moved to a new file - otherwise everything is the same
+        # as it was in the previous version of FAFB
+        if attribute != "name":
+            return super()._filter_neurons(attribute, value)
+
+        att = self.sna(attribute)  # specific name attribute
+        filename = self._node_cell_type_file
+
+        valid_nodes = set(
+            pl.scan_csv(filename, schema_overrides={self._body_id: pl.UInt64})
+            .filter(pl.col(att) == value)
+            .select(self._body_id)
+            .collect()
+            .get_column(self._body_id)
+        )
+
+        return valid_nodes
+
+    # public methods
+    def get_synapse_df(self, body_id: BodyId | int) -> pl.DataFrame:
+        """
+        Load the synapse ids for the neuron.
+        should define the columns
+        ['synapse_id','start_bid','end_bid', 'X', 'Y', 'Z']
+        """
+        # Note: this function is slow, mainly because it has to load a whole 80M row file
+
+        # in this dataset only the last 9 digits of the neuron ids are stored
+        # eg 720575940628392279 is stored as 628392279
+        # so for more efficient filtering - precompute the body id we're searching for
+        first_9_digits = body_id // 1_000_000_000
+        last_9_digits = body_id % 1_000_000_000
+        if first_9_digits != 720575940:
+            raise ValueError(
+                f"FAFB Body Ids should start with 720575940 but {body_id} doesn't"
+            )
+        # return the centre position of each synapse
+        type_dict = {
+            "pre_root_id_720575940": pl.UInt64,
+            "post_root_id_720575940": pl.UInt64,
+            "ctr_x": pl.Int32,
+            "ctr_y": pl.Int32,
+            "ctr_z": pl.Int32,
+        }
+        return (
+            pl.scan_csv(
+                self._synapses_file,
+                schema_overrides=type_dict,
+            )
+            .select(type_dict.keys())
+            # put the synapse_id column first (also before filtering)
+            .with_row_index("synapse_id")
+            .filter(pre_root_id_720575940=last_9_digits)
+            .rename(
+                {
+                    "pre_root_id_720575940": "start_bid",
+                    "post_root_id_720575940": "end_bid",
+                    "ctr_x": "X",
+                    "ctr_y": "Y",
+                    "ctr_z": "Z",
+                }
+            )
+            .with_columns(
+                start_bid=pl.col("start_bid") + 720575940_000_000_000,
+                end_bid=pl.col("end_bid") + 720575940_000_000_000,
+            )
+            .collect()
+        )
+
+    def load_data_neuron_set(
+        self,
+        ids: list[BodyId] | list[int],
+        attributes: list[NeuronAttribute] = [],
+    ) -> pl.DataFrame:
+        """
+        Load the data of a set of neurons with certain ids.
+
+        Parameters
+        ----------
+        ids : list
+            The bodyids of the neurons.
+        attributes : list
+            The attributes to load.
+
+        Returns
+        -------
+        polars.DataFrame
+            The data of the neurons.
+        """
+        if "name" in attributes:
+            attributes_without_name: list[NeuronAttribute] = [
+                att for att in attributes if att != "name"
+            ]
+            neurons = super().load_data_neuron_set(ids, attributes_without_name)
+            data = (
+                pl.scan_csv(
+                    self._node_cell_type_file,
+                    schema_overrides={self._body_id: pl.UInt64},
+                )
+                .select(self._body_id, self._name)
+                .rename(self.decode_neuron_attribute)
+            )
+            neurons = neurons.lazy().join(data, on="body_id", how="inner").collect()
+            if "body_id" not in attributes:
+                attributes.append("body_id")
+            return neurons.select(attributes)
+        else:
+            return super().load_data_neuron_set(ids, attributes)
+
+
 @typing.overload
 def FAFB(
     version: typing.Literal["v630"],
@@ -1997,26 +2152,35 @@ def FAFB(
 ) -> FAFB_v783: ...
 
 
+@typing.overload
 def FAFB(
-    version: typing.Literal["v630", "v783"],
+    version: typing.Literal["v783b"],
+    connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
+) -> FAFB_v783b: ...
+
+
+def FAFB(
+    version: typing.Literal["v630", "v783", "v783b"],
     connectome_preprocessing: ConnectomePreprocessingOptions | None = None,
 ) -> FAFBReader:
     """Get a connectome reader for one of the versions of the Full Adult Fly Brain connectome (FAFB).
 
     Args:
-        version (typing.Literal["v630", "v783"]): The two valid versions of FAFB
+        version (typing.Literal["v630", "v783", "v783b"]): The valid versions of FAFB
 
     Raises:
         ValueError: If an incorrect connectome version is provided
 
     Returns:
-        FAFBReader: Either FAFB_v630 or FAFB_v783
+        FAFBReader: Either FAFB_v630, FAFB_v783, or FAFBv783b
     """
     match version:
         case "v630":
             return FAFB_v630(connectome_preprocessing)
         case "v783":
             return FAFB_v783(connectome_preprocessing)
+        case "v783b":
+            return FAFB_v783b(connectome_preprocessing)
     raise ValueError(
-        f"Version {version} is not a supported version for the FAFB connectome. Supported versions are v630 and v783"
+        f"Version {version} is not a supported version for the FAFB connectome. Supported versions are v630, v783 and v783b"
     )

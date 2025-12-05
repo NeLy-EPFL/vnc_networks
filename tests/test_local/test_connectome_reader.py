@@ -2,8 +2,6 @@
 Can only run when the data is available. Not run in the CI.
 """
 
-import pytest
-
 
 class TestConnectomeReaderMANC:
     def test_version_mapping_MANCv1_0(self):
@@ -446,7 +444,7 @@ class TestConnectomeReaderMANC:
         )
 
 
-class TestConnectomeReaderFAFB:
+class TestConnectomeReaderFAFBv783:
     # def test_version_mapping_FAFBv630(self):
     #     from vnc_networks.connectome_reader import FAFB
 
@@ -456,16 +454,16 @@ class TestConnectomeReaderFAFB:
     #         "Incorrect connectome version. FAFB v630 should map to v630"
     #     )
 
-    def test_version_mapping_FAFBv783(self):
+    def test_version_mapping(self):
         from vnc_networks.connectome_reader import FAFB
 
         connectome_reader = FAFB("v783")
         assert connectome_reader.connectome_name == "fafb", "Incorrect connectome name"
         assert connectome_reader.connectome_version == "v783", (
-            "Incorrect connectome version. FAFB v630 should map to v783"
+            "Incorrect connectome version. FAFB v783 should map to v783"
         )
 
-    def test_getting_counts_by_neuropil_FAFBv783(self):
+    def test_getting_counts_by_neuropil(self):
         """
         Test that we can get neuron and synapse counts by neuropil
         """
@@ -564,7 +562,7 @@ class TestConnectomeReaderFAFB:
             check_dtypes=False,
         )
 
-    def test_get_synapse_df_FAFBv783(self):
+    def test_get_synapse_df(self):
         import polars as pl
         import polars.testing
 
@@ -586,7 +584,7 @@ class TestConnectomeReaderFAFB:
                     "Z": [103400, 103480, 103080, 101040, 100760],
                 },
                 schema={
-                    "synapse_id": pl.UInt64,
+                    "synapse_id": pl.UInt32,
                     "start_bid": pl.UInt64,
                     "end_bid": pl.UInt64,
                     "X": pl.Int32,
@@ -596,7 +594,7 @@ class TestConnectomeReaderFAFB:
             ),
         )
 
-    def test_get_synapse_neuropil_FAFBv783(self):
+    def test_get_synapse_neuropil(self):
         import pytest
 
         import vnc_networks
@@ -605,14 +603,14 @@ class TestConnectomeReaderFAFB:
         with pytest.raises(NotImplementedError):
             connectome_reader.get_synapse_neuropil([1])
 
-    def test_list_all_nodes_FAFBv783(self):
+    def test_list_all_nodes(self):
         import vnc_networks
 
         connectome_reader = vnc_networks.connectome_reader.FAFB_v783()
 
         assert len(connectome_reader.list_all_nodes()) == 139246
 
-    def test_get_neuron_bodyids_FAFBv783(self):
+    def test_get_neuron_bodyids(self):
         import vnc_networks
 
         connectome_reader = vnc_networks.connectome_reader.FAFB_v783()
@@ -649,7 +647,7 @@ class TestConnectomeReaderFAFB:
             == 0
         )
 
-    def test_load_data_neuron_FAFBv783(self):
+    def test_load_data_neuron(self):
         import polars as pl
         import polars.testing
 
@@ -672,7 +670,7 @@ class TestConnectomeReaderFAFB:
             ),
         )
 
-    def test_load_data_neuron_set_FAFBv783(self):
+    def test_load_data_neuron_set(self):
         import polars as pl
         import polars.testing
 
@@ -707,4 +705,264 @@ class TestConnectomeReaderFAFB:
                     "body_id": [720575940628842314, 720575940624547622],
                 }
             ),
+        )
+
+
+class TestConnectomeReaderFAFBv783b:
+    def test_version_mapping(self):
+        from vnc_networks.connectome_reader import FAFB
+
+        connectome_reader = FAFB("v783b")
+        assert connectome_reader.connectome_name == "fafb", "Incorrect connectome name"
+        assert connectome_reader.connectome_version == "v783b", (
+            "Incorrect connectome version. FAFB v783b should map to v783b"
+        )
+
+    def test_getting_counts_by_neuropil(self):
+        """
+        Test that we can get neuron and synapse counts by neuropil
+        """
+        import polars as pl
+        import polars.testing
+
+        import vnc_networks
+
+        # Instantiate ConnectomeReader
+        connectome_reader = vnc_networks.connectome_reader.FAFB_v783b()
+
+        # check that this matches what we expect
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_counts_by_neuropil(
+                "downstream", [720575940627036426, 720575940633587552]
+            ),
+            pl.DataFrame(
+                {
+                    "body_id": [720575940627036426, 720575940633587552],
+                    "LOP_L": [10, 0],
+                    "LO_L": [3, 0],
+                    "SLP_R": [0, 3],
+                    "SMP_R": [0, 39],
+                }
+            ),
+            check_column_order=False,
+            check_row_order=False,
+            check_dtypes=False,
+        )
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_counts_by_neuropil(
+                "upstream", [720575940627036426, 720575940633587552]
+            ),
+            pl.DataFrame(
+                {
+                    "body_id": [720575940627036426, 720575940633587552],
+                    "LOP_L": [3, 0],
+                    "LO_L": [11, 0],
+                    "SLP_R": [0, 18],
+                    "SMP_R": [0, 18],
+                    "SCL_R": [0, 1],
+                }
+            ),
+            check_column_order=False,
+            check_row_order=False,
+            check_dtypes=False,
+        )
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_counts_by_neuropil(
+                "pre", [720575940627036426, 720575940633587552]
+            ),
+            pl.DataFrame(
+                {
+                    "body_id": [720575940627036426, 720575940633587552],
+                    "LOP_L": [15, 0],
+                    "LO_L": [112, 0],
+                    "SLP_R": [0, 77],
+                    "SMP_R": [0, 107],
+                    "SCL_R": [0, 2],
+                }
+            ),
+            check_column_order=False,
+            check_row_order=False,
+            check_dtypes=False,
+        )
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_counts_by_neuropil(
+                "post", [720575940627036426, 720575940633587552]
+            ),
+            pl.DataFrame(
+                {
+                    "body_id": [720575940627036426, 720575940633587552],
+                    "LOP_L": [137, 0],
+                    "LO_L": [14, 0],
+                    "SLP_R": [0, 9],
+                    "SMP_R": [0, 360],
+                }
+            ),
+            check_column_order=False,
+            check_row_order=False,
+            check_dtypes=False,
+        )
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_counts_by_neuropil(
+                "total_synapses", [720575940627036426, 720575940633587552]
+            ),
+            pl.DataFrame(
+                {
+                    "body_id": [720575940627036426, 720575940633587552],
+                    "LOP_L": [152, 0],
+                    "LO_L": [126, 0],
+                    "SLP_R": [0, 86],
+                    "SMP_R": [0, 467],
+                    "SCL_R": [0, 2],
+                }
+            ),
+            check_column_order=False,
+            check_row_order=False,
+            check_dtypes=False,
+        )
+
+    def test_get_synapse_df(self):
+        import polars as pl
+        import polars.testing
+
+        import vnc_networks
+
+        # Instantiate ConnectomeReader
+        connectome_reader = vnc_networks.connectome_reader.FAFB_v783b()
+
+        # check that this matches what we expect
+        polars.testing.assert_frame_equal(
+            connectome_reader.get_synapse_df(720575940630787388),
+            pl.DataFrame(
+                {
+                    "synapse_id": [18955013],
+                    "start_bid": [720575940630787388],
+                    "end_bid": [720575940630787388],
+                    "X": [109056],
+                    "Y": [325344],
+                    "Z": [165560],
+                },
+                schema={
+                    "synapse_id": pl.UInt32,
+                    "start_bid": pl.UInt64,
+                    "end_bid": pl.UInt64,
+                    "X": pl.Int32,
+                    "Y": pl.Int32,
+                    "Z": pl.Int32,
+                },
+            ),
+        )
+
+    def test_get_synapse_neuropil(self):
+        import pytest
+
+        import vnc_networks
+
+        connectome_reader = vnc_networks.connectome_reader.FAFB_v783b()
+        with pytest.raises(NotImplementedError):
+            connectome_reader.get_synapse_neuropil([1])
+
+    def test_list_all_nodes(self):
+        import vnc_networks
+
+        connectome_reader = vnc_networks.connectome_reader.FAFB_v783b()
+
+        assert len(connectome_reader.list_all_nodes()) == 139246
+
+    def test_get_neuron_bodyids(self):
+        import vnc_networks
+
+        connectome_reader = vnc_networks.connectome_reader.FAFB_v783b()
+
+        assert len(connectome_reader.get_neuron_bodyids()) == 139246
+        assert (
+            len(connectome_reader.get_neuron_bodyids({"class_1": "descending"})) == 1303
+        )
+        assert (
+            len(
+                connectome_reader.get_neuron_bodyids(
+                    {"class_1": "descending", "side": "left"}
+                )
+            )
+            == 646
+        )
+        assert (
+            len(
+                connectome_reader.get_neuron_bodyids(
+                    {"class_1": "descending", "side": "mid"}
+                )
+            )
+            == 0
+        )
+        assert (
+            len(connectome_reader.get_neuron_bodyids(nodes=[720575940624547622])) == 1
+        )
+        assert (
+            len(
+                connectome_reader.get_neuron_bodyids(
+                    {"class_1": "descending"}, nodes=[720575940624547622]
+                )
+            )
+            == 0
+        )
+
+    def test_load_data_neuron(self):
+        import polars as pl
+        import polars.testing
+
+        import vnc_networks
+
+        connectome_reader = vnc_networks.connectome_reader.FAFB_v783b()
+
+        polars.testing.assert_frame_equal(
+            connectome_reader.load_data_neuron(
+                720575940628842314, ["class_1", "class_2", "name", "neuropil"]
+            ),
+            pl.DataFrame(
+                {
+                    "class_1": ["central"],
+                    "class_2": [None],
+                    "name": ["mAL"],
+                    "neuropil": ["SLP"],
+                    "body_id": [720575940628842314],
+                },
+                schema_overrides={"class_2": pl.String},
+            ),
+        )
+
+    def test_load_data_neuron_set(self):
+        import polars as pl
+        import polars.testing
+
+        import vnc_networks
+
+        connectome_reader = vnc_networks.connectome_reader.FAFB_v783b()
+
+        polars.testing.assert_frame_equal(
+            connectome_reader.load_data_neuron_set(
+                [720575940628842314, 720575940624547622],
+            ),
+            pl.DataFrame(
+                {
+                    "body_id": [720575940628842314, 720575940624547622],
+                }
+            ),
+        )
+
+        polars.testing.assert_frame_equal(
+            connectome_reader.load_data_neuron_set(
+                [720575940628842314, 720575940624547622],
+                ["class_1", "class_2", "name", "neuropil", "area", "position"],
+            ),
+            pl.DataFrame(
+                {
+                    "class_1": ["central", "central"],
+                    "class_2": [None, "MBIN"],
+                    "name": ["mAL", "APL"],
+                    "neuropil": ["SLP", "MB_ML"],
+                    "area": [2799552000, 170377170432],
+                    "position": ["[585000 201472  22520]", "[390432 155100 166960]"],
+                    "body_id": [720575940628842314, 720575940624547622],
+                }
+            ),
+            check_row_order=False,
         )
