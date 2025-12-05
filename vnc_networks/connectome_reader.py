@@ -2077,19 +2077,19 @@ class BANCReader(ConnectomeReader):
 
         # rename common attributes
         self._body_id = "Root ID"
-        self._syn_id = None
+        self._syn_id = "None-syn_id"
         self._start_bid = "pre_root_id"
         self._end_bid = "post_root_id"
         self._syn_count = "syn_count"
         self._nt_type = "Predicted NT type"
-        self._nt_proba = None
+        self._nt_proba = "None-nt_proba"
         self._class_1 = (
             "Super Class"  # There's also flow but I think it's a bit too coarse grained
         )
         self._class_2 = "Class"
         self._name = "Primary Cell Type"
         self._side = "Soma side"
-        self._neuropil = None
+        self._neuropil = "None-neuropil"
         self._hemilineage = "Hemilineage"
         self._size = "Volume (nm^3)"
         # self._position = "position"
