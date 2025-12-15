@@ -1617,10 +1617,18 @@ class FAFBReader(ConnectomeReader):
         Load the connections of the connectome.
         Needs to gather the columns ['start_bid', 'end_bid', 'syn_count', 'nt_type'].
         """
-        return pl.read_csv(
-            self._connections_file,
-            columns=[self._start_bid, self._end_bid, self._syn_count, self._nt_type],
-        ).rename(self.decode_neuron_attribute)
+        return (
+            pl.scan_csv(
+                self._connections_file,
+            )
+            .select(self._start_bid, self._end_bid, self._syn_count, self._nt_type)
+            .rename(self.decode_neuron_attribute)
+            # there are multiple connections between the same pair of neurons (in different neuropils)
+            # so aggregate over them (see #56)
+            .group_by("start_bid", "end_bid", "nt_type")
+            .sum()
+            .collect()
+        )
 
     # --- specific private methods
     def _filter_neurons(
@@ -1978,6 +1986,17 @@ class FAFB_v783(FAFBReader):
         self, connectome_preprocessing: ConnectomePreprocessingOptions | None = None
     ):
         super().__init__("v783", connectome_preprocessing)
+
+    def _load_connections(self) -> pl.DataFrame:
+        """
+        Load the connections of the connectome.
+        Needs to gather the columns ['start_bid', 'end_bid', 'syn_count', 'nt_type'].
+        """
+        print(
+            "Warning - FAFBv783 has connections from the same neurons with different neurotransmitter types "
+            "that can't be properly aggregated! See #56. You should use FAFBv783b instead."
+        )
+        return super()._load_connections()
 
 
 class FAFB_v783b(FAFBReader):
